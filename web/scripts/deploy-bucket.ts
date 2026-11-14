@@ -101,8 +101,13 @@ export function mirrorBucket(target: BucketTarget): number {
       writeFileSync(manifest, JSON.stringify(group.map(({ key, file }) => ({ key, file }))));
       const args = ["r2", "bulk", "put", bucket.name, "--filename", manifest, ...where];
       if (contentType) args.push("--content-type", contentType);
-      const r = spawnSync(wrangler, args, { cwd: webRoot, stdio: ["ignore", "inherit", "inherit"], env: target.env });
-      if (r.status !== 0) throw new Error(`uploading the bucket data to "${bucket.name}" failed`);
+      const upload = () => spawnSync(wrangler, args, { cwd: webRoot, stdio: ["ignore", "inherit", "inherit"], env: target.env });
+      // A single object's upload can fail on a dropped connection ("fetch failed", seen live); uploads overwrite by
+      // name, so the group is simply sent again once before the deploy gives up.
+      if (upload().status !== 0) {
+        console.log("retrying the upload once");
+        if (upload().status !== 0) throw new Error(`uploading the bucket data to "${bucket.name}" failed`);
+      }
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
