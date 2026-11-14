@@ -252,3 +252,88 @@ def test_reports_trigger_health_and_keeps_checking_in_when_the_hook_is_wrong(tmp
         board.stop()
         flaky.stop()
         server.shutdown()
+
+
+class Buzzer:
+    """A board's hooks with only the buzzer: emit() records each tone and holds the call for the tone's length, as a
+    blocking buzzer driver does. fail_on: the tone whose call raises."""
+
+    def __init__(self, fail_on=None):
+        self.tones, self.fail_on = [], fail_on
+
+    def emit(self, f_start_hz, f_mid_hz, f_end_hz, duration_ms):
+        self.tones.append((time.monotonic(), (f_start_hz, f_mid_hz, f_end_hz, duration_ms)))
+        if len(self.tones) == self.fail_on:
+            raise OSError("buzzer driver gone")
+        time.sleep(duration_ms / 1000)
+
+
+def dev(port, path, body=None):
+    data = None if body is None else json.dumps(body).encode()
+    req = urllib.request.Request(f"http://127.0.0.1:{port}/dev/{path}", data=data, method="GET" if data is None
+                                 else "POST")
+    return json.loads(urllib.request.urlopen(req).read())
+
+
+def test_plays_a_warning_alarm_off_the_sync_loop_and_confirms_it(tmp_path, model, capsys):
+    port = free_port()
+    server, state = serve(port, key="k", quiet=False)
+    url = f"http://127.0.0.1:{port}"
+    buzzer, broken = Buzzer(), Buzzer(fail_on=3)
+    board = Sensor(url, "k", sensor_id="node-w", state_dir=str(tmp_path / "w"), model=model, checkin_interval=0.2,
+                   calibration=buzzer).start()
+    failing = Sensor(url, "k", sensor_id="node-x", state_dir=str(tmp_path / "x"), model=model, checkin_interval=0.2,
+                     calibration=broken).start()
+    silent = Sensor(url, "k", sensor_id="node-n", state_dir=str(tmp_path / "n"), model=model, checkin_interval=0.2)
+    silent.start()
+
+    def checkin(sensor_id):
+        return state.sensors.get(sensor_id, {})
+
+    def result(warning, sensor_id):
+        return dev(port, "warnings")[warning]["sensors"][sensor_id]["result"]
+
+    try:
+        # a board says it can warn when its hooks include the buzzer; one without hooks says it cannot
+        assert wait_for(lambda: all(checkin(s) for s in ("node-w", "node-x", "node-n")))
+        assert checkin("node-w")["can_warn"] is True and checkin("node-x")["can_warn"] is True
+        assert checkin("node-n")["can_warn"] is False
+
+        warning = dev(port, "warnings", {"sensors": ["node-w", "node-x"]})["id"]
+        assert wait_for(lambda: buzzer.tones, timeout=5)
+        # while it sounds the board keeps checking in, and a chainsaw it hears meanwhile is neither analysed nor
+        # counted as a recording
+        play(board, "chainsaw.wav")
+        seen = set()
+        while len(buzzer.tones) < 33 and time.monotonic() - buzzer.tones[0][0] < 10:
+            seen.add(checkin("node-w")["last_checkin"])
+            time.sleep(0.05)
+        assert len(seen) >= 10, seen  # about 25 check-ins in 5 s at 0.2 s
+
+        # confirmed at the first check-in after it ends: the published pattern, once, though every reply carried it
+        assert wait_for(lambda: result(warning, "node-w") == "played", timeout=5)
+        assert [args for _, args in buzzer.tones] == [(3500, 3500, 3500, 120), (2500, 2500, 2500, 120)] * 16 + [
+            (3500, 3500, 3500, 120)]
+        assert buzzer.tones[-1][0] - buzzer.tones[0][0] == pytest.approx(4.8, abs=0.1)
+        # a buzzer that fails stops the alarm and the board confirms failed
+        assert wait_for(lambda: result(warning, "node-x") == "failed", timeout=5)
+        assert len(broken.tones) == 3
+        out = capsys.readouterr().out
+        assert f"node-w: alarm {warning} played" in out and f"node-x: alarm {warning} failed" in out
+
+        time.sleep(2.0)  # what was fed during the alarm would have been analysed by now
+        assert [e for e in state.events if e["sensor_id"] == "node-w"] == []
+        assert wait_for(lambda: "alarm_done" not in checkin("node-w"))
+        assert checkin("node-w")["recordings_per_min"] == 0
+        time.sleep(1.0)
+        assert len(buzzer.tones) == 33  # played once
+
+        # then back to normal: the same chainsaw is heard and counted
+        play(board, "chainsaw.wav")
+        assert wait_for(lambda: any(e["sensor_id"] == "node-w" and e["sound_id"] == "chainsaw" for e in state.events))
+        assert wait_for(lambda: checkin("node-w").get("recordings_per_min") == 1)
+    finally:
+        board.stop()
+        failing.stop()
+        silent.stop()
+        server.shutdown()

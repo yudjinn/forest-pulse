@@ -4,6 +4,7 @@ import { json } from "../http.ts";
 import { logLine } from "../log.ts";
 import { MAX_SENSOR_ID, badRequest, readBody, registerSensor, soundListVersion } from "./intake.ts";
 import { calibrationCheckin } from "../calibration/calibration.ts";
+import { warningCheckin } from "../warnings/warnings.ts";
 
 export const MODEL = "mn10_as";
 
@@ -28,9 +29,18 @@ export async function checkin(request: Request, { env, params, hooks }: RouteCon
   } catch (e) {
     logLine("hook_failed", { hook: "calibrationCheckin", error: e instanceof Error ? e.message : String(e) });
   }
+  // A warning's alarm while one waits for this sensor, and its confirmation (docs/device-api.md, "Warnings"); a
+  // failure there is logged the same way.
+  let alarm = null;
+  try {
+    alarm = await warningCheckin(env, params.sensor, body, now);
+  } catch (e) {
+    logLine("hook_failed", { hook: "warningCheckin", error: e instanceof Error ? e.message : String(e) });
+  }
   return json({
     server_time: new Date(now).toISOString(), sound_list_version: await soundListVersion(env.DB),
     ...(calibration ? { calibration } : {}),
+    ...(alarm ? { alarm } : {}),
   });
 }
 

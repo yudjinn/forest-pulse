@@ -29,12 +29,15 @@ board upgrades, its config file needs `checkin_interval = 3`.
   "sound_list_version": 3,           // null before the first sound list
   "queued_events": 0,
   "calibration_capable": true,       // optional, see Calibration; missing means false
-  "calibration_ack": "8f1c..."       // only during a calibration run, see Calibration
+  "calibration_ack": "8f1c...",      // only during a calibration run, see Calibration
+  "can_warn": true,                  // optional, see Warnings; missing means false
+  "alarm_done": {"id": "c41e...", "result": "played"}   // only after playing an alarm, see Warnings
 }
 ```
 
 `200` reply: `{"server_time": "...", "sound_list_version": 4}`, plus `calibration` while the sensor takes part in a
-calibration run. When the version differs from the sensor's, the sensor fetches the sound list.
+calibration run and `alarm` while a warning waits for it. When the version differs from the sensor's, the sensor
+fetches the sound list.
 
 ## Sound list: `GET /sensors/{sensor_id}/sounds`
 
@@ -228,18 +231,24 @@ the pair the fit fits worst when the bearings disagree.
 A participant that never confirms ready is left out (step 3 of the run): the two that ran are solved as a pair, and
 the dashboard says which sensor was left out.
 
-## Warnings (planned: not served yet)
+## Warnings
 
-A researcher can send a warning about a logging activity to the boards that heard it.
+A researcher can send a warning about a logging activity to the boards that heard it, and each of them plays an alarm
+on its buzzer. Library 0.6.0 and later.
 
 - Check-in request, added fields: `"can_warn": true` when the sensor's hooks include the buzzer (missing means
-  false), and after playing an alarm `"alarm_done": {"id": "...", "result": "played" | "failed"}`, sent on each
-  check-in until one succeeds.
-- Check-in reply, added field: `"alarm": {"id": "..."}` while the service wants this sensor to play that warning.
-  The sensor plays each id once (the alarm itself is the library's, see its README) and reports no sound events
-  while playing; the audio recorded meanwhile is not analysed.
-- The service gives up on a sensor that has not picked the alarm up within 15 s (it never plays late), or not
-  confirmed it within 15 s of delivery.
+  false: such a sensor is never sent an alarm), and after playing an alarm
+  `"alarm_done": {"id": "...", "result": "played" | "failed"}` (`failed`: the buzzer hook raised or returned false),
+  sent on each check-in until one succeeds, one alarm per check-in, oldest first.
+- Check-in reply, added field: `"alarm": {"id": "..."}` while the service wants this sensor to play that warning:
+  from the first check-in after sending until the sensor confirms it, for at most 15 s after sending. The sensor
+  plays each id once, off its check-in loop so check-ins go on while it sounds (the alarm itself is the library's,
+  see its README), and ignores another id while one is playing. While playing it reports no sound events, and the
+  audio it records meanwhile is dropped before analysis, so it never counts as a sound or as a recording in
+  `recordings_per_min`. It confirms at the first check-in after the alarm ends.
+- The service gives up on a sensor that has not picked the alarm up within 15 s of sending (it never plays late), or
+  not confirmed it within 15 s of delivery; a confirmation later than that is ignored. A sensor offline when the
+  warning is sent, without `can_warn`, or taking part in a calibration run is not sent the alarm.
 
 ## Trigger health (not stored yet)
 

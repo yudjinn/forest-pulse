@@ -230,7 +230,10 @@ retuned, pass the one played: `--pattern 1500,2500,3500,120`.
 
 When a researcher sends a logging warning, every board that heard the logging plays the alarm on its buzzer, standing
 in for a radio warning to the loggers. It uses the `emit` hook from the calibration hooks above; nothing else to
-wire. To hear it on a board from the device app:
+wire: a board whose hooks have `emit` tells the service it can warn, even when the other calibration hooks are
+missing. `play_alarm` is there since version 0.4.0; taking warnings from the service on the check-in reply needs
+0.6.0 or later (the contract is [docs/device-api.md](../docs/device-api.md), "Warnings"). To hear the alarm on a
+board from the device app:
 
 ```python
 from forestpulse_sensor.alarm import play_alarm
@@ -242,9 +245,12 @@ play_alarm(hooks.emit)            # True when every tone played, False if emit r
   takes; a hook that raises or returns False stops the alarm at once, and the log says which tone failed.
 - **The hook:** `emit` must accept equal start, middle and end frequencies (a constant tone) and return within the
   tone's duration.
-- **During a warning** (planned: the sensor does not take warnings from the service yet) the sensor reports no sound
-  events while the alarm plays, and the audio it records meanwhile never reaches sound checking, so its own alarm
-  never counts as logging. Then it is back to normal. A board already playing ignores a new alarm until it is done.
+- **During a warning** the alarm plays on a thread of its own, so the board keeps checking in and delivering events
+  while it sounds. The sensor reports no sound events while the alarm plays, and the audio fed meanwhile (and for
+  half a second after, which the front-end may still be delivering) never reaches sound checking and is not counted
+  in recordings per minute, so its own alarm never counts as logging. Then it is back to normal, and it confirms
+  played or failed at the next check-in. A board already playing ignores a new alarm until it is done, and a board
+  taking part in a calibration run never plays one. `sensor.status` says `can_warn` and `alarm_playing`.
 
 ## Trigger health hook
 
@@ -291,6 +297,7 @@ pip install "./sensor-sdk[dev]" && pytest sensor-sdk/tests
 
 Journeys against the dev server with the real model: detection with angle and sound-list updates (including a
 broken list), surviving an outage, a wrong key and a restart, the check-in interval, the bring-your-own-model path,
-trigger health from a well-behaved and a broken hook, and a calibration run of two simulated boards whose reports
+trigger health from a well-behaved and a broken hook, a warning's alarm played while check-ins go on and confirmed
+(and a failing buzzer confirming failed), and a calibration run of two simulated boards whose reports
 range to the true distance. Two focused calibration tests: finding each
 role's sweep under hall noise, speech and a wall echo, and the stage check on simulated recordings.
