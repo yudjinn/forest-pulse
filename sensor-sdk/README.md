@@ -226,7 +226,7 @@ Whether the stage and the buzzer are good enough to calibrate, from three record
 A FAIL means: don't rely on calibration on this stage; place the sensors by hand. If the service's sweeps were
 retuned, pass the one played: `--pattern 1500,2500,3500,120`.
 
-## Warning alarm (planned: not in the library yet)
+## Warning alarm
 
 When a researcher sends a logging warning, every board that heard the logging plays the alarm on its buzzer, standing
 in for a radio warning to the loggers. It uses the `emit` hook from the calibration hooks above; nothing else to
@@ -238,11 +238,13 @@ play_alarm(hooks.emit)            # True when every tone played, False if emit r
 ```
 
 - **The sound:** constant tones alternating 3500 Hz and 2500 Hz, each 120 ms, one starting every 150 ms (a 30 ms
-  gap), 33 tones, about 5 s. Each tone is `emit(f, f, f, 120)`.
+  gap), 33 tones, about 5 s. Each tone is `emit(f, f, f, 120)`. The tones start on the clock, whatever the hook
+  takes; a hook that raises or returns False stops the alarm at once, and the log says which tone failed.
 - **The hook:** `emit` must accept equal start, middle and end frequencies (a constant tone) and return within the
   tone's duration.
-- **During a warning** the sensor reports no sound events while the alarm plays, and the audio it records meanwhile
-  never reaches sound checking, so its own alarm never counts as logging. Then it is back to normal. A board already playing ignores a new alarm until it is done.
+- **During a warning** (planned: the sensor does not take warnings from the service yet) the sensor reports no sound
+  events while the alarm plays, and the audio it records meanwhile never reaches sound checking, so its own alarm
+  never counts as logging. Then it is back to normal. A board already playing ignores a new alarm until it is done.
 
 ## Trigger health hook (planned: not in the library yet)
 
