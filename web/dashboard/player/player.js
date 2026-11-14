@@ -173,7 +173,13 @@ function makeRow(sample) {
 
 stopButton.addEventListener("click", stop);
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && current) holdScreen();
+  if (document.visibilityState !== "visible" || !current) return;
+  holdScreen();
+  audio.resume().catch(() => {});
+});
+// A phone may suspend or interrupt the audio (a call, the screen locking): carry on once it allows.
+audio.addEventListener("statechange", () => {
+  if (current && audio.state !== "running" && audio.state !== "closed") audio.resume().catch(() => {});
 });
 
 async function start() {

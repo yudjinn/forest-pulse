@@ -43,14 +43,18 @@ PEAK = 0.95           # peak limiter ceiling: the owls' crest factor would clip 
 
 ESC50_LICENCE = ("CC BY-NC 3.0", "https://creativecommons.org/licenses/by-nc/3.0/")
 
-# Chainsaws: one ESC-50 clip from each of three source recordings with isolated Freesound ids (no neighbouring
-# upload of the same session left in training), each one the stock model already calls a chainsaw.
+# Chainsaws: one ESC-50 clip from each of three source recordings whose Freesound uploaders have no other recording
+# among ESC-50's chainsaws (so no take of the same saw or microphone stays in training), each one the stock model
+# already calls a chainsaw. ESC-50 does not list uploaders; they are from each recording's Freesound page.
 # Owls: the experiment's held-out recordings (recordists with no other recording in its set), skipping the
 # no-derivatives licences because every sample is trimmed and loudness-matched. `start` picks the segment.
 PICKS = [
-    {"id": "chainsaw-1", "name": "Chainsaw 1", "kind": "chainsaw", "esc50": "1-116765-A-41.wav"},
-    {"id": "chainsaw-2", "name": "Chainsaw 2", "kind": "chainsaw", "esc50": "1-64398-A-41.wav"},
-    {"id": "chainsaw-3", "name": "Chainsaw 3", "kind": "chainsaw", "esc50": "4-169127-A-41.wav"},
+    {"id": "chainsaw-1", "name": "Chainsaw 1", "kind": "chainsaw", "esc50": "1-116765-A-41.wav",
+     "recordist": "UncleSigmund"},
+    {"id": "chainsaw-2", "name": "Chainsaw 2", "kind": "chainsaw", "esc50": "1-64398-A-41.wav",
+     "recordist": "Benboncan"},
+    {"id": "chainsaw-3", "name": "Chainsaw 3", "kind": "chainsaw", "esc50": "4-169127-A-41.wav",
+     "recordist": "fkurz"},
     {"id": "boreal-owl-1", "name": "Boreal owl 1", "kind": "boreal owl", "xc": "Aegolius_funereus/1145038", "start": 0},
     {"id": "boreal-owl-2", "name": "Boreal owl 2", "kind": "boreal owl", "xc": "Aegolius_funereus/217840", "start": 23},
     {"id": "tawny-owl", "name": "Tawny owl", "kind": "tawny owl", "xc": "Strix_aluco/1080086", "start": 0},
@@ -128,7 +132,7 @@ def prepare(_args):
             assert row["category"] == "chainsaw", pick
             x, _ = librosa.load(os.path.join(SAMPLES, "chainsaw", pick["esc50"]), sr=RATE, mono=True)
             source = {"dataset": "ESC-50", "clip": pick["esc50"], "recording": row["src_file"]}
-            credit = {"recordist": None, "source": f"ESC-50, Freesound {row['src_file']}",
+            credit = {"recordist": pick["recordist"], "source": f"ESC-50, Freesound {row['src_file']}",
                       "url": f"https://freesound.org/s/{row['src_file']}/",
                       "licence": ESC50_LICENCE[0], "licence_url": ESC50_LICENCE[1]}
             y = loop(x, 0)

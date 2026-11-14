@@ -11,9 +11,9 @@ crossfaded so it loops without a seam, and matched to the same RMS level (-20 dB
 
 | Sample | Recordist | Source | Licence |
 |---|---|---|---|
-| Chainsaw 1 | | [ESC-50, Freesound 116765](https://freesound.org/s/116765/) | [CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/) |
-| Chainsaw 2 | | [ESC-50, Freesound 64398](https://freesound.org/s/64398/) | [CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/) |
-| Chainsaw 3 | | [ESC-50, Freesound 169127](https://freesound.org/s/169127/) | [CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/) |
+| Chainsaw 1 | UncleSigmund | [ESC-50, Freesound 116765](https://freesound.org/s/116765/) | [CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/) |
+| Chainsaw 2 | Benboncan | [ESC-50, Freesound 64398](https://freesound.org/s/64398/) | [CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/) |
+| Chainsaw 3 | fkurz | [ESC-50, Freesound 169127](https://freesound.org/s/169127/) | [CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/) |
 | Boreal owl 1 | Johan Lundgren | [xeno-canto XC1145038](https://xeno-canto.org/1145038) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
 | Boreal owl 2 | Stein Ø. Nilsen | [xeno-canto XC217840](https://xeno-canto.org/217840) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
 | Tawny owl | Mark Plummer | [xeno-canto XC1080086](https://xeno-canto.org/1080086) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
