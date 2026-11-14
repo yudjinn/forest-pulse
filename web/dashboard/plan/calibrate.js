@@ -8,7 +8,8 @@ import { addLayer, addTool } from "/dashboard/plan/plan.js";
  *   participants: number, finished_at: number | null,
  *   failure: { sensors: string[], reason: string } | null, speed_of_sound_assumed: boolean }} RunState
  * @typedef {{ run_id: string, measured_at: number, sensors: string[],
- *   distances: { a: string, b: string, distance_m: number }[], speed_of_sound_assumed: boolean }} Layout
+ *   distances: { a: string, b: string, distance_m: number }[], speed_of_sound_assumed: boolean,
+ *   left_out: string[] }} Layout
  * @typedef {{ now: number, eligible: number, running: boolean, run: RunState | null, layout: Layout | null }}
  *   CalibrationState
  */
@@ -29,6 +30,9 @@ const REASONS = {
 /** @type {Record<string, (a: string, b: string) => string>} */
 const PAIR_REASONS = {
   no_direction: (a, b) => `couldn't tell direction between ${a} and ${b}`,
+  not_a_triangle: (a, b) => `distance between ${a} and ${b} too long for a triangle`,
+  too_flat: (a, b) => `${a} and ${b} nearly in line with the third sensor`,
+  bearings_disagree: (a, b) => `directions between ${a} and ${b} don't match the distances`,
 };
 
 const status = document.createElement("p");
@@ -80,7 +84,11 @@ function line(s) {
     return `Calibration failed: ${sensors.join(" and ")} ${REASONS[reason] ?? reason}`;
   }
   if (s.layout) {
-    return `Calibrated ${hhmm(s.layout.measured_at)}${s.layout.speed_of_sound_assumed ? ", speed of sound assumed" : ""}`;
+    return [
+      `Calibrated ${hhmm(s.layout.measured_at)}`,
+      ...(s.layout.speed_of_sound_assumed ? ["speed of sound assumed"] : []),
+      ...s.layout.left_out.map((id) => `${id} left out`),
+    ].join(", ");
   }
   return "";
 }

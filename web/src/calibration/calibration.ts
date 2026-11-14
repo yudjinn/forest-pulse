@@ -74,6 +74,8 @@ interface Result {
   distances: Distance[];
   positions: Placement[];
   speed_of_sound_assumed: boolean;
+  // Participants that never confirmed ready and the run went ahead without (missing on runs stored before it).
+  left_out?: string[];
 }
 
 // When the last slot ends: each round plays the order once, one slot each, and the next round starts round_gap_ms
@@ -222,6 +224,7 @@ export async function calibrationState(_request: Request, { env }: RouteContext)
       sensors: layout.results.map((r) => r.sensor_id),
       distances: result.distances,
       speed_of_sound_assumed: result.speed_of_sound_assumed,
+      left_out: result.left_out ?? [],
     } : null,
   });
 }
@@ -289,7 +292,8 @@ async function advance(env: Env, run: Run, now: number): Promise<Run> {
       const solution = solve(taking.map((p) => ({ sensor_id: p.sensor_id, role: p.role, report: JSON.parse(p.report!) })));
       if (!solution.ok) return fail(db, run, solution.sensors, solution.reason, now);
       const { ok: _, ...result } = solution;
-      return apply(db, run, result, now);
+      const leftOut = run.participants.filter((p) => p.dropped).map((p) => p.sensor_id);
+      return apply(db, run, { ...result, left_out: leftOut }, now);
     }
     if (now >= (run.report_deadline_at ?? Infinity)) return fail(db, run, [missing[0].sensor_id], "report_missing", now);
   }
@@ -348,7 +352,7 @@ async function apply(db: D1Database, run: Run, solution: Result, now: number) {
   if (replies[replies.length - 1].meta.changes) {
     logLine("calibration_run", { run: run.id, status: "calibrated", distances: solution.distances,
       facings: solution.positions.map((p) => ({ sensor: p.sensor_id, facing_deg: p.facing_deg })),
-      speed_of_sound_assumed: solution.speed_of_sound_assumed });
+      speed_of_sound_assumed: solution.speed_of_sound_assumed, left_out: solution.left_out });
   }
   return (await loadRun(db, run.id))!;
 }

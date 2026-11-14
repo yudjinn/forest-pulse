@@ -11,6 +11,8 @@ One JSON command per line on stdin, each answered with one line on stdout, "ok" 
   {"hear": {"ids": [...], "wav": "<path>", "x_m": ..., "y_m": ...}}
      Those boards hear the recording, in real time, as if played at that point of the room: each reports what it
      detects with the angle its true position and facing give. Answered once the audio is fed.
+  {"power_off": {"id": "..."}}
+     That board stops, as one that lost power: no more check-ins, no stream.
   {"stop": true}
 The library's log goes to stderr.
 """
@@ -69,7 +71,7 @@ def main():
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(asctime)s %(threadName)s %(message)s")
     model = Model()
     room = Room()
-    boards, sensors = {}, {}
+    boards, sensors, all_hooks = {}, {}, {}
     try:
         for line in sys.stdin:
             try:
@@ -85,7 +87,7 @@ def main():
                                     checkin_interval=1.0, clock=hooks.clock,
                                     calibration=hooks if kind == "full" else incomplete(hooks))
                     hooks.connect(sensor.feed)
-                    boards[sid], sensors[sid] = board, sensor.start()
+                    boards[sid], sensors[sid], all_hooks[sid] = board, sensor.start(), hooks
                 elif "set" in cmd:
                     spec = dict(cmd["set"])
                     board = boards[spec.pop("id")]
@@ -99,6 +101,10 @@ def main():
                 elif "hear" in cmd:
                     spec = cmd["hear"]
                     hear(boards, sensors, spec["ids"], spec["wav"], float(spec["x_m"]), float(spec["y_m"]))
+                elif "power_off" in cmd:
+                    sid = cmd["power_off"]["id"]
+                    sensors.pop(sid).stop(flush_timeout=0)
+                    all_hooks[sid].stop_stream()
                 elif cmd.get("stop"):
                     break
                 else:
