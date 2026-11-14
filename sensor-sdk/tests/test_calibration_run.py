@@ -9,7 +9,7 @@ import urllib.request
 
 import numpy as np
 import pytest
-from forestpulse_sensor import Model, Sensor
+from forestpulse_sensor import Model, Sensor, __version__
 from forestpulse_sensor.calibration import find_beeps
 from forestpulse_sensor.calibration.patterns import DEFAULT_PATTERNS
 from forestpulse_sensor.calibration.simulate import Board, Room, no_bearing
@@ -63,7 +63,7 @@ def test_two_boards_take_part_in_a_run_and_their_reports_range_to_the_true_dista
         assert wait_for(lambda: {"a", "b", "c"} <= set(state.sensors))
         assert state.sensors["a"]["calibration_capable"] is True
         assert state.sensors["c"]["calibration_capable"] is False and not partial.status["calibration_capable"]
-        assert state.sensors["a"]["sdk_version"] == "0.3.0"
+        assert state.sensors["a"]["sdk_version"] == __version__
 
         req = urllib.request.Request(f"{url}/dev/calibration", data=json.dumps({"sensors": ["a", "b"]}).encode(),
                                      method="POST")
