@@ -39,4 +39,4 @@ cd web && FP_E2E_PORT_BASE=<your base> npm run serve: fresh local D1 and R2 unde
 - xeno-canto API (XC_KEY): only for rebuilding the other-sounds library; one rebuild at a time, never in a journey.
 
 ## Known limitations
-The journey suite is a one-spec skeleton; the first service slice grows it and must re-measure the full-suite time above. Hardware (mcu, soc) has no automated tests and is outside this scope.
+Hardware (mcu, soc) has no automated tests and is outside this scope.
