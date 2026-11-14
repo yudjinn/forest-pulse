@@ -22,14 +22,21 @@ interface SoundRow {
   category: string;
   kind: "detector" | "label";
   enabled: number;
+  taught_at: number | null;
 }
 
-const toSound = (r: SoundRow) => ({ id: r.id, name: r.name, category: r.category, kind: r.kind, enabled: r.enabled === 1 });
+// `taught` marks a sound a researcher taught: only those can be deleted.
+const toSound = (r: SoundRow) => ({
+  id: r.id, name: r.name, category: r.category, kind: r.kind, enabled: r.enabled === 1, taught: r.taught_at !== null,
+});
+const COLUMNS = "id, name, category, kind, enabled, taught_at";
+
+export const SEEDED_KEPT = "Only taught sounds can be deleted";
 
 // Every sound, switched on or off, in the sound list's order, with the list's current version.
 export async function listSounds(_request: Request, { env }: RouteContext): Promise<Response> {
   const [rows, version] = await env.DB.batch([
-    env.DB.prepare("SELECT id, name, category, kind, enabled FROM sounds ORDER BY rowid"),
+    env.DB.prepare(`SELECT ${COLUMNS} FROM sounds ORDER BY rowid`),
     env.DB.prepare("SELECT version FROM sound_list WHERE id = 1"),
   ]);
   return json({
@@ -48,7 +55,7 @@ export async function switchSound(request: Request, { env, params }: RouteContex
   }
   if (typeof enabled !== "boolean") return json({ error: "enabled must be true or false" }, 400);
 
-  const select = env.DB.prepare("SELECT id, name, category, kind, enabled FROM sounds WHERE id = ?").bind(params.sound);
+  const select = env.DB.prepare(`SELECT ${COLUMNS} FROM sounds WHERE id = ?`).bind(params.sound);
   const current = await select.first<SoundRow>();
   if (!current) return json({ error: "no such sound" }, 404);
   if ((current.enabled === 1) === enabled) {
@@ -56,11 +63,26 @@ export async function switchSound(request: Request, { env, params }: RouteContex
     return json({ sound: toSound(current), version });
   }
   const { results, version } = await changeSoundList(env.DB, [
-    env.DB.prepare("UPDATE sounds SET enabled = ? WHERE id = ? RETURNING id, name, category, kind, enabled")
+    env.DB.prepare(`UPDATE sounds SET enabled = ? WHERE id = ? RETURNING ${COLUMNS}`)
       .bind(enabled ? 1 : 0, params.sound),
   ]);
   const row = (results[0].results as SoundRow[])[0];
   if (!row) return json({ error: "no such sound" }, 404); // deleted between the read and the switch
   logLine("sound_switched", { sound: row.id, enabled, version });
   return json({ sound: toSound(row), version });
+}
+
+// Deletes a taught sound: sensors drop it at their next check-in, events for it arriving afterwards are answered as
+// dropped, and past events keep the name they were stored with. Replies {id, version}; 404 for an unknown sound,
+// 409 for a seeded one.
+export async function deleteSound(_request: Request, { env, params }: RouteContext): Promise<Response> {
+  const current = await env.DB.prepare(`SELECT ${COLUMNS} FROM sounds WHERE id = ?`).bind(params.sound).first<SoundRow>();
+  if (!current) return json({ error: "no such sound" }, 404);
+  if (current.taught_at === null) return json({ error: SEEDED_KEPT }, 409);
+  const { results, version } = await changeSoundList(env.DB, [
+    env.DB.prepare("DELETE FROM sounds WHERE id = ? AND taught_at IS NOT NULL RETURNING id").bind(params.sound),
+  ]);
+  if (!results[0].results.length) return json({ error: "no such sound" }, 404); // deleted meanwhile
+  logLine("sound_deleted", { sound: current.id, name: current.name, version });
+  return json({ id: current.id, version });
 }

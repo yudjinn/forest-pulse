@@ -31,6 +31,10 @@
 }
 
 .sound-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 12px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -39,6 +43,8 @@
 }
 
 .sound {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -64,8 +70,66 @@
 }
 
 .sound-list .error {
+  flex-basis: 100%;
   padding: 0 0 10px;
   font-size: 14px;
+}
+
+/* Delete, for a taught sound: the dashboard's secondary button, smaller, after the switch. */
+.sound-delete {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--evergreen);
+  font-size: 14px;
+}
+
+.sound-delete:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.sound-delete:focus-visible,
+.sound-confirm button:focus-visible {
+  outline: 2px solid var(--evergreen);
+  outline-offset: 2px;
+}
+
+.sound-confirm {
+  width: min(100% - 32px, 400px);
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--evergreen);
+}
+
+.sound-confirm::backdrop {
+  background: rgb(11 72 39 / 0.35);
+}
+
+.sound-confirm h2 {
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+
+.sound-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sound-confirm button.secondary {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--evergreen);
+}
+
+.sound-confirm button.danger {
+  background: var(--alert);
+  color: #fff;
 }
 
 /* A switch drawn from the checkbox: a track with a knob that slides right when on. */
