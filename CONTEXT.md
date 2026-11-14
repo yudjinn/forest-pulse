@@ -1,6 +1,6 @@
 # Forest Pulse glossary
 
-- **Sensor**: one deployed device: ESP32-S3 audio front-end with three microphones in a 5 cm triangle, plus an Arduino Uno Q that runs the sound model.
+- **Sensor**: one deployed device: ESP32-S3 audio front-end with three microphones in a right triangle (4 cm and 6 cm sides, see soc/README.md), plus an Arduino Uno Q that runs the sound model.
 - **Sound model**: EfficientAT mn10_as, identical on every sensor. Turns 10 s of audio into built-in label scores and a 960-number embedding.
 - **Detector**: a small classifier trained on the embedding for one sound (for example chainsaw, boreal owl). About 4 KB. Alerts come from detectors.
 - **Built-in labels**: the sound model's own 527 AudioSet scores (Vehicle, Aircraft, Rain...). Context, not alerts.
