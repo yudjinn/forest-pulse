@@ -4,17 +4,27 @@ is deployed. Prints what sensors send.
 usage: python -m forestpulse_sensor.devserver [--host 0.0.0.0] [--port 8787] [--key dev-key] [--sounds sounds.json]
 
 Extra endpoints for testing (not part of the API): PUT /dev/sounds replaces the sound list (bumping its version),
-GET /dev/events and GET /dev/sensors show what arrived.
+GET /dev/events and GET /dev/sensors show what arrived, POST /dev/calibration {"sensors": [ids]} starts a
+calibration run with those sensors as roles A, B, C, and GET /dev/calibration shows the latest run with its reports.
+
+Calibration as the service runs it, minus the solving: participants get the run in their check-in replies, it is
+scheduled 4 s after the last ready confirmation once every participant is ready, and it ends when every participant
+has reported.
 """
 import argparse
 import json
 import threading
 import time
+import uuid
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
 
-from .api import utc_now_iso
+from .api import iso, utc_now_iso
+from .calibration.patterns import DEFAULT_PATTERNS
+
+ROLES = "ABC"
+START_AFTER_READY_S = 4.0
 
 
 def _parse_time(s):
@@ -28,6 +38,32 @@ class State:
         self.sounds = sounds
         self.sounds.setdefault("version", 1)
         self.sensors, self.events, self.seen = {}, [], set()
+        self.run = None  # the latest calibration run
+
+    def start_run(self, sensors):
+        with self.lock:
+            roles = dict(zip(sensors, ROLES))
+            self.run = {"run_id": uuid.uuid4().hex, "roles": roles, "ready": {}, "start_at": None, "reports": {},
+                        "ended": False}
+            return self.run
+
+    def calibration_block(self, sensor_id, body, now):
+        """Records a participant's ready confirmation and returns its reply's calibration block (None if none)."""
+        run = self.run
+        if not run or run["ended"] or sensor_id not in run["roles"]:
+            return None
+        if body.get("calibration_ack") == run["run_id"] and sensor_id not in run["ready"]:
+            run["ready"][sensor_id] = now
+            if len(run["ready"]) == len(run["roles"]):
+                run["start_at"] = max(run["ready"].values()) + START_AFTER_READY_S
+        order = list(run["roles"].values())
+        block = {"run_id": run["run_id"], "role": run["roles"][sensor_id], "order": order,
+                 "patterns": {r: dict(zip(("f_start_hz", "f_mid_hz", "f_end_hz", "duration_ms"),
+                                          DEFAULT_PATTERNS[r].emit_args())) for r in order},
+                 "slot_ms": 500, "round_gap_ms": 1000, "rounds": 4}
+        if run["start_at"] is not None:
+            block["start_at"] = iso(run["start_at"])
+        return block
 
     def set_sounds(self, doc):
         with self.lock:
@@ -69,8 +105,23 @@ def make_handler(state: State, quiet: bool):
             with state.lock:
                 if method == "POST" and action == "checkin":
                     state.sensors[sensor_id] = {**body, "last_checkin": utc_now_iso(), "clock_offset_s": offset}
-                    return self._send(200, {"server_time": utc_now_iso(),
-                                            "sound_list_version": state.sounds["version"]})
+                    reply = {"server_time": utc_now_iso(), "sound_list_version": state.sounds["version"]}
+                    block = state.calibration_block(sensor_id, body, time.time())
+                    if block:
+                        reply["calibration"] = block
+                    return self._send(200, reply)
+                if method == "POST" and action == "calibration":
+                    run = state.run
+                    if not run or run["run_id"] != body.get("run_id") or sensor_id not in run["roles"]:
+                        return self._send(404, {"error": "no such calibration run for this sensor"})
+                    if run["ended"]:
+                        return self._send(409, {"error": "the run has ended"})
+                    run["reports"][sensor_id] = body
+                    run["ended"] = len(run["reports"]) == len(run["roles"])
+                    if not quiet:
+                        print(f"{sensor_id}: calibration report {', '.join(body.get('errors') or []) or 'ok'}",
+                              flush=True)
+                    return self._send(200, {"accepted": True})
                 if method == "GET" and action == "sounds":
                     return self._send(200, state.sounds)
                 if method == "POST" and action == "events":
@@ -109,6 +160,11 @@ def make_handler(state: State, quiet: bool):
             if method == "GET" and parts == ["sensors"]:
                 with state.lock:
                     return self._send(200, state.sensors)
+            if method == "POST" and parts == ["calibration"]:
+                return self._send(200, state.start_run(self._body()["sensors"]))
+            if method == "GET" and parts == ["calibration"]:
+                with state.lock:
+                    return self._send(200, state.run)
             return self._send(404, {"error": "not found"})
 
         def do_GET(self):

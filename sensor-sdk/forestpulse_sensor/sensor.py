@@ -17,6 +17,7 @@ import numpy as np
 
 from . import __version__
 from .api import Api, BadRequest, KeyRejected, Unavailable, iso
+from .calibration.run import Calibrator
 from .model import MODEL_ID, Model, to_model_audio
 from .outbox import Outbox
 from .sounds import InvalidSoundList, SoundList
@@ -29,16 +30,20 @@ MIN_WINDOW_S = 1.0    # never analyse less than this
 REPEAT_S = 5.0        # report the same sound at most once per 5 s
 MAX_BACKLOG_S = 60.0  # audio waiting for analysis beyond this is dropped (logged), never blocking feed()
 BATCH = 100
+CALIBRATION_CHECKIN_S = 1.0  # check-in interval while taking part in a calibration run
 
 
 class Sensor:
     def __init__(self, server_url: str, sensor_key: str, sensor_id: str | None = None, state_dir: str = "~/.forestpulse",
                  angle_fn=None, sample_rate: int = 48000, checkin_interval: float = 10.0, model: Model | None = None,
-                 model_threads: int = 2):
+                 model_threads: int = 2, calibration=None, clock=None):
         """
         angle_fn: optional callable(window) -> angle_deg | (angle_deg, confidence) | None, called once per window
             that produced a detection. `window` is the (N, channels) int16 audio that was classified, at
             `sample_rate`. Return degrees clockwise from the board's forward (0-360); see board_to_angle().
+        calibration: the node's calibration hooks (README, "Calibration hooks"). Checked at start-up; the sensor
+            takes part in calibration runs only when every hook and attribute is there.
+        clock: the wall clock, seconds since the epoch; default the system's. Simulated boards pass their own.
         """
         self.sensor_id = sensor_id or socket.gethostname()
         self.sample_rate = sample_rate
@@ -46,7 +51,8 @@ class Sensor:
         self.checkin_interval = checkin_interval
         self.state_dir = os.path.expanduser(state_dir)
         os.makedirs(self.state_dir, exist_ok=True)
-        self.api = Api(server_url, sensor_key, self.sensor_id)
+        self.clock = clock or (lambda: time.time())
+        self.api = Api(server_url, sensor_key, self.sensor_id, clock=clock)
         self.outbox = Outbox(os.path.join(self.state_dir, "outbox.jsonl"))
         self.instance_id = uuid.uuid4().hex
         self._model = model
@@ -62,6 +68,8 @@ class Sensor:
         self.key_rejected = False
         self.last_checkin_ok = None
         self._want_sounds = False
+        self._checkin_soon = threading.Event()
+        self._calibration = Calibrator(calibration, self.api, self.clock, wake=self._checkin_now)
 
     @classmethod
     def from_file(cls, path: str, **overrides) -> "Sensor":
@@ -92,6 +100,7 @@ class Sensor:
 
     def stop(self, flush_timeout: float = 5.0) -> None:
         """Finishes queued analysis, tries to deliver events for up to flush_timeout, then stops."""
+        self._calibration.stop()
         self._audio.put(("stop",))
         if self._threads:
             self._threads[0].join(timeout=60)
@@ -111,6 +120,8 @@ class Sensor:
         frames = np.asarray(frames)
         if frames.ndim == 1:
             frames = frames[:, None]
+        if self._calibration.feed(frames, break_before):
+            return  # the calibration stream: the run's alone, never analysed for sounds
         with self._backlog_lock:
             if self._backlog_frames + len(frames) > MAX_BACKLOG_S * self.sample_rate:
                 log.warning("analysis is behind by more than %.0f s; dropping audio", MAX_BACKLOG_S)
@@ -143,7 +154,8 @@ class Sensor:
     def status(self) -> dict:
         return {"sensor_id": self.sensor_id, "sound_list_version": self._sounds.version if self._sounds_from_server
                 else None, "queued_events": len(self.outbox), "dropped_events": self.outbox.dropped,
-                "key_rejected": self.key_rejected, "last_checkin_ok": self.last_checkin_ok}
+                "key_rejected": self.key_rejected, "last_checkin_ok": self.last_checkin_ok,
+                "calibration_capable": self._calibration.capable, "calibrating": self._calibration.active}
 
     # ---- analysis --------------------------------------------------------------------------------------------
 
@@ -210,6 +222,8 @@ class Sensor:
         self._report(scores, embedding, end_time, angle)
 
     def _report(self, scores, embedding, detected_at, angle):
+        if self._calibration.active:
+            return []  # no sound events between start_stream() and the calibration report
         hits = [(s, c) for s, c in self._sounds.matches(scores, embedding)
                 if detected_at - self._last_reported.get(s.id, -1e18) >= REPEAT_S]
         if not hits:
@@ -264,16 +278,24 @@ class Sensor:
         if version is not None and version != current:
             self._want_sounds = True
 
+    def _checkin_now(self):
+        self._checkin_soon.set()
+        self._wake.set()
+
     def _sync_loop(self):
         next_checkin, next_flush, backoff = 0.0, 0.0, 2.0
         while not self._stop.is_set():
             now = time.monotonic()
-            if now >= next_checkin:
+            if now >= next_checkin or self._checkin_soon.is_set():
+                self._checkin_soon.clear()
                 next_checkin = now + self.checkin_interval
                 try:
+                    sent = self.clock()
                     reply = self.api.checkin(instance_id=self.instance_id, sdk_version=__version__, model=MODEL_ID,
                                              sound_list_version=self._sounds.version if self._sounds_from_server
-                                             else None, queued_events=len(self.outbox))
+                                             else None, queued_events=len(self.outbox),
+                                             **self._calibration.checkin_fields())
+                    self._calibration.note_reply(reply, sent, self.clock())
                     self._set_key_ok()
                     self.last_checkin_ok = time.time()
                     self._note_version(reply.get("sound_list_version"))
@@ -285,6 +307,8 @@ class Sensor:
                     log.warning("server unavailable (%s); %d events queued", e, len(self.outbox))
                 except BadRequest as e:
                     log.error("check-in rejected: %s", e)
+                if self._calibration.active:
+                    next_checkin = min(next_checkin, now + CALIBRATION_CHECKIN_S)
             if len(self.outbox) and now >= next_flush and not self.key_rejected:
                 try:
                     self._flush()

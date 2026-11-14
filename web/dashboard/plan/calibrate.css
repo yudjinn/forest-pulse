@@ -1,0 +1,30 @@
+/* Calibrate beside the plan's title, the run's state line, and the measured distance drawn on the plan. */
+.calibrate-status {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.calibrate-status[hidden] {
+  display: none;
+}
+
+.calibrate-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.calibrate-distance line {
+  stroke: var(--evergreen);
+  stroke-width: 2;
+}
+
+.calibrate-distance text {
+  fill: var(--evergreen);
+  font-size: 13px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--ivory);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}

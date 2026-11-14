@@ -31,13 +31,15 @@ def iso(ts: float) -> str:
 
 
 class Api:
-    def __init__(self, server_url: str, sensor_key: str, sensor_id: str, timeout: float = 10.0):
+    def __init__(self, server_url: str, sensor_key: str, sensor_id: str, timeout: float = 10.0, clock=None):
+        """clock: the sensor's wall clock (seconds since the epoch) for sent_at; default the system's."""
         self.base = server_url.rstrip("/") + "/api/v1/sensors/" + urllib.request.quote(sensor_id, safe="")
         self.key = sensor_key
         self.timeout = timeout
+        self._now_iso = (lambda: iso(clock())) if clock else utc_now_iso
 
     def _call(self, method: str, path: str, body: dict | None = None) -> dict:
-        data = None if body is None else json.dumps({"sent_at": utc_now_iso(), **body}).encode()
+        data = None if body is None else json.dumps({"sent_at": self._now_iso(), **body}).encode()
         req = urllib.request.Request(self.base + path, data=data, method=method, headers={
             "Authorization": f"Bearer {self.key}", "Content-Type": "application/json", "User-Agent": USER_AGENT})
         try:
@@ -61,3 +63,6 @@ class Api:
 
     def post_events(self, events: list) -> dict:
         return self._call("POST", "/events", {"events": events})
+
+    def post_calibration(self, report: dict) -> dict:
+        return self._call("POST", "/calibration", report)

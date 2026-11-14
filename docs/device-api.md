@@ -25,12 +25,14 @@ Every 10 s.
   "sdk_version": "0.1.0",
   "model": "mn10_as",
   "sound_list_version": 3,           // null before the first sound list
-  "queued_events": 0
+  "queued_events": 0,
+  "calibration_capable": true,       // optional, see Calibration; missing means false
+  "calibration_ack": "8f1c..."       // only during a calibration run, see Calibration
 }
 ```
 
-`200` reply: `{"server_time": "...", "sound_list_version": 4}`. When the version differs from the sensor's, the
-sensor fetches the sound list.
+`200` reply: `{"server_time": "...", "sound_list_version": 4}`, plus `calibration` while the sensor takes part in a
+calibration run. When the version differs from the sensor's, the sensor fetches the sound list.
 
 ## Sound list: `GET /sensors/{sensor_id}/sounds`
 
@@ -94,6 +96,108 @@ switched off meanwhile; treat as delivered) or `rejected` (malformed; `reason` s
 Direction of the sound relative to the board, in degrees: 0 = the board's marked forward, increasing clockwise seen
 from above, 0 to 360. Omit it when the sensor cannot tell. The server turns it into a direction on the plan with the
 sensor's facing and combines two sensors' angles into a location. Audio and per-mic timings are never sent.
+
+## Calibration
+
+Pressing Calibrate on the plan makes 2 or 3 sensors beep at each other so the service can measure how far apart
+they are (ADR-20261114171057932). Each sensor records continuously, beeps its own sweep in scheduled slots and
+reports where in its own recording it heard every beep. No audio is sent, and no wall-clock time enters the
+distances: they come from stream positions alone, by two-way ranging. Sensors that never send these fields keep
+working and simply do not take part.
+
+### Who takes part
+
+`calibration_capable: true` on check-in says the sensor can take part: it has a 3-mic array, a buzzer and the hooks
+to drive them, and its start-up self-check passed. Participants are the capable sensors that are online, on the
+plan and without a shared-name warning when Calibrate is pressed, at most 3, with roles `A`, `B`, `C` in plan
+order. One run at a time.
+
+### The run, on the check-in reply
+
+While a sensor is a participant, every check-in reply carries the run; it disappears from the reply when the run
+ends (or when the sensor was left out of it, below):
+
+```json
+"calibration": {
+  "run_id": "8f1c...",
+  "role": "A",                                  // this sensor's role
+  "order": ["A", "B"],                          // the roles taking part, in slot order
+  "patterns": {"A": {"f_start_hz": 1500, "f_mid_hz": 2500, "f_end_hz": 3500, "duration_ms": 120},
+               "B": {"f_start_hz": 3500, "f_mid_hz": 2500, "f_end_hz": 1500, "duration_ms": 120}},
+  "start_at": "2026-11-14T12:00:09.500Z",       // the first slot, service clock; absent until scheduled
+  "slot_ms": 500,
+  "round_gap_ms": 1000,
+  "rounds": 4
+}
+```
+
+1. On receiving a run the sensor checks in every 1 s and starts its continuous stream.
+2. Once audio has flowed for 1 s without a break, it sends `"calibration_ack": "<run_id>"` on every check-in.
+3. The service sets `start_at` 4 s after the last ready confirmation. If some participant has not confirmed within
+   20 s of the press, the run goes ahead with the 2 or more that have (the others lose the run from their replies),
+   or fails naming the missing one.
+4. The schedule: round `r` (from 0) plays `order` forward when `r` is even and reversed when it is odd, one slot
+   each, `slot_ms` apart, starting at `start_at + r * (len(order) * slot_ms + round_gap_ms)`. Each sensor plays its
+   role's pattern at the start of each of its slots, by its clock corrected to the service's (`server_time` on the
+   check-in reply).
+5. It records until the last expected beep plus 200 ms (at the latest the end of the last slot plus 1 s), stops the
+   stream, finds every beep and posts its report. A sensor reports no sound events while it takes part.
+
+### Report: `POST /sensors/{sensor_id}/calibration`
+
+Once per run, by the end of the last slot plus 15 s.
+
+```json
+{
+  "sent_at": "2026-11-14T12:00:18.000Z",
+  "run_id": "8f1c...",
+  "role": "A",
+  "fs": 48000,                       // the stream's sample rate
+  "speed_of_sound": 343.0,           // m/s, from the board's thermometer
+  "speed_of_sound_fallback": false,  // true: the thermometer failed or was out of 300-380 m/s, 343 assumed
+  "emitter_offset_m": 0.05,          // the buzzer's distance from the array's centre
+  "errors": [],                      // fatal codes, below
+  "rounds": [
+    {
+      "round": 0,
+      "valid": true,                 // false when problems is not empty
+      "problems": [],                // break, overrun, clipped, dropped
+      "detections": [                // at most one per slot: the strongest beep of that slot's role
+        {"emitter": "A", "own": true, "position": 241633.651, "snr_db": 67.1, "weak": false,
+         "angle_deg": null, "angle_quality": null},
+        {"emitter": "B", "own": false, "position": 266115.687, "snr_db": 50.2, "weak": false,
+         "angle_deg": 271.5, "angle_quality": 0.8}
+      ]
+    }
+  ]
+}
+```
+
+- `position`: where the beep's first path starts, in samples of this sensor's own continuous stream (counted from
+  the stream's start), with a fraction of a sample.
+- `weak`: a mic missed the beep or the mics disagree by more than the array allows; never ranged on.
+- `angle_deg`, `angle_quality`: for other sensors' beeps, the board's bearing of the arrival (degrees clockwise from
+  its forward, as for events) and its quality 0-1; null when the board cannot tell.
+- Fatal codes fail the run, naming the sensor: `no_stream` (the stream did not start or no audio flowed),
+  `emit_failed` (the buzzer failed), `own_beep_not_heard` (the sensor heard none of its own beeps). A report missing
+  at the deadline fails the run too.
+- Round problems only invalidate that round: `break` (the audio was not contiguous), `overrun` (the round was no
+  longer in the recording), `clipped` (a sample at full scale), `dropped` (the round's audio never arrived).
+
+`200` reply: `{"accepted": true}`. `404`: no such run for this sensor. `409`: the run has ended. `400`: the report
+is malformed (the reason says why).
+
+### Distances
+
+For sensors i and j in one valid round, with t_k(m) where sensor k heard sensor m's beep in seconds of k's own
+stream (`position / fs`), c the two sensors' mean `speed_of_sound` and s their `emitter_offset_m`:
+
+d = c/2 * [(t_i(j) - t_i(i)) - (t_j(j) - t_j(i))] + (s_i + s_j)/2
+
+A pair's distance is the median over its valid rounds (both sensors' rounds valid, all four detections whole). It
+needs 2 or more valid rounds, at least one in each order, and the forward and reverse medians within 15 cm. When
+every check passes the plan becomes a measured layout: the first participant at the origin, the second straight to
+its right at that distance.
 
 ## Errors
 
