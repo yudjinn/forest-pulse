@@ -3,16 +3,17 @@ import type { RouteContext } from "../router.ts";
 import { json } from "../http.ts";
 import { logLine } from "../log.ts";
 import { type Activity, type ActivityEvent, groupActivities } from "./group.ts";
+import { LOCATION_COLUMNS, type LocationColumns, latestLocation } from "../location/location.ts";
 
 // The newest activities, each with its category, sounds, first and last corrected time, event count and sensors.
 export async function listActivities(_request: Request, { env }: RouteContext): Promise<Response> {
   const rows = await env.DB.prepare(
-    "SELECT id, sensor_id, sound_name, category, occurred_at FROM events ORDER BY occurred_at, id",
-  ).all<ActivityEvent>();
+    `SELECT id, sensor_id, sound_name, category, occurred_at, ${LOCATION_COLUMNS} FROM events ORDER BY occurred_at, id`,
+  ).all<ActivityEvent & LocationColumns>();
   return json({ activities: groupActivities(rows.results).map(toReply) });
 }
 
-function toReply(a: Activity) {
+function toReply(a: Activity<ActivityEvent & LocationColumns>) {
   return {
     category: a.category,
     sounds: a.sounds,
@@ -20,6 +21,7 @@ function toReply(a: Activity) {
     first_at: new Date(a.first_at).toISOString(),
     last_at: new Date(a.last_at).toISOString(),
     event_count: a.events.length,
+    location: latestLocation(a.events),
   };
 }
 
