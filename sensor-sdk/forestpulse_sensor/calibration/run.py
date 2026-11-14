@@ -32,8 +32,8 @@ STOP_AFTER_SCHEDULE_S = 1.0  # and never longer than this after the schedule's e
 REPORT_AFTER_SCHEDULE_S = 15.0  # the service's report deadline
 SLOT_LEAD_S = 0.1           # a slot's window opens this long before the slot: the clock mapping is approximate
 # and closes STOP_AFTER_BEEP_S after the sweep would end, so it stays inside the slot and recording can stop there
-BEARING_BEFORE_S = 0.002    # the bearing window around one arrival
-BEARING_AFTER_S = 0.01
+BEARING_BEFORE_S = 0.005    # the bearing window: from this long before the detected first path,
+BEARING_WINDOW_S = 0.040    # this long, so the direct sound fills it before most echoes arrive
 OFFSET_SAMPLES = 30         # the service clock offset comes from the fastest of the latest check-ins
 ENDED_AFTER_REPLIES = 2     # the run has ended once this many replies in a row leave it out (one may be a hiccup)
 INT16_MAX, INT16_MIN = 32767, -32768
@@ -459,8 +459,8 @@ class Run:
 
     def _bearing(self, d, stream: Stream, fs):
         pattern = self.patterns[d.role]
-        lo = int(d.position - BEARING_BEFORE_S * fs)
-        hi = int(d.position + (pattern.duration_ms / 1000 + BEARING_AFTER_S) * fs)
+        lo = int(np.floor(d.position - BEARING_BEFORE_S * fs))
+        hi = lo + int(round(BEARING_WINDOW_S * fs))
         window = stream.read(lo, hi)
         if window is None:
             return None, None

@@ -14,10 +14,16 @@ noise bed of the committed hall recording plus synthetic speech (render.py's pie
 
 True time is the host's time.time(). Audio is produced in 20 ms blocks at the board's own (drifting) sample rate and
 handed to the connected feed as the board's front-end would, the first block of a stream marked as a break.
+
+The simulated bearing hook answers the true direction of the arrival in the window it is given (from the board's
+array to the emitting buzzer, clockwise from the board's forward) plus seeded noise, and None when that window does
+not cover a sweep's first path: it finds the window in what the board streamed, so a library that placed the window
+anywhere else gets no angle. Board.bearing_fn replaces it (no_bearing: a board that can never tell).
 """
 import math
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -30,6 +36,8 @@ NEAR_M = 0.25        # a buzzer is never louder at a mic than at this distance
 BED_S = 8.0          # each board's noise bed, played back and forth so it never jumps
 BLOCK_S = 0.02
 PAD = 64
+HISTORY_S = 30.0     # what a board streamed, kept this long so the bearing hook can find its window in it
+BEARING_QUALITY = 0.9
 
 
 @dataclass
@@ -46,7 +54,8 @@ class Board:
     muted: bool = False              # emit() succeeds but the buzzer makes no sound
     stream_delay_s: float = 0.0      # audio starts flowing this long after start_stream()
     has_stream: bool = True          # False: start_stream() returns False
-    bearing_fn: object = None        # bearing(window, band_hz) answers with this; None answers None (no bearing)
+    bearing_fn: object = None        # bearing(window, band_hz) answers with this; None: the simulated bearing
+    bearing_noise_deg: float = 3.0   # the simulated bearing's error, standard deviation in degrees
     name: str = field(default="", compare=False)
 
 
@@ -66,7 +75,10 @@ class SimulatedHooks:
         self._lock = threading.Lock()
         self._stream = None  # (start true time, stop event, thread)
         self._pending = []   # (first sample, (n, 3) float) to add to this board's stream
+        self._history = deque(maxlen=int(HISTORY_S / BLOCK_S))  # (first sample, block) of the stream, as fed
+        self._arrivals = []  # (first sample of the direct path, its direction clockwise from forward) per sweep
         self._bed = room._noise_bed(seed)
+        self._noise = np.random.default_rng([seed, 1])
 
     # ---- the hook interface ----------------------------------------------------------------------------------
 
@@ -80,6 +92,8 @@ class SimulatedHooks:
         with self._lock:
             self._stream = (t0, stop, thread)
             self._pending = []
+            self._history.clear()
+            self._arrivals = []
         thread.start()
         return True
 
@@ -106,10 +120,20 @@ class SimulatedHooks:
         return self.room.speed_of_sound if t is None else float(t)
 
     def bearing(self, window, band_hz):
-        # Pluggable (Board.bearing_fn): without one it answers None, which the contract allows ("cannot tell"), and
-        # the run reports the beep without an angle.
         fn = self.board.bearing_fn
-        return None if fn is None else fn(window, band_hz)
+        if fn is not None:
+            return fn(window, band_hz)
+        w = np.asarray(window)
+        if w.ndim != 2 or w.shape[1] != 3 or not len(w):
+            return None
+        with self._lock:
+            blocks = list(self._history)
+            arrivals = list(self._arrivals)
+        for first, angle in arrivals:
+            if self._streamed_at(blocks, w, first) is not None:
+                noise = float(self._noise.normal(0.0, self.board.bearing_noise_deg))
+                return (angle + noise) % 360.0, BEARING_QUALITY
+        return None
 
     # ---- simulation ------------------------------------------------------------------------------------------
 
@@ -132,10 +156,27 @@ class SimulatedHooks:
         with self._lock:
             return None if self._stream is None else self._stream[0]
 
-    def _add(self, first: int, audio: np.ndarray) -> None:
+    def _add(self, first: int, audio: np.ndarray, direct: float, angle: float) -> None:
         with self._lock:
             if self._stream is not None:
                 self._pending.append((first, audio))
+                self._arrivals.append((direct, angle))
+
+    @staticmethod
+    def _streamed_at(blocks, w, first: float) -> int | None:
+        """Where the board streamed w (a copy of what it fed) so that it covers the sample `first`, or None. Only the
+        stretch such a window could span is searched, so a call stays far inside the hook's time limit."""
+        n = len(w)
+        lo, hi = int(math.floor(first)) - n, int(math.ceil(first)) + n
+        near = [(k, b) for k, b in blocks if k < hi and k + len(b) > lo]
+        if not near:
+            return None
+        start = near[0][0]
+        piece = np.concatenate([b for _, b in near])
+        for at in np.flatnonzero((piece == w[0]).all(axis=1)):
+            if start + at <= first < start + at + n and at + n <= len(piece) and np.array_equal(piece[at:at + n], w):
+                return start + int(at)
+        return None
 
     def _run(self, t0: float, stop: threading.Event):
         n = int(round(BLOCK_S * self.fs))
@@ -147,6 +188,8 @@ class SimulatedHooks:
             if wait > 0 and stop.wait(wait):
                 return
             block = self._block(k, n)
+            with self._lock:
+                self._history.append((k, block))
             if self._feed is not None:
                 self._feed(block, k == 0)
             k += n
@@ -251,7 +294,15 @@ class Room:
             audio = np.zeros((length, 3))
             for m, start, gain in paths:
                 _add_delayed(audio[:, m], s, start - first, gain)
-            listener._add(first, audio)
+            direct = min(p[1] for p in paths[::2])  # the direct path's earliest mic (echoes are the odd entries)
+            dx, dy = source - np.array([listener.board.x_m, listener.board.y_m])
+            angle = (math.degrees(math.atan2(dx, dy)) - listener.board.facing_deg) % 360.0
+            listener._add(first, audio, direct, angle)
+
+
+def no_bearing(window, band_hz):
+    """A Board.bearing_fn for a board whose bearing code can never tell the direction."""
+    return None
 
 
 def _rotation(board: Board) -> np.ndarray:
