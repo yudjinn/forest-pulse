@@ -1,0 +1,45 @@
+/* The live event log panel. */
+.log-scroll {
+  overflow-x: auto;
+}
+
+#log table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+#log th,
+#log td {
+  padding: 6px 8px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+
+#log th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+#log th:first-child,
+#log td:first-child {
+  padding-left: 0;
+}
+
+.log-empty {
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+
+@media (max-width: 480px) {
+  #log table {
+    font-size: 13px;
+  }
+
+  #log th,
+  #log td {
+    padding: 6px 4px;
+  }
+}

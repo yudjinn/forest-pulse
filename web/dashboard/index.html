@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Forest Pulse dashboard</title>
+    <meta name="theme-color" content="#0B4827">
+    <link rel="icon" href="/brand/icons/favicon.ico" sizes="16x16 32x32 48x48">
+    <link rel="icon" href="/brand/icons/favicon.svg" type="image/svg+xml" sizes="any">
+    <link rel="apple-touch-icon" href="/brand/icons/apple-touch-icon.png" sizes="180x180">
+    <link rel="stylesheet" href="/dashboard/shell.css">
+    <link rel="stylesheet" href="/dashboard/log/log.css">
+    <script type="module" src="/dashboard/shell.js"></script>
+    <script type="module" src="/dashboard/log/log.js"></script>
+  </head>
+  <body>
+    <main class="panels">
+      <section id="log" class="panel" aria-labelledby="log-title">
+        <h2 id="log-title">Event log</h2>
+        <div class="log-scroll">
+          <table>
+            <thead>
+              <tr><th scope="col">Time</th><th scope="col">Sensor</th><th scope="col">Sound</th><th scope="col">Confidence</th><th scope="col">Angle</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="log-empty" hidden>No events yet</p>
+      </section>
+    </main>
+  </body>
+</html>

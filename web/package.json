@@ -6,9 +6,10 @@
     "build": "python3 build.py",
     "serve": "node tests/serve.ts",
     "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src && tsc --noEmit -p dashboard"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261113.1",
     "@playwright/test": "1.65.1",
     "@types/node": "24.19.2",
     "typescript": "7.0.2",

@@ -1,0 +1,162 @@
+/* The dashboard shell: brand colours, the header, panels, forms and the connection banner. */
+:root {
+  color-scheme: light;
+  --evergreen: #0b4827;
+  --ivory: #fbf7ef;
+  --line: #d9d3c4;
+  --muted: #5b6b60;
+  --alert: #9a2c12;
+  --alert-bg: #fbe3d8;
+  color: var(--evergreen);
+  background: var(--ivory);
+  font-family: "Avenir Next", Avenir, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+}
+
+h1,
+h2 {
+  margin: 0 0 12px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 28px;
+}
+
+h2 {
+  font-size: 20px;
+}
+
+.shell-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  padding: 12px 16px;
+  background: var(--evergreen);
+  color: var(--ivory);
+}
+
+.shell-home img {
+  display: block;
+  height: 32px;
+  width: auto;
+}
+
+.shell-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.shell-header nav a {
+  color: var(--ivory);
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.shell-header nav a[aria-current="page"] {
+  border-bottom-color: var(--ivory);
+}
+
+.connection-lost {
+  margin: 0;
+  padding: 10px 16px;
+  background: var(--alert-bg);
+  color: var(--alert);
+  font-weight: 600;
+}
+
+.panels {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.panel {
+  min-width: 0;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* Sign-in */
+
+.signin {
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+
+.signin main {
+  width: min(100%, 360px);
+}
+
+.signin-logo {
+  display: block;
+  width: 160px;
+  height: auto;
+  margin: 0 auto 24px;
+}
+
+.signin form {
+  display: grid;
+  gap: 8px;
+}
+
+label {
+  font-weight: 600;
+}
+
+input {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--evergreen);
+  color: var(--ivory);
+  cursor: pointer;
+}
+
+.error {
+  margin: 0;
+  color: var(--alert);
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .panels {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+}
