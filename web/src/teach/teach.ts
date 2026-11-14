@@ -85,6 +85,14 @@ async function otherSounds(env: Env): Promise<Float32Array> {
   return library.rows;
 }
 
+// The sound with this name ignoring case, any letters (the unique index on the table folds only A to Z and guards
+// the race between this check and the insert), or null.
+export async function soundNamed(db: D1Database, name: string): Promise<{ id: string; name: string } | null> {
+  const wanted = name.toLowerCase();
+  const { results } = await db.prepare("SELECT id, name FROM sounds").all<{ id: string; name: string }>();
+  return results.find((s) => s.name.toLowerCase() === wanted) ?? null;
+}
+
 // A readable, unique id: the name as a slug plus a random suffix, so events stay legible and ids never repeat.
 function soundId(name: string): string {
   const slug = name.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-")
@@ -114,8 +122,7 @@ export async function teachSound(request: Request, { env }: RouteContext): Promi
   logLine("teach_received", { name, category, clips: clips.length, summaries: rows.length / DIM });
 
   try {
-    const taken = await env.DB.prepare("SELECT id FROM sounds WHERE name = ? COLLATE NOCASE").bind(name).first();
-    if (taken) {
+    if (await soundNamed(env.DB, name)) {
       logLine("teach_failed", { name, reason: "name taken" });
       return json({ error: NAME_TAKEN }, 409);
     }

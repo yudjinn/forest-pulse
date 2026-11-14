@@ -56,22 +56,62 @@ export function sourceRate(bytes) {
   return null;
 }
 
+const USED_SECONDS = 60;
+const FIRST_PREFIX = 2 * 1024 * 1024;
+
+/**
+ * The first `size` bytes of a recording as a file the decoder accepts. A WAV's header is patched to the shorter
+ * data; compressed formats decode a cut-off stream as far as it goes.
+ * @param {ArrayBuffer} bytes
+ * @param {number} size
+ */
+function prefix(bytes, size) {
+  const part = bytes.slice(0, size);
+  const b = new Uint8Array(part);
+  if (size === bytes.byteLength || !(has(b, 0, "RIFF") && has(b, 8, "WAVE"))) return part;
+  const v = new DataView(part);
+  let align = 1;
+  for (let at = 12; at + 8 <= size; at += 8 + v.getUint32(at + 4, true) + (v.getUint32(at + 4, true) & 1)) {
+    if (has(b, at, "fmt ") && at + 22 <= size) align = Math.max(1, v.getUint16(at + 20, true)); // bytes per frame
+    if (has(b, at, "data")) {
+      v.setUint32(at + 4, Math.floor((size - at - 8) / align) * align, true);
+      v.setUint32(4, size - 8, true);
+      return part;
+    }
+  }
+  return part;
+}
+
 /**
  * A recording's bytes -> mono audio at the recording's own rate: the browser's own decoder, channels averaged.
- * Rejects when the browser cannot decode it.
+ * Only as much is decoded as the first 60 s needs (a growing prefix of the file), so a long field recording never
+ * becomes gigabytes of audio in the page. Rejects when the browser cannot decode it.
  * @param {ArrayBuffer} bytes
  * @returns {Promise<{ audio: Float32Array, rate: number }>}
  */
 export async function decode(bytes) {
   const header = sourceRate(bytes);
   const rate = header && header >= 8000 && header <= 384000 ? header : FALLBACK_RATE;
-  const decoded = await new OfflineAudioContext(1, 1, rate).decodeAudioData(bytes);
-  const audio = new Float32Array(decoded.length);
+  const context = new OfflineAudioContext(1, 1, rate);
+  /** @type {AudioBuffer} */
+  let decoded;
+  for (let size = Math.min(bytes.byteLength, FIRST_PREFIX); ; size = Math.min(bytes.byteLength, size * 4)) {
+    try {
+      decoded = await context.decodeAudioData(prefix(bytes, size));
+    } catch (e) {
+      if (size === bytes.byteLength) throw e;
+      size = bytes.byteLength / 4; // a cut-off file this format cannot decode (an M4A indexed at its end): all of it
+      continue;
+    }
+    if (decoded.duration >= USED_SECONDS || size === bytes.byteLength) break;
+  }
+  const length = Math.min(decoded.length, USED_SECONDS * rate);
+  const audio = new Float32Array(length);
   for (let c = 0; c < decoded.numberOfChannels; c++) {
     const ch = decoded.getChannelData(c);
-    for (let i = 0; i < audio.length; i++) audio[i] += ch[i];
+    for (let i = 0; i < length; i++) audio[i] += ch[i];
   }
-  if (decoded.numberOfChannels > 1) for (let i = 0; i < audio.length; i++) audio[i] /= decoded.numberOfChannels;
+  if (decoded.numberOfChannels > 1) for (let i = 0; i < length; i++) audio[i] /= decoded.numberOfChannels;
   return { audio, rate };
 }
 

@@ -47,13 +47,20 @@ function fft2(re, im) {
   }
 }
 
+// The most recent chirps only: a page resamples many windows of one or two lengths (5 s at each source rate) and
+// one-off lengths for short recordings, whose chirps are 8 to 18 MB each and must not accumulate.
+const KEEP_CHIRPS = 2;
 /** @type {Map<number, { m: number, cr: Float64Array, ci: Float64Array, br: Float64Array, bi: Float64Array }>} */
 const chirps = new Map();
 
 /** @param {number} n */
 function chirp(n) {
   let c = chirps.get(n);
-  if (c) return c;
+  if (c) {
+    chirps.delete(n); // most recently used last
+    chirps.set(n, c);
+    return c;
+  }
   let m = 1;
   while (m < 2 * n - 1) m <<= 1;
   const cr = new Float64Array(n);
@@ -75,6 +82,7 @@ function chirp(n) {
   fft2(br, bi);
   c = { m, cr, ci, br, bi };
   chirps.set(n, c);
+  while (chirps.size > KEEP_CHIRPS) chirps.delete(/** @type {number} */ (chirps.keys().next().value));
   return c;
 }
 
