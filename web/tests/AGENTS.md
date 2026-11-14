@@ -1,3 +1,5 @@
 # Journey harness invariants
 
 - A journey that changes the sound list (switch, teach, reteach, delete) or clears events never runs on the shared service: the other journeys compare its sound list with the seed and read its events. It starts its own service on its own port pair, allocated only in `ports.ts` (base+58 and base+59 are the next free pair).
+- Two-way ranging is exact only when each buzzer sits square to the pair line; a buzzer turned toward or away from the other board makes the distance short or long by up to its offset. A calibration journey keeps buzzers square (`Board.emitter_ccw_deg`) or its offsets small against its tolerance (the triangle journey: 2 cm against 10 cm).
+- The live calibration rehearsal refuses its first step while any other calibration-capable board is online or the plan is a measured layout, and never clears events (agent-made): a run takes the first 3 capable sensors in plan order, and removing the rehearsal boards clears a measured layout the service cannot restore.
