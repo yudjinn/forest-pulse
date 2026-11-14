@@ -1,12 +1,16 @@
 {
   "name": "forest-pulse",
   "account_id": "6bc79f3ff3a405abbe38e87b9822660a",
+  "main": "src/index.ts",
   "compatibility_date": "2026-11-14",
   "workers_dev": false,
   "preview_urls": false,
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "none"
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    // The landing page is served straight from the files; these go through the Worker first.
+    "run_worker_first": ["/dashboard", "/dashboard/*", "/api/*"]
   },
   "routes": [
     {
@@ -20,5 +24,15 @@
       "bucket_name": "forest-pulse",
       "jurisdiction": "eu"
     }
-  ]
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "forest-pulse",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
 }

@@ -1,6 +1,7 @@
 // The only place a local port or state path is derived. Every port a run uses
 // comes from FP_E2E_PORT_BASE, so concurrent runs in different worktrees never
-// collide: app = base, inspector = base + 1, base + 2 to base + 9 reserved.
+// collide: app = base, inspector = base + 1, a journey's own second service = base + 2 (inspector base + 3),
+// base + 4 to base + 9 reserved.
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -13,7 +14,11 @@ if (!Number.isInteger(portBase) || portBase < 1024 || portBase > 65000) {
 export const appPort = Number(process.env.FP_E2E_APP_PORT ?? portBase);
 export const inspectorPort = Number(process.env.FP_E2E_INSPECTOR_PORT ?? portBase + 1);
 export const baseURL = `http://127.0.0.1:${appPort}`;
+// A second local service a journey starts and stops itself (see tests/fixtures/service.ts).
+export const secondAppPort = portBase + 2;
+export const secondInspectorPort = portBase + 3;
 
 export const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-// Local D1 and R2 state for this run only; wiped when the server starts.
-export const stateDir = path.join(webRoot, ".wrangler", `e2e-${portBase}`);
+// Local D1 and R2 state for this server only; wiped when it starts. Keyed by the app port, which is the port base
+// for the main server, so a second service never shares its state.
+export const stateDir = path.join(webRoot, ".wrangler", `e2e-${appPort}`);

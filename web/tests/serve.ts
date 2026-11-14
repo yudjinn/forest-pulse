@@ -1,5 +1,6 @@
 // Starts the Worker locally on this run's ports with fresh local D1 and R2 state.
 // Used by the journey harness and by hand checks: FP_E2E_PORT_BASE=8810 npm run serve
+// FP_E2E_SKIP_BUILD=1 reuses the existing dist/ (a second service started while the first one serves it).
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -13,15 +14,25 @@ function run(cmd: string, args: string[]) {
 }
 
 rmSync(stateDir, { recursive: true, force: true });
-run("python3", ["build.py"]);
+if (!process.env.FP_E2E_SKIP_BUILD) run("python3", ["build.py"]);
 
 const devVars = path.join(webRoot, ".dev.vars");
 if (!existsSync(devVars)) {
   writeFileSync(devVars, "DASHBOARD_PASSWORD=dev-password\nDEVICE_KEY=dev-key\nSESSION_SECRET=dev-session-secret\n");
 }
 
-if (existsSync(path.join(webRoot, "migrations"))) {
-  run(wrangler, ["d1", "migrations", "apply", "DB", "--local", "--persist-to", stateDir]);
+// Seed steps, run in order on the fresh local state before the Worker starts. Additive only: add a step at the end,
+// never reorder or rewrite one (docs/agents/ownership.md). Seed only what every run needs; a journey seeds its own
+// prerequisites through the service.
+const seedSteps: { name: string; run(): void }[] = [
+  {
+    name: "apply the D1 migrations",
+    run: () => run(wrangler, ["d1", "migrations", "apply", "DB", "--local", "--persist-to", stateDir]),
+  },
+];
+for (const step of seedSteps) {
+  console.log(`seed: ${step.name}`);
+  step.run();
 }
 
 const dev = spawn(
