@@ -52,9 +52,10 @@ The boreal owl recordings the presenter drops into "Teach a new sound" on stage.
 (or `$FP_TEACHING_PACK`). The folder holds only the clips, so on stage select everything in it and drop it on the
 page. Its report and credits are committed in `teaching_pack.json`.
 
-The pack is the smallest of 10, 15 or 20 recordings that works on the player's own samples: teaching it (summaries
-with the sensor library's model, the teach request's own training against the stored other-sounds library) makes the
-sensor library's replay report both player boreal owls and never the tawny owl. Candidates are the experiment's boreal
+The pack is whichever of 10, 15 or 20 recordings works on the player's own samples with the widest margin. A size
+works when teaching it (summaries with the sensor library's model, the teach request's own training against the
+stored other-sounds library) makes the sensor library's replay report both player boreal owls and never the tawny
+owl; of the sizes that work, the one whose lowest score on the two boreal owls is highest is kept. Candidates are the experiment's boreal
 owls minus the player's recordists, the held-out recordings and no-derivatives licences, one recording per recordist
 first, songs before calls, longer before shorter; each clip is the recording's first 60 s.
 
@@ -63,8 +64,8 @@ only if it works with all five. Scores are the detector's top confidence on each
 
 | Size | Boreal owl 1 | Boreal owl 2 | Tawny owl | Chainsaws | Result |
 |---|---|---|---|---|---|
-| 10 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.56 to 0.89) | not heard | not heard | works, chosen |
-| 15 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.82 to 0.97) | not heard | not heard | works |
+| 10 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.56 to 0.89) | not heard | not heard | works, lowest 0.56 |
+| 15 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.82 to 0.97) | not heard | not heard | works, lowest 0.82, chosen |
 | 20 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.94 to 0.99) | heard in 3 of 5 (0.59 to 0.65) | not heard | fails |
 
 | Clip | Recordist | Source | Licence |
@@ -79,6 +80,11 @@ only if it works with all five. Scores are the detector's top confidence on each
 | boreal-owl-XC312639.wav | Jens Kirkeby | [xeno-canto XC312639](https://xeno-canto.org/312639) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
 | boreal-owl-XC356978.wav | Antero Lindholm | [xeno-canto XC356978](https://xeno-canto.org/356978) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
 | boreal-owl-XC782854.wav | Teet Sirotkin | [xeno-canto XC782854](https://xeno-canto.org/782854) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC307650.wav | PE Svahn | [xeno-canto XC307650](https://xeno-canto.org/307650) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC638436.wav | Sergiusz Nizinski | [xeno-canto XC638436](https://xeno-canto.org/638436) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC325180.wav | Jarek Matusiak | [xeno-canto XC325180](https://xeno-canto.org/325180) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC343176.wav | Tero Linjama | [xeno-canto XC343176](https://xeno-canto.org/343176) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC234260.wav | Mats Svensson Pavval | [xeno-canto XC234260](https://xeno-canto.org/234260) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
 
 Rebuild from the repository root, after `experiments/efficientat-chainsaw/setup.sh` has fetched the recordings (with
 `XC_KEY`); the script itself needs no network and takes about three minutes:
@@ -88,6 +94,8 @@ uv run --project experiments/efficientat-chainsaw python demo-kit/teaching_pack.
 ```
 
 If no size works it prints which player samples were missed or falsely heard, writes the report and makes no pack.
+The script never deletes or overwrites a file: it adds the new clips, leaves identical ones as they are, and refuses a
+folder that holds anything else, so a pack that changes to fewer or other clips needs the old ones removed by hand.
 
 ## Rehearsal
 

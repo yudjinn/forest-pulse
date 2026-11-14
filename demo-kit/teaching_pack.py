@@ -1,8 +1,9 @@
 """Builds the boreal owl teaching pack: the recordings the presenter drops into "Teach a new sound" on stage.
 
-The pack is the smallest of 10, 15 or 20 boreal owl recordings for which teaching works on the player's own samples:
-the taught detector, run by the sensor library, reports both of the player's boreal owls and never its tawny owl.
-Each size is tried exactly as the dashboard teaches:
+The pack is whichever of 10, 15 or 20 boreal owl recordings works on the player's own samples with the widest margin:
+a size works when the taught detector, run by the sensor library, reports both of the player's boreal owls and never
+its tawny owl, and of the sizes that work the one whose lowest score on those boreal owls is highest is kept (the
+smaller on a tie). Each size is tried exactly as the dashboard teaches:
 
 - clips: the first 60 s of each recording, written as 32 kHz mono 16-bit WAV (the pack's files);
 - summaries: those files in the teach page's windows (first 60 s, 5 s each), each clean and once mixed over the hall
@@ -20,8 +21,10 @@ recordist first, songs before calls, longer before shorter. The sizes are nested
 
 Writes demo-kit/teaching_pack.json (every size tried, with the detections, and the chosen pack's credits) and, only
 when a size works, the pack folder: the chosen clips and nothing else, so the presenter can drop the whole folder's
-contents. A rebuild replaces the clips in it, and refuses a folder that holds anything else. If no size works it says
-which player samples were missed and makes no pack.
+contents. The builder never deletes or overwrites a file: a rebuild adds the new clips, leaves identical ones as they
+are, and refuses a folder holding anything else (another file, or a same-named clip with other contents) before it
+writes the report or the folder; remove those by hand. If no size works it says which player samples were missed and
+makes no pack.
 
 usage (from the repository root, after experiments/efficientat-chainsaw/setup.sh has fetched the recordings with
 XC_KEY; no other network is needed):
@@ -29,6 +32,7 @@ XC_KEY; no other network is needed):
 The pack folder defaults to $FP_TEACHING_PACK, else ~/Desktop/Boreal owl teaching pack.
 """
 import argparse
+import filecmp
 import json
 import os
 import re
@@ -99,13 +103,28 @@ def write_clip(c, folder):
 
 
 def pack_folder(out):
-    """The pack folder, refused when it holds anything but a pack's clips: rebuilding replaces the clips in it."""
+    """The pack folder, refused when it holds anything but a pack's clips (the builder never deletes a file)."""
     if os.path.exists(out):
         other = [f for f in os.listdir(out) if not f.startswith(".") and not CLIP.fullmatch(f)]
         if not os.path.isdir(out) or other:
             sys.exit(f"{out} is not a teaching pack folder (it holds {', '.join(other[:3]) or 'a file'}); "
                      "choose another with --out")
     return out
+
+
+def blocking(out, pack, staging):
+    """Files already in the pack folder that a rebuild would have to delete or overwrite: any not in the new pack,
+    and any clip of the new pack whose contents differ from the one just built (an identical one is left as it is)."""
+    if not os.path.isdir(out):
+        return []
+    keep = {c["file"] for c in pack}
+    return sorted(f for f in os.listdir(out) if not f.startswith(".") and (
+        f not in keep or not filecmp.cmp(os.path.join(out, f), os.path.join(staging, f), shallow=False)))
+
+
+def worst_boreal(runs):
+    """The lowest top confidence on the player's boreal owls over every mix (0 when one was missed)."""
+    return min(r["top_confidence"] or 0.0 for run in runs for r in run["samples"] if r["kind"] == "boreal owl")
 
 
 def train(rows, work):
@@ -198,16 +217,26 @@ def main():
                 print(f"size {size}, mix {seed}: {'works' if runs[-1]['passed'] else 'fails'}; " + ", ".join(
                     f"{r['file']} {r['detections']} ({r['top_confidence'] or 0:.2f})" for r in results), flush=True)
             passed = all(r["passed"] for r in runs)
-            tried.append({"size": size, "passed": passed, "recordings": [c["recording"] for c in clips[:size]],
+            tried.append({"size": size, "passed": passed, "worst_boreal_confidence": worst_boreal(runs),
+                          "recordings": [c["recording"] for c in clips[:size]],
                           "missed": sorted({f for r in runs for f in r["missed"]}),
                           "false_alarms": sorted({f for r in runs for f in r["false_alarms"]}), "mixes": runs})
-            if passed and chosen is None:
-                chosen = size
+        # Of the sizes that work, the widest margin on the player's boreal owls; the smaller size on a tie.
+        working = [t for t in tried if t["passed"]]
+        chosen = max(working, key=lambda t: (t["worst_boreal_confidence"], -t["size"]))["size"] if working else None
+        for t in tried:
+            print(f"size {t['size']}: {'works' if t['passed'] else 'fails'}, lowest boreal owl score "
+                  f"{t['worst_boreal_confidence']:.2f}{', chosen' if t['size'] == chosen else ''}", flush=True)
 
+        if chosen is not None:
+            stale = blocking(out, clips[:chosen], staging)
+            if stale:
+                sys.exit(f"{out} also holds {', '.join(stale)}, which the new pack of {chosen} would delete or "
+                         "overwrite; remove them by hand and run again (nothing was written)")
         report = {"species": "Boreal owl (Aegolius funereus)", "source": "xeno-canto", "first_seconds": FIRST_SECONDS,
                   "sizes_tried": list(SIZES), "chosen_size": chosen, "mix_seeds": list(SEEDS),
                   "how": "summaries with the sensor library's model, trained with web/src/teach/train.ts against "
-                         "web/bucket/teach/other-sounds.f32, replayed through the sensor library at threshold 0.5; a size works only if it works for every mix seed",
+                         "web/bucket/teach/other-sounds.f32, replayed through the sensor library at threshold 0.5; a size works only if it works for every mix seed, and the working size with the highest worst_boreal_confidence is chosen",
                   "sizes": tried, "pack": clips[:chosen] if chosen else []}
         with open(REPORT, "w") as f:
             json.dump(report, f, indent=1, ensure_ascii=False)
@@ -219,11 +248,9 @@ def main():
                       f"false alarms {', '.join(t['false_alarms']) or 'none'}")
             sys.exit(1)
         os.makedirs(out, exist_ok=True)
-        for f in os.listdir(out):
-            if CLIP.fullmatch(f):
-                os.remove(os.path.join(out, f))
         for c in clips[:chosen]:
-            shutil.move(os.path.join(staging, c["file"]), os.path.join(out, c["file"]))
+            if not os.path.exists(os.path.join(out, c["file"])):  # an identical clip is already there
+                shutil.move(os.path.join(staging, c["file"]), os.path.join(out, c["file"]))
         print(f"pack of {chosen} -> {out}; report -> {os.path.relpath(REPORT, ROOT)}")
     finally:
         shutil.rmtree(work, ignore_errors=True)
