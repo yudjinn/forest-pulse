@@ -128,6 +128,45 @@ python -m forestpulse_sensor.mic --config laptop.toml
 
 Uses the laptop's microphone, so there is no angle.
 
+## Stage check (before the demo)
+
+Whether the stage and the buzzer are good enough to calibrate, from three recordings:
+
+1. One board on the stage records continuously (the receiver's 3-channel 16-bit capture).
+2. A second board, or the buzzer held by hand, 1 m away plays its sweep 10 times, 1 s apart. From the device
+   app, with only the emit hook:
+
+   ```python
+   from forestpulse_sensor.calibration.stagecheck import play_sweeps
+   play_sweeps(hooks.emit)            # role A's sweep; play_sweeps(hooks.emit, "B") for B's
+   ```
+
+   Save the recording as `1m.wav`. Repeat at 3 m and 5 m (`3m.wav`, `5m.wav`). The distance must be in the name.
+3. Run the check:
+
+   ```sh
+   python -m forestpulse_sensor.calibration.stagecheck 1m.wav 3m.wav 5m.wav
+   ```
+
+   ```
+   file    distance  beeps  SNR      spread        result
+   1m.wav  1 m       10/10  46.2 dB  0.09 samples  ok
+   3m.wav  3 m       10/10  37.0 dB  0.20 samples  ok
+   5m.wav  5 m       10/10  32.0 dB  0.78 samples  ok
+   PASS
+   ```
+
+- **beeps:** how many of the 10 were found.
+- **SNR:** the worst beep's signal-to-noise after matching against the sweep.
+- **spread:** how much the arrival differences between the mics vary from beep to beep, in samples; it shows how
+  precisely arrivals are found, whatever the buzzer's own timing.
+- **PASS** needs, in every file: all beeps found and none weak (a mic missed it, or the mics disagree by more than
+  the array allows), SNR at least 15 dB, spread at most 2 samples. Otherwise the row says why and the check ends
+  with **FAIL** (exit code 1); a file that is not 3-channel 16-bit, or has no beep, is a fail too.
+
+A FAIL means: don't rely on calibration on this stage; place the sensors by hand. If the service's sweeps were
+retuned, pass the one played: `--pattern 1500,2500,3500,120`.
+
 ## Tests
 
 ```sh
@@ -135,4 +174,6 @@ pip install "./sensor-sdk[dev]" && pytest sensor-sdk/tests
 ```
 
 Three journeys against the dev server with the real model: detection with angle and sound-list updates (including a
-broken list), surviving an outage, a wrong key and a restart, and the bring-your-own-model path.
+broken list), surviving an outage, a wrong key and a restart, and the bring-your-own-model path. Two focused
+calibration tests: finding each role's sweep under hall noise, speech and a wall echo, and the stage check on
+simulated recordings.
