@@ -196,7 +196,8 @@ export async function startCalibration(_request: Request, { env }: RouteContext)
   return json({ run: runState((await loadRun(db, id))!, now) }, 201);
 }
 
-// GET /dashboard/api/calibration: whether Calibrate can be pressed, the latest run, and the measured layout.
+// GET /dashboard/api/calibration: whether Calibrate can be pressed (and which sensors can take part, in plan
+// order), the latest run, and the measured layout.
 export async function calibrationState(_request: Request, { env }: RouteContext): Promise<Response> {
   const db = env.DB;
   const now = Date.now();
@@ -216,6 +217,7 @@ export async function calibrationState(_request: Request, { env }: RouteContext)
   return json({
     now,
     eligible: eligible.length,
+    eligible_sensors: eligible,
     running: run !== null && isActive(run.status),
     run: run && runState(run, now),
     layout: measured && result ? {

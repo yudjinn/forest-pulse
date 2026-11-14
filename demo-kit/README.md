@@ -118,17 +118,45 @@ printed what it clears from other sensors (count and time span per sensor). If t
 save them from the event log before starting the run. It also fails at its start if any taught sound is listed (one
 left by an interrupted rehearsal, or "Boreal owl" itself): delete it on the Sounds page and run it again.
 
+### Calibration rehearsal
+
+The calibration rehearsal (`web/tests/e2e/rehearsal-calibration.spec.ts`) runs only against the live site. Three
+simulated boards check in under rehearsal names, the run is started with Calibrate, and it must end "Calibrated" with
+the triangle the boards stand in; the rehearsal then switches its boards off, removes them, and checks that every
+other sensor is where it was and the plan is not left calibrated. Each step prints its result, and a failed step names
+itself and what it expected. From `web/` after `npm run deploy`, about a minute:
+
+```
+FP_E2E_PORT_BASE=8800 FP_REHEARSAL_ORIGIN=https://forestpulse.paxid.com npx playwright test tests/e2e/rehearsal-calibration.spec.ts
+```
+
+A run takes the first three boards on the plan that can calibrate and replaces the plan's measured layout, so the
+rehearsal refuses to start while a real board that can calibrate is online, or while the plan shows "Calibrated": run
+it before switching the boards on and before calibrating on stage. If an earlier calibration left the plan
+calibrated, typing any board's Facing makes it manual again; the stage calibration sets it afterwards. Its boards
+send no sound events, so it never clears events.
+
 ## Presenter checklist
 
 Before the audience arrives:
 
-1. Deploy (`npm run deploy` in `web/`) and run the live rehearsal above; every step passes.
-2. Boards on, each running the sensor library 0.2.0 or later, and Online on the plan.
-3. On the plan, drag each board to where it stands in the hall and set its Facing. Do this before any sound is
-   played: an edit only affects events that arrive after it.
-4. The Sounds list has no "Boreal owl", and the event log is empty (Clear events if not).
-5. The phone: signed in on the player page, paired with the Bluetooth speaker, volume up, screen lock off.
-6. The laptop: signed in on the dashboard, the "Boreal owl teaching pack" folder open on the Desktop.
+1. Deploy (`npm run deploy` in `web/`) and run both live rehearsals above, the calibration one first, before the
+   boards are on; every step passes.
+2. Boards on, each running the sensor library 0.2.0 or later, and Online on the plan. To calibrate, a board needs the
+   library 0.3.0 or later with the device app's calibration hooks.
+3. Stage check: record the buzzer at 1 m, 3 m and 5 m on the stage and run the stage check tool on the three
+   recordings (`sensor-sdk/README.md`, Stage check). FAIL: skip to step 6.
+4. Calibrate: with 2 or 3 boards standing where they will be, press Calibrate on the plan and wait for
+   "Calibrated" and the time. A failure names the board or pair: fix it and press again, or go to step 6.
+5. Tape measure: measure between each pair of boards and compare with the distance shown on the plan, then play
+   Chainsaw 1 between two boards and check that the plan shows it where it was. Off by much more than 15 cm, or the
+   wrong place: go to step 6.
+6. Fallback, only if a step above failed: on the plan, drag each board to where it stands in the hall and set its
+   Facing; with only one board working it shows direction only. Do this before any sound is played: an edit only
+   affects events that arrive after it.
+7. The Sounds list has no "Boreal owl", and the event log is empty (Clear events if not).
+8. The phone: signed in on the player page, paired with the Bluetooth speaker, volume up, screen lock off.
+9. The laptop: signed in on the dashboard, the "Boreal owl teaching pack" folder open on the Desktop.
 
 On stage:
 

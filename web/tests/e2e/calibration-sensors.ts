@@ -19,8 +19,11 @@ export class SimulatedSensors {
   constructor(origin: string, sensorKey: string) {
     const dir = mkdtempSync(path.join(os.tmpdir(), "fp-calibration-"));
     this.log = path.join(dir, "sensors.log");
-    this.proc = spawn(python, [path.join(webRoot, "tests", "e2e", "calibration_sensors.py"), origin, sensorKey, dir],
-      { stdio: ["pipe", "pipe", openSync(this.log, "w")] });
+    // The key goes in the environment, never the command line, which any process on the machine can list.
+    this.proc = spawn(python, [path.join(webRoot, "tests", "e2e", "calibration_sensors.py"), origin, dir], {
+      stdio: ["pipe", "pipe", openSync(this.log, "w")],
+      env: { ...process.env, FP_SENSOR_KEY: sensorKey },
+    });
     this.lines = createInterface({ input: this.proc.stdout! });
   }
 
