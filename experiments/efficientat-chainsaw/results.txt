@@ -1,0 +1,42 @@
+
+=== mn04_as  (19 ms per 5 s clip on this Mac CPU) ===
+chainsaw clips: top-1 24/40, top-5 27/40, score>=0.2 24/40, median score 0.34
+negative clips: score>=0.2 0/36, max score 0.00
+  weakest chainsaw  5-222524-A-41.wav      score 0.00 rank  61 top1 Vehicle
+  weakest chainsaw  1-47250-B-41.wav       score 0.00 rank  39 top1 Vehicle
+  weakest chainsaw  3-118657-A-41.wav      score 0.01 rank  28 top1 Vehicle
+  weakest chainsaw  4-157611-A-41.wav      score 0.01 rank  21 top1 Vehicle
+  weakest chainsaw  5-170338-A-41.wav      score 0.01 rank  23 top1 Vehicle
+  highest negative  1-46353-A-49.wav       (hand_saw      ) score 0.00 top1 Sawing
+  highest negative  1-7974-B-49.wav        (hand_saw      ) score 0.00 top1 Rub
+  highest negative  1-50454-A-44.wav       (engine        ) score 0.00 top1 Vehicle
+  highest negative  1-29561-A-10.wav       (rain          ) score 0.00 top1 Fire
+  highest negative  1-23706-A-49.wav       (hand_saw      ) score 0.00 top1 Sawing
+
+=== mn10_as  (39 ms per 5 s clip on this Mac CPU) ===
+chainsaw clips: top-1 29/40, top-5 35/40, score>=0.2 31/40, median score 0.53
+negative clips: score>=0.2 0/36, max score 0.00
+  weakest chainsaw  5-222524-A-41.wav      score 0.01 rank  26 top1 Vehicle
+  weakest chainsaw  4-157611-A-41.wav      score 0.02 rank  21 top1 Vehicle
+  weakest chainsaw  4-149294-B-41.wav      score 0.02 rank  10 top1 Chant
+  weakest chainsaw  4-149294-A-41.wav      score 0.02 rank  15 top1 Vehicle
+  weakest chainsaw  4-157611-B-41.wav      score 0.03 rank  14 top1 Vehicle
+  highest negative  1-46353-A-49.wav       (hand_saw      ) score 0.00 top1 Sawing
+  highest negative  1-23706-A-49.wav       (hand_saw      ) score 0.00 top1 Sawing
+  highest negative  1-9886-A-49.wav        (hand_saw      ) score 0.00 top1 Fire alarm
+  highest negative  1-7974-A-49.wav        (hand_saw      ) score 0.00 top1 Rub
+  highest negative  1-18810-A-49.wav       (hand_saw      ) score 0.00 top1 Rub
+
+=== dymn10_as  (44 ms per 5 s clip on this Mac CPU) ===
+chainsaw clips: top-1 30/40, top-5 35/40, score>=0.2 31/40, median score 0.64
+negative clips: score>=0.2 0/36, max score 0.00
+  weakest chainsaw  4-157611-A-41.wav      score 0.00 rank  42 top1 Vehicle
+  weakest chainsaw  1-47250-A-41.wav       score 0.01 rank  24 top1 Vehicle
+  weakest chainsaw  4-157611-B-41.wav      score 0.01 rank  25 top1 Vehicle
+  weakest chainsaw  5-222524-A-41.wav      score 0.02 rank  16 top1 Vehicle
+  weakest chainsaw  5-170338-A-41.wav      score 0.06 rank   6 top1 Vehicle
+  highest negative  1-46353-A-49.wav       (hand_saw      ) score 0.00 top1 Sawing
+  highest negative  1-7974-B-49.wav        (hand_saw      ) score 0.00 top1 Wood
+  highest negative  1-7974-A-49.wav        (hand_saw      ) score 0.00 top1 Rub
+  highest negative  1-29561-A-10.wav       (rain          ) score 0.00 top1 Rain on surface
+  highest negative  1-18527-A-44.wav       (engine        ) score 0.00 top1 Vehicle
