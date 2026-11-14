@@ -5,7 +5,8 @@ usage: python -m forestpulse_sensor.calibration.stagecheck 1m.wav 3m.wav 5m.wav 
 Each file is one board's 3-channel 16-bit recording while the buzzer, at the distance in the file's name, played
 its sweep 10 times (play_sweeps() below does that through the node's emit hook). For each file it reports how many
 beeps were found, the worst matched signal-to-noise, and how repeatably the mic-to-mic arrival differences came
-out. PASS needs every beep found and none weak, at least 15 dB, and a spread within 2 samples, in every file.
+out. PASS needs every beep found and none weak, at least 15 dB, and a spread within 2 samples, in every file, and
+at least one file at 5 m or farther (the hard case).
 """
 import argparse
 import re
@@ -17,11 +18,12 @@ from pathlib import Path
 
 import numpy as np
 
-from .detect import BOARD_MICS_M, detect
+from .detect import BOARD_MICS_M, find_beeps
 from .patterns import DEFAULT_PATTERNS, Pattern
 
 MIN_SNR_DB = 15.0
 MAX_SPREAD_SAMPLES = 2.0
+FAR_M = 5.0
 BEEPS = 10
 INTERVAL_S = 1.0
 
@@ -88,7 +90,7 @@ def check_file(path, pattern: Pattern, beeps: int = BEEPS, mic_positions_m=BOARD
         return row
 
     audio = np.frombuffer(raw, np.int16).reshape(-1, 3)
-    found = detect(audio, {"beep": pattern}, fs, mic_positions_m=mic_positions_m)
+    found = find_beeps(audio, {"beep": pattern}, fs, mic_positions_m=mic_positions_m)
     found = sorted(sorted(found, key=lambda d: -d.snr_db)[:beeps], key=lambda d: d.position)
     row.found = len(found)
     if not found:
@@ -112,15 +114,29 @@ def check_file(path, pattern: Pattern, beeps: int = BEEPS, mic_positions_m=BOARD
     return row
 
 
+@dataclass
+class Report:
+    rows: list
+    problems: list  # about the set of files as a whole
+
+    @property
+    def passed(self) -> bool:
+        return not self.problems and all(r.ok for r in self.rows)
+
+
 def stage_check(paths, pattern: Pattern = DEFAULT_PATTERNS["A"], beeps: int = BEEPS,
-                mic_positions_m=BOARD_MICS_M) -> tuple[list[Row], bool]:
+                mic_positions_m=BOARD_MICS_M) -> Report:
     """One row per file, sorted by distance, and whether the stage passes."""
     rows = [check_file(p, pattern, beeps, mic_positions_m) for p in paths]
     rows.sort(key=lambda r: (r.distance_m is None, r.distance_m or 0, r.file))
-    return rows, bool(rows) and all(r.ok for r in rows)
+    problems = []
+    if not any(r.distance_m is not None and r.distance_m >= FAR_M for r in rows):
+        problems.append(f"no recording at {FAR_M:g} m or farther")
+    return Report(rows, problems)
 
 
-def format_report(rows: list[Row], passed: bool) -> str:
+def format_report(report: Report) -> str:
+    rows = report.rows
     table = [("file", "distance", "beeps", "SNR", "spread", "result")]
     for r in rows:
         table.append((r.file,
@@ -131,7 +147,7 @@ def format_report(rows: list[Row], passed: bool) -> str:
                       "ok" if r.ok else "; ".join(r.problems)))
     widths = [max(len(line[i]) for line in table) for i in range(len(table[0]))]
     lines = ["  ".join(cell.ljust(w) for cell, w in zip(line, widths)).rstrip() for line in table]
-    return "\n".join(lines + ["PASS" if passed else "FAIL"])
+    return "\n".join(lines + report.problems + ["PASS" if report.passed else "FAIL"])
 
 
 def _pattern_arg(text):
@@ -150,9 +166,9 @@ def main(argv=None) -> int:
     ap.add_argument("--beeps", type=int, default=BEEPS, help="how many times the sweep was played")
     args = ap.parse_args(argv)
     pattern = args.pattern or DEFAULT_PATTERNS[args.role]
-    rows, passed = stage_check(args.wavs, pattern, args.beeps)
-    print(format_report(rows, passed))
-    return 0 if passed else 1
+    report = stage_check(args.wavs, pattern, args.beeps)
+    print(format_report(report))
+    return 0 if report.passed else 1
 
 
 if __name__ == "__main__":

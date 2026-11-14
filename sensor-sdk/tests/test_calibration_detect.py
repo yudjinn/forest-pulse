@@ -4,7 +4,7 @@ import sys
 
 import numpy as np
 import pytest
-from forestpulse_sensor.calibration import DEFAULT_PATTERNS, detect
+from forestpulse_sensor.calibration import DEFAULT_PATTERNS, find_beeps
 from forestpulse_sensor.calibration.render import render
 from forestpulse_sensor.calibration.stagecheck import play_sweeps
 
@@ -21,7 +21,7 @@ def test_each_roles_first_path_is_found_under_hall_noise_speech_and_an_echo(snr_
         rec = render(beeps, distance_m=1.0, level_db=snr_db, echo_gain=1.2, seed=seed)
         assert rec.snr_db == pytest.approx(snr_db)
 
-        found = [d for d in detect(rec.audio, DEFAULT_PATTERNS, FS) if not d.weak]
+        found = [d for d in find_beeps(rec.audio, DEFAULT_PATTERNS, FS) if not d.weak]
 
         assert [d.role for d in found] == ["A", "B", "C"], found
         for d, truth in zip(found, rec.positions):
@@ -30,8 +30,8 @@ def test_each_roles_first_path_is_found_under_hall_noise_speech_and_an_echo(snr_
             assert d.snr_db > 15
 
     # positions are in the caller's stream: a slice starting at sample 1000 of a stream reports 1000 + index
-    shifted = detect(rec.audio, DEFAULT_PATTERNS, FS, offset=1000)
-    assert [round(d.position - 1000, 6) for d in shifted] == [round(d.position, 6) for d in detect(
+    shifted = find_beeps(rec.audio, DEFAULT_PATTERNS, FS, offset=1000)
+    assert [round(d.position - 1000, 6) for d in shifted] == [round(d.position, 6) for d in find_beeps(
         rec.audio, DEFAULT_PATTERNS, FS)]
 
 
@@ -76,6 +76,9 @@ def test_stage_check_passes_a_good_stage_and_fails_a_quiet_buzzer_or_a_wrong_fil
     code, lines = stage_check(*(tmp_path / "quiet" / f"{m}m.wav" for m in (1, 3, 5)))
     assert code == 1 and lines[-1] == "FAIL", lines
     assert not lines[3].endswith("ok"), lines  # 5 m
+
+    code, lines = stage_check(tmp_path / "good" / "1m.wav", tmp_path / "good" / "3m.wav")  # the hard case untested
+    assert code == 1 and lines[-2:] == ["no recording at 5 m or farther", "FAIL"], lines
 
     good = render(beeps, distance_m=3, level_db=20, seed=3)
     good.write(tmp_path / "3m-stereo.wav", channels=2)

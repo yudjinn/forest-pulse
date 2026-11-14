@@ -4,7 +4,7 @@ Per mic, the recording is matched against each role's sweep with a phase-weighte
 the sweep's own magnitude spectrum is flattened, so only its phase is matched, over its band with a tapered edge.
 The output's envelope peaks where a copy of the sweep starts. Echoes come later than the direct sound, so the
 arrival is the first path: the earliest point within 15 ms before the main peak where the envelope reaches 0.3 of
-the peak and stands 10 dB above the noise, timed to a fraction of a sample on the output's carrier. A beep's
+the peak and stands 10 dB above the noise, timed to a fraction of a sample on the envelope's top. A beep's
 position is the mean of the mics' arrivals, in the caller's stream coordinates.
 
 The recording itself is not whitened. Whitening it by its own spectrum (classic PHAT) turns a wall echo on a
@@ -28,7 +28,8 @@ FIRST_PATH_WINDOW_MS = 15.0     # how far before the main peak the first path is
 FIRST_PATH_FRACTION = 0.3       # of the main peak
 FIRST_PATH_ABOVE_NOISE_DB = 10.0
 SPACING_SLACK_SAMPLES = 3.0     # mic-to-mic differences beyond the array's spacing by more than this are weak
-SMOOTH_HZ = 50.0                # spectral smoothing of the sweep's magnitude
+SMOOTH_HZ = 200.0               # spectral smoothing of the sweep's magnitude
+TINY = 1e-9
 QUIET_BEFORE_MS = 10.0          # a first path rises out of quiet: no crossing this long before it
 
 
@@ -59,7 +60,7 @@ def max_offset_samples(mic_positions_m, fs: float, speed_of_sound: float = DEFAU
     return spacing / speed_of_sound * fs
 
 
-def detect(audio, patterns: Mapping, fs: int, *, mic_positions_m=BOARD_MICS_M,
+def find_beeps(audio, patterns: Mapping, fs: int, *, mic_positions_m=BOARD_MICS_M,
            speed_of_sound: float = DEFAULT_SPEED_OF_SOUND, offset: float = 0, min_snr_db: float = DEFAULT_MIN_SNR_DB,
            min_separation_ms: float = 250.0) -> list[Detection]:
     """Every beep of every role in a 3-channel recording, sorted by position.
@@ -86,8 +87,8 @@ def detect(audio, patterns: Mapping, fs: int, *, mic_positions_m=BOARD_MICS_M,
 
     found = []
     for role, pattern in patterns.items():
-        out = _matched(spectrum, pattern, fs, nfft, n, width)
-        found += _beeps(out, role, pattern, fs, min_snr_db, min_separation_ms, allowance, offset)
+        env = _matched(spectrum, pattern, fs, nfft, n, width)
+        found += _beeps(env, role, pattern, fs, min_snr_db, min_separation_ms, allowance, offset)
 
     # one beep can show faintly in another role's filter: where two overlap, keep the whole one, then the stronger
     found.sort(key=lambda d: (d.weak, -d.snr_db))
@@ -100,8 +101,8 @@ def detect(audio, patterns: Mapping, fs: int, *, mic_positions_m=BOARD_MICS_M,
 
 
 def _matched(spectrum, pattern: Pattern, fs, nfft, n, width):
-    """The phase-weighted matched filter's analytic output per mic, (n, 3) complex; index = where the sweep would
-    start. Its magnitude is the envelope, its real part the carrier, both peaking where a copy of the sweep starts."""
+    """The envelope of the phase-weighted matched filter's output per mic, (n, 3); index = where the sweep would
+    start, so it peaks where a copy of the sweep starts."""
     template = np.fft.rfft(sweep(pattern, fs), nfft)
     t_weight = 1.0 / (_smooth(np.abs(template), width) + 1e-12)
     freqs = np.fft.rfftfreq(nfft, 1 / fs)
@@ -112,17 +113,15 @@ def _matched(spectrum, pattern: Pattern, fs, nfft, n, width):
     cross = spectrum * (np.conj(template) * t_weight * band)[:, None]
     analytic = np.zeros((nfft, 3), complex)
     analytic[:len(freqs)] = 2 * cross
-    return np.fft.ifft(analytic, axis=0)[:n]
+    return np.abs(np.fft.ifft(analytic, axis=0)[:n])
 
 
-def _beeps(out, role, pattern, fs, min_snr_db, min_separation_ms, allowance, offset):
-    env = np.abs(out)
+def _beeps(env, role, pattern, fs, min_snr_db, min_separation_ms, allowance, offset):
     n = len(env)
-    period = fs / (sum(pattern.band_hz) / 2)
     dur = len(sweep(pattern, fs))
     first_window = int(round(FIRST_PATH_WINDOW_MS * fs / 1000))
     quiet_before = int(round(QUIET_BEFORE_MS * fs / 1000))
-    noise = np.median(env, axis=0)
+    noise = np.maximum(np.median(env, axis=0), TINY)  # a dead mic has none
     combined = (env / noise).mean(axis=1)
     peaks = _peaks(combined, 10 ** (min_snr_db / 20), int(round(min_separation_ms * fs / 1000)))
     if not peaks:
@@ -132,7 +131,7 @@ def _beeps(out, role, pattern, fs, min_snr_db, min_separation_ms, allowance, off
     for k in peaks:
         quiet[max(0, k - dur - first_window):k + dur] = False
     if quiet.sum() > n // 10:
-        noise = np.median(env[quiet], axis=0)
+        noise = np.maximum(np.median(env[quiet], axis=0), TINY)
 
     reach = int(math.ceil(allowance)) + int(round(0.002 * fs))
     found = []
@@ -142,9 +141,8 @@ def _beeps(out, role, pattern, fs, min_snr_db, min_separation_ms, allowance, off
             e = env[:, m]
             lo, hi = max(0, k - reach), min(n, k + reach + 1)
             main = lo + int(np.argmax(e[lo:hi]))
-            snr = 20 * math.log10(e[main] / noise[m])
-            arrival = _first_path(out[:, m], main, noise[m], first_window, quiet_before, period) \
-                if snr >= min_snr_db else None
+            snr = 20 * math.log10(max(e[main], TINY) / noise[m])
+            arrival = _first_path(e, main, noise[m], first_window, quiet_before) if snr >= min_snr_db else None
             arrivals.append(None if arrival is None else offset + arrival)
             if arrival is not None:
                 snrs.append(snr)
@@ -161,34 +159,26 @@ def _beeps(out, role, pattern, fs, min_snr_db, min_separation_ms, allowance, off
     return found
 
 
-def _first_path(out, main, noise, window, quiet_before, period):
-    """Sub-sample start of the first path at or before the main peak at index `main`, or None when the envelope
-    does not rise out of quiet (it already crossed the level within quiet_before samples of that point), which is
-    how talk and other tonal sound looks: it matches a sweep loosely, over tens of milliseconds.
+def _first_path(e, main, noise, window, quiet_before):
+    """Sub-sample start of the first path at or before the main peak at index `main` of envelope e, or None when
+    the envelope does not rise out of quiet (it already crossed the level within quiet_before samples of that
+    point), which is how talk and other tonal sound looks: it matches a sweep loosely, over tens of milliseconds.
 
-    The envelope finds the first path's lobe; the carrier's crest nearest the lobe's top gives its time. The
-    envelope's own top is broad (the band is narrow next to its frequency), so a later echo's skirt would bend it
-    by a sample or more; the carrier's crest is several times sharper."""
-    e = np.abs(out)
+    Timed on the envelope, never on the carrier inside it: a real buzzer's phase response would make the carrier's
+    crest jump by a whole cycle (about 19 samples) between mics or beeps."""
     start = max(0, main - window)
     level = max(FIRST_PATH_FRACTION * e[main], noise * 10 ** (FIRST_PATH_ABOVE_NOISE_DB / 20))
     j = start + int(np.argmax(e[start:main + 1] >= level))
-    if (e[max(0, j - quiet_before):j] >= level).any() or j - quiet_before < 0:
+    if j - quiet_before < 0 or (e[j - quiet_before:j] >= level).any():
         return None
     while j < main and e[j + 1] >= e[j]:  # climb to the top of that lobe
         j += 1
-    half = int(period // 2)
-    lo, hi = max(1, j - half), min(len(out) - 1, j + half + 1)
-    if lo >= hi:
-        return float(j)
-    carrier = out.real
-    k = lo + int(np.argmax(carrier[lo:hi]))
-    if 0 < k < len(out) - 1:
-        a, b, c = carrier[k - 1], carrier[k], carrier[k + 1]
+    if 0 < j < len(e) - 1:
+        a, b, c = e[j - 1], e[j], e[j + 1]
         denom = a - 2 * b + c
         if denom < 0:
-            return k + 0.5 * (a - c) / denom
-    return float(k)
+            return j + 0.5 * (a - c) / denom
+    return float(j)
 
 
 def _peaks(s, threshold, separation):

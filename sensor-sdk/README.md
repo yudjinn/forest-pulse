@@ -161,8 +161,9 @@ Whether the stage and the buzzer are good enough to calibrate, from three record
 - **spread:** how much the arrival differences between the mics vary from beep to beep, in samples; it shows how
   precisely arrivals are found, whatever the buzzer's own timing.
 - **PASS** needs, in every file: all beeps found and none weak (a mic missed it, or the mics disagree by more than
-  the array allows), SNR at least 15 dB, spread at most 2 samples. Otherwise the row says why and the check ends
-  with **FAIL** (exit code 1); a file that is not 3-channel 16-bit, or has no beep, is a fail too.
+  the array allows), SNR at least 15 dB, spread at most 2 samples; and at least one file at 5 m or farther.
+  Otherwise the row (or a line under the table) says why and the check ends with **FAIL** (exit code 1); a file
+  that is not 3-channel 16-bit, or has no beep, is a fail too.
 
 A FAIL means: don't rely on calibration on this stage; place the sensors by hand. If the service's sweeps were
 retuned, pass the one played: `--pattern 1500,2500,3500,120`.
