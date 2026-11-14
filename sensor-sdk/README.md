@@ -5,84 +5,119 @@ sends events (sound, confidence, time, angle) and keeps its sound list in sync. 
 it implements is [docs/device-api.md](../docs/device-api.md).
 
 ```
-ESP32 packets ─► your code (atech-serial-listener) ─► sensor.feed() ─► model + detectors ─► events ─► server
-                                                         angle_fn(window) ◄─┘ (your bearing code)
+ESP32 packets ─► atech-serial-listener ─► sensor.feed_channels() ─► model + detectors ─► events ─► server
+                                              angle_fn(window) ◄─┘ (your bearing code)
 ```
 
-## Install
+## Quick start on the Uno Q
 
-Python 3.11+. Dependencies: `numpy`, `onnxruntime` (prebuilt for Linux ARM64). The 20 MB model ships inside the
-package.
+1. **Add the dependency.** Put this line in `soc/atech-serial-listener/python/requirements.txt` (next to
+   `main.py`; App Lab installs it into the app's environment when the app runs):
 
-```sh
-pip install ./sensor-sdk            # or add the folder to the app's requirements
-python -m forestpulse_sensor.selftest
-```
+   ```
+   forestpulse-sensor @ https://github.com/yudjinn/forest-pulse/archive/refs/heads/main.zip#subdirectory=sensor-sdk
+   ```
 
-`selftest` checks this machine produces the reference model output and prints how long one 10 s window takes.
-Run it on the Uno Q first.
+   No git needed. Installs `numpy` and `onnxruntime` (prebuilt for Linux ARM64) and the bundled 20 MB model;
+   about 130 MB in total. Checked on Linux ARM64 with Python 3.13.
 
-## Use it in the Uno Q app
+2. **Check the board computes the right thing, and how fast.** In the app's Python environment (or any Python 3.11+
+   on the board with the package installed):
 
-Config file (TOML):
+   ```sh
+   python -m forestpulse_sensor.selftest
+   ```
 
-```toml
-server_url = "https://forestpulse.paxid.com"   # or the dev server, see below
-sensor_key = "..."                              # the shared sensor key
-sensor_id = "node-01"                           # optional, defaults to the hostname
-state_dir = "/app/data/forestpulse"             # must survive restarts: queued events and the sound list live here
-```
+   Three `PASS` lines and the time per 10 s window. Please send us that number.
 
-In `soc/atech-serial-listener/python/main.py`:
+3. **Create `forestpulse.toml` next to `main.py`:**
 
-```python
-from forestpulse_sensor import Sensor, board_to_angle
+   ```toml
+   server_url = "http://<laptop-ip>:8787"   # dev server for now, see below; later https://forestpulse.paxid.com
+   sensor_key = "dev-key"
+   sensor_id = "node-01"                     # optional, defaults to the hostname; must differ per board
+   ```
 
-def bearing(window):
-    """window: (N, 3) int16 at 48 kHz, the audio that was just classified. Return degrees, (degrees, 0-1
-    confidence) or None. Degrees are clockwise from the board's forward; board_to_angle() converts a
-    counter-clockwise board-frame bearing as in soc/README.md."""
-    theta, confidence = my_srp_phat(window)            # your code
-    return board_to_angle(theta), confidence
+   Queued events and the cached sound list are kept in `forestpulse-state/` next to this file, so they survive
+   restarts as long as the app folder does.
 
-sensor = Sensor.from_file("/app/forestpulse.toml", angle_fn=bearing).start()
+4. **Wire it into `main.py`:**
 
-def on_audio(packet, mics, break_before: bool, frame_offset: int) -> None:
-    sensor.feed_channels(mics, break_before=break_before or frame_offset == 0)
+   ```python
+   from pathlib import Path
+   from forestpulse_sensor import Sensor, board_to_angle
 
-# in EventTracker._end(), after the END packet:
-#     sensor.end_of_audio()
-```
+   def bearing(window):
+       """window: (N, 3) int16 at 48 kHz, exactly the audio that was just classified.
+       Return degrees, (degrees, confidence 0-1), or None if unsure."""
+       theta, confidence = my_srp_phat(window)        # your code, board frame as in soc/README.md
+       return board_to_angle(theta), confidence
+
+   sensor = Sensor.from_file(Path(__file__).with_name("forestpulse.toml"), angle_fn=bearing).start()
+
+   def on_audio(packet, mics, break_before: bool, frame_offset: int) -> None:
+       sensor.feed_channels(mics, break_before=break_before or frame_offset == 0)
+
+   # and at the end of EventTracker._end(), after the END packet:
+   #     sensor.end_of_audio()
+   ```
+
+   Until the bearing code exists, leave out `angle_fn`; events then arrive without an angle.
+
+5. **Run a dev server on a laptop on the same network** (until ours is deployed):
+
+   ```sh
+   pip install ./sensor-sdk
+   python -m forestpulse_sensor.devserver --host 0.0.0.0 --port 8787 --key dev-key
+   ```
+
+   It prints every event the board sends. Play a chainsaw near the mics and you should see
+   `node-01: chainsaw 0.9x angle ...`.
+
+## Angle convention
+
+The API wants degrees **clockwise from the board's forward**, 0 to 360, seen from above. Forward must be marked on
+the board. `board_to_angle(theta)` converts the counter-clockwise board-frame bearing from `soc/README.md`
+(0 = toward mic 2, 90 = top edge), assuming forward is the **top edge, away from mic 3**. If forward is another
+edge, pass it: `board_to_angle(theta, forward_ccw_deg=0)` means forward points toward mic 2.
+
+## What the library does with the audio
 
 - `feed()` / `feed_channels()` only queue audio and return immediately, so the USB reader never stalls. The model
-  runs on its own thread.
-- Each burst is analysed every 2 s on its latest 10 s (shorter at the start of a burst, repeated to fill 10 s).
-  `angle_fn` is called only for windows that produced a detection, with exactly that audio.
+  runs on its own thread (2 cores).
+- Each burst is analysed every 2 s on its latest 10 s; shorter at the start of a burst, repeated to fill 10 s, which
+  the model needs. `angle_fn` runs only for windows that produced a detection.
 - The same sound is reported at most once every 5 s.
-- Running the model yourself instead (for example with PyTorch): call `sensor.report(scores, embedding, angle_deg,
-  angle_confidence)` per window and skip `feed()`. Your scores and embedding must match the reference: run your
-  pipeline on `forestpulse_sensor/data/reference/*.wav` and compare with `expected.json` (embedding cosine
-  similarity above 0.999). It must use 32 kHz mono, 10 s windows, shorter windows repeated to fill 10 s.
+- The model is loaded once at `start()` (well under a second) and stays in memory (about 120 MB). Between bursts it
+  uses no CPU.
+
+## Testing without the ESP32
+
+```sh
+python -m forestpulse_sensor.replay capture.wav            # local stand-in server, prints what is heard
+python -m forestpulse_sensor.replay --angle 45 capture.wav # pretend the bearing code said 45 degrees
+python -m forestpulse_sensor.replay --config forestpulse.toml capture.wav   # send to a real server
+```
+
+Any 16-bit WAV, for example the receiver's 3-channel captures. Each file is played as one burst.
 
 ## When things go wrong
 
-- **No network or server down:** keeps detecting with the last sound list it had (the built-in one before the
-  first check-in), queues up to 500 events on disk (oldest dropped first) and delivers them when the server is
-  back, each exactly once.
+- **No network or server down:** keeps detecting with the last sound list it had (a built-in one before the first
+  check-in), queues up to 500 events on disk (oldest dropped first) and delivers each exactly once when the server
+  is back.
 - **Wrong sensor key:** logs `sensor key rejected` and keeps everything queued; fixing the key delivers it.
-- **Server sends a broken sound list:** keeps the previous list, logs why.
+- **Server sends a broken sound list:** keeps the previous list and logs why.
 - **Model or `angle_fn` raises:** logged; the window is skipped or reported without an angle.
+- **Analysis more than 60 s behind:** drops the oldest audio and logs it, rather than blocking the reader.
 - `sensor.status` gives sound list version, queue length, dropped count, key state and last successful check-in.
 
-## Before the real server exists
+## Running the model yourself instead
 
-```sh
-python -m forestpulse_sensor.devserver --host 0.0.0.0 --port 8787 --key dev-key
-```
-
-A local stand-in implementing the same API in memory. It prints every event. Point `server_url` at
-`http://<laptop-ip>:8787` with `sensor_key = "dev-key"`. `PUT /dev/sounds` replaces the sound list,
-`GET /dev/events` lists what arrived.
+If you keep your own model pipeline, call `sensor.report(scores, embedding, angle_deg, angle_confidence)` per window
+and don't call `feed()`. It must match ours exactly: 32 kHz mono, 10 s windows, shorter ones repeated to fill 10 s.
+Run your pipeline on `forestpulse_sensor/data/reference/*.wav` and compare with `expected.json` (embedding cosine
+similarity above 0.999). Using the bundled model through `feed()` avoids all of this.
 
 ## Laptop as a sensor (stage backup)
 

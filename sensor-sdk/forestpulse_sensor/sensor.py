@@ -65,12 +65,16 @@ class Sensor:
 
     @classmethod
     def from_file(cls, path: str, **overrides) -> "Sensor":
-        """TOML file with server_url, sensor_key and optionally sensor_id, state_dir."""
+        """TOML file with server_url, sensor_key and optionally sensor_id, state_dir. A relative state_dir, and the
+        default one, live next to the config file, so they survive wherever the config file does."""
         import tomllib
 
-        with open(os.path.expanduser(path), "rb") as f:
+        path = os.path.abspath(os.path.expanduser(str(path)))
+        with open(path, "rb") as f:
             cfg = tomllib.load(f)
         cfg.update(overrides)
+        state = os.path.expanduser(cfg.get("state_dir", "forestpulse-state"))
+        cfg["state_dir"] = state if os.path.isabs(state) else os.path.join(os.path.dirname(path), state)
         return cls(**cfg)
 
     # ---- lifecycle -------------------------------------------------------------------------------------------
@@ -128,6 +132,12 @@ class Sensor:
         """For callers that run the model themselves: score one window and queue its events. Returns them."""
         return self._report(np.asarray(scores), np.asarray(embedding), detected_at or time.time(),
                             lambda: (angle_deg, angle_confidence))
+
+    @property
+    def backlog_seconds(self) -> float:
+        """Audio queued but not yet analysed."""
+        with self._backlog_lock:
+            return self._backlog_frames / self.sample_rate
 
     @property
     def status(self) -> dict:
