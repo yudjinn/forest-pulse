@@ -4,7 +4,8 @@
 // the sounds journey's own service = base + 4 (inspector base + 5), base + 6 to base + 7 reserved,
 // the plan journey's own service = base + 8 (inspector base + 9).
 // A second block, base + 50 to base + 59, holds five more pairs for journeys that need their own fresh service:
-// the activities journey = base + 50 (inspector base + 51), base + 52 to base + 59 reserved.
+// the activities journey = base + 50 (inspector base + 51), the location journey = base + 52 (inspector base + 53),
+// base + 54 to base + 59 reserved.
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -26,6 +27,8 @@ export const soundsServicePorts = { appPort: portBase + 4, inspectorPort: portBa
 export const planServicePorts = { appPort: portBase + 8, inspectorPort: portBase + 9 };
 // The activities journey's own service: it clears every event, which other journeys on the shared service read.
 export const activitiesServicePorts = { appPort: portBase + 50, inspectorPort: portBase + 51 };
+// The location journey's own service: it needs a plan of its own and no other sensor hearing a chainsaw.
+export const locationServicePorts = { appPort: portBase + 52, inspectorPort: portBase + 53 };
 
 export const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Local D1 and R2 state for this server only; wiped when it starts. Keyed by the app port, which is the port base

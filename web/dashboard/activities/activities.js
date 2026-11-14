@@ -18,7 +18,8 @@ const confirm = /** @type {HTMLDialogElement} */ (section.querySelector(".activi
 
 /**
  * @typedef {{ category: string, sounds: string[], sensors: string[], first_at: string, last_at: string,
- *   event_count: number }} Activity
+ *   event_count: number, location: { x_m: number, y_m: number,
+ *   distances: { sensor_id: string, distance_m: number }[] } | null }} Activity
  */
 
 let clearing = false;
@@ -62,6 +63,10 @@ function card(a) {
     line("activity-meta", first === last ? first : `${first} to ${last}`),
     line("activity-meta", a.sensors.join(", ")),
   );
+  if (a.location) {
+    body.append(line("activity-meta", a.location.distances
+      .map((d) => `${d.distance_m.toFixed(1)} m from ${d.sensor_id}`).join(", ")));
+  }
   item.append(badge, body);
   return item;
 }
