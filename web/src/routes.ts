@@ -8,7 +8,7 @@ import { signIn, signInPage } from "./auth/signin.ts";
 import { checkin, soundList } from "./api/checkin.ts";
 import { postEvents } from "./api/events.ts";
 import { listEvents } from "./eventlog.ts";
-import { listSounds, switchSound } from "./sounds/sounds.ts";
+import { deleteSound, listSounds, switchSound } from "./sounds/sounds.ts";
 import { listSamples, sampleAudio } from "./player/player.ts";
 import { listPlan, placeOnCheckin, placeSensor, removeSensor } from "./sensors/plan.ts";
 import { clearEvents, listActivities } from "./activities/activities.ts";
@@ -24,6 +24,7 @@ export const routes: Route[] = [
   { method: "POST", path: "/api/v1/sensors/:sensor/events", access: "sensor", handle: postEvents },
   { method: "GET", path: "/dashboard/api/sounds", access: "researcher", handle: listSounds },
   { method: "PATCH", path: "/dashboard/api/sounds/:sound", access: "researcher", handle: switchSound },
+  { method: "DELETE", path: "/dashboard/api/sounds/:sound", access: "researcher", handle: deleteSound },
   { method: "GET", path: "/dashboard/api/player/samples", access: "researcher", handle: listSamples },
   { method: "GET", path: "/dashboard/api/player/samples/:file", access: "researcher", handle: sampleAudio },
   { method: "GET", path: "/dashboard/api/sensors", access: "researcher", handle: listPlan },

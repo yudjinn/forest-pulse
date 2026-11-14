@@ -8,13 +8,13 @@ Basis: each worktree builds its own web/dist, runs its own local Worker on ports
 Lock: ~/.agents/skills/_workflow-shared/scripts/e2e-lock.sh --capacity 3 -- scripts/test-all.sh. Two runs in one worktree are not supported: they share web/dist.
 
 ## Verification cost
-Full suite: 35 to 40 s wall clock (typecheck, 28 to 30 s for the 8 web journeys including the local service starts and the bucket seed, 6 s sensor library), measured twice on 2026-11-14 after wave 2 (service core, sounds, player) under a machine load average near 30 (budget 6 min). Re-measure when the journeys grow; no affected-only mode, run one spec instead.
+Full suite: about 1 min 45 s wall clock (typecheck, 1.6 to 1.7 min for the 22 web journeys and focused tests, 6 s sensor library), measured on 2026-11-14 after wave 3 (plan, activities, location, teaching) by the wave gate and again at a load average near 9; the longest journeys run their own service and wait real time (plan: the 30 s offline rule; location: two 15 s line expiries). Budget 6 min. Re-measure when the journeys grow; no affected-only mode, run one spec instead.
 Workers per run: 2. Worker budget: 6 browser workers across all concurrent heavy runs. Heavy-job capacity on this machine: 3 at once (10 cores, 64 GB). Basis: 3 full suites on separate worktrees and bases ran concurrently, all green, 2026-11-14.
 Fast typecheck: cd web && npm run typecheck. Lint changed files: no linter is configured; typecheck is the gate.
 Fast development loop: FP_E2E_PORT_BASE=<base> npm run serve in web/, then reload the browser.
 
 ## Ports
-FP_E2E_PORT_BASE=8800; app = base, inspector = base+1, base+2 to base+9 reserved. A second block, base+50 to base+59 (five pairs), serves journeys that need their own fresh service, one pair each; the activities journey takes base+50/+51. Overrides: FP_E2E_APP_PORT, FP_E2E_INSPECTOR_PORT. Derived only in web/tests/ports.ts.
+FP_E2E_PORT_BASE=8800; app = base, inspector = base+1, base+2 to base+9 reserved. A second block, base+50 to base+59 (five pairs), serves journeys that need their own fresh service, one pair each; the activities journey takes base+50/+51, the location journey base+52/+53, the rehearsal journey base+54/+55. Overrides: FP_E2E_APP_PORT, FP_E2E_INSPECTOR_PORT. Derived only in web/tests/ports.ts.
 Orchestrator allocation: wave gate uses base 8800; implementers take base 8810, 8820, 8830.
 
 ## Running one spec
