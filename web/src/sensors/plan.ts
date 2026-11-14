@@ -1,7 +1,8 @@
 // The sensors on the plan: where each stands and faces, its name, whether it is online, whether two running
-// devices share its id, and whether it has the current sound list. A sensor joins the plan on check-in (the check-in hook), researchers move, turn and remove
-// it, and everything that needs a sensor's placement or online state reads it through readPlan; everything that
-// shows a sensor to researchers names it through sensorNames.
+// devices share its id, whether it has the current sound list, and its trigger health. A sensor joins the plan on
+// check-in (the check-in hook), researchers move, turn and remove it, and everything that needs a sensor's placement
+// or online state reads it through readPlan; everything that shows a sensor to researchers names it through
+// sensorNames.
 // Plan metres: x to the right, y up. Facing: degrees clockwise from the plan's up, 0 to under 360.
 import type { Env } from "../env.ts";
 import { type SensorCheckin, soundListVersion } from "../api/intake.ts";
@@ -51,6 +52,25 @@ export async function noteSoundListCheckin(db: D1Database, id: string): Promise<
   return (list.results[0] as { version: number } | undefined)?.version ?? 0;
 }
 
+// A sensor's trigger values (docs/device-api.md, "Trigger health"): only the keys whose value is known.
+export type Trigger = { snr_db?: number; ratio_db?: number; coherence?: number };
+
+// Check-in only (never an event delivery): stores the trigger health this check-in carried, replacing what the
+// last one did, so a value the board stopped reporting is gone and an older library's check-in clears it all.
+// Validated loosely: a value that is not as the contract describes is dropped, never a reason to refuse the check-in.
+export async function noteTriggerHealth(db: D1Database, id: string, body: Record<string, unknown>): Promise<void> {
+  const per = body.recordings_per_min;
+  const recordings = typeof per === "number" && Number.isSafeInteger(per) && per >= 0 ? per : null;
+  const t = body.trigger;
+  const trigger = typeof t === "object" && t !== null && !Array.isArray(t) ? t as Record<string, unknown> : {};
+  const value = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  await db.prepare(
+    `UPDATE sensors SET recordings_per_min = ?2, trigger_snr_db = ?3, trigger_ratio_db = ?4, trigger_coherence = ?5,
+       noise_floor_dbfs = ?6 WHERE id = ?1`,
+  ).bind(id, recordings, value(trigger.snr_db), value(trigger.ratio_db), value(trigger.coherence),
+    value(body.noise_floor_dbfs)).run();
+}
+
 // How far the current sound list has reached: the sensors on the plan, online or not, and how many of them last
 // reported the current version. A statement, so a caller reads it in the same batch as the version it counts against.
 export const soundListReach = (db: D1Database) => db.prepare(
@@ -78,12 +98,19 @@ export interface PlanSensor {
   shared_name: boolean;
   // Whether it has the current sound list (soundListState).
   sound_list: SoundListState;
+  // Its trigger health as last reported, kept while it is offline (noteTriggerHealth).
+  recordings_per_min: number | null;
+  trigger: Trigger | null;
+  noise_floor_dbfs: number | null;
 }
 
-interface PlanRow extends Omit<PlanSensor, "name" | "online" | "shared_name" | "sound_list"> {
+interface PlanRow extends Omit<PlanSensor, "name" | "online" | "shared_name" | "sound_list" | "trigger"> {
   instances: number;
   sound_list_behind: number;
   current_version: number;
+  trigger_snr_db: number | null;
+  trigger_ratio_db: number | null;
+  trigger_coherence: number | null;
 }
 
 // The sensors on the plan (removed ones excluded), by number, so "plan order" is Sensor 1 first; only those named
@@ -92,15 +119,22 @@ export async function readPlan(db: D1Database, now: number, ids?: string[]): Pro
   const rows = await db.prepare(
     `SELECT p.sensor_id AS id, p.number, p.x_m, p.y_m, p.facing_deg, s.last_checkin_at, s.sdk_version, s.model,
        s.sound_list_version, s.sound_list_behind, (SELECT version FROM sound_list WHERE id = 1) AS current_version,
+       s.recordings_per_min, s.trigger_snr_db, s.trigger_ratio_db, s.trigger_coherence, s.noise_floor_dbfs,
        (SELECT COUNT(*) FROM sensor_instances i WHERE i.sensor_id = p.sensor_id AND i.last_checkin_at > ?1) AS instances
      FROM sensor_placements p JOIN sensors s ON s.id = p.sensor_id
      WHERE p.removed = 0 AND (?2 IS NULL OR p.sensor_id IN (SELECT value FROM json_each(?2)))
      ORDER BY p.number IS NULL, p.number, p.seq`,
   ).bind(now - SHARED_NAME_WINDOW_MS, ids ? JSON.stringify(ids) : null).all<PlanRow>();
-  return rows.results.map(({ instances, sound_list_behind, current_version, ...r }) => {
+  return rows.results.map(({ instances, sound_list_behind, current_version, trigger_snr_db, trigger_ratio_db,
+    trigger_coherence, ...r }) => {
     const online = isOnline(r.last_checkin_at, now);
+    const trigger: Trigger = {};
+    if (trigger_snr_db !== null) trigger.snr_db = trigger_snr_db;
+    if (trigger_ratio_db !== null) trigger.ratio_db = trigger_ratio_db;
+    if (trigger_coherence !== null) trigger.coherence = trigger_coherence;
     return {
       ...r,
+      trigger: Object.keys(trigger).length ? trigger : null,
       name: r.number === null ? r.id : sensorName(r.number),
       online,
       shared_name: instances >= 2,

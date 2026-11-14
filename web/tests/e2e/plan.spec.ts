@@ -1,5 +1,6 @@
 // Sensor plan journey: sensors join the plan when they first check in and are named Sensor 1, 2, 3, researchers
-// place and turn them, the plan shows each sensor's health and flags sensors behind on the sound list, and removing
+// place and turn them, the plan shows each sensor's health and trigger health and flags sensors behind on the sound
+// list, and removing
 // and returning sensors frees and reuses their numbers. Runs on its own fresh service, so the first sensor here is
 // the first one ever, and changing its sound list touches no other journey.
 import { mkdtempSync } from "node:fs";
@@ -54,7 +55,10 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     const silence = silentWav(1);
     const a = uniqueSensorId("plan-a");
     const b = uniqueSensorId("plan-b");
-    await replay({ sensorId: a, wavs: [silence], serverUrl: service.url });
+    // a records three bursts. Each is long enough that the replay waits on its own analysis and is still running at
+    // its next check-in (1 s apart), which carries the count; with short bursts the replay can stop first.
+    const burst = silentWav(15);
+    await replay({ sensorId: a, wavs: [burst, burst, burst], serverUrl: service.url });
     await replay({ sensorId: b, wavs: [referenceClip("chainsaw.wav")], serverUrl: service.url });
     const cardA = card(page, a);
     const cardB = card(page, b);
@@ -76,6 +80,8 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(cardB.getByText("Online", { exact: true })).toBeVisible();
     await expect(cardB.getByText(/^\d{2}:\d{2}:\d{2}$/)).toBeVisible();
     await expect(cardB.getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list (\d+|unknown)$/)).toBeVisible();
+    // a's board (the library, no trigger health hook) reports how many bursts it recorded in the last minute.
+    await expect(cardA.getByText("3 recordings/min", { exact: true })).toBeVisible();
 
     // A second researcher watches the same plan.
     const other = await context.newPage();
@@ -149,6 +155,22 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(card(page, c).getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list \d+$/)).toBeVisible();
     await expect(cardA.getByText("Two devices share this id")).toBeHidden();
 
+    // c's board has a trigger health hook: it checks in (through the library's own client, keeping what c last
+    // reported) with its trigger values and its noise floor. One value is not a number: the service drops it and
+    // the check-in still stands. A key the contract does not name is ignored. The card keeps the values in their
+    // places, "?" for the missing one.
+    const cNow = (await (await page.request.get("/dashboard/api/sensors")).json()).sensors
+      .find((s: { id: string }) => s.id === c);
+    await asSensor(c, [{
+      call: "checkin",
+      fields: {
+        sdk_version: cNow.sdk_version, model: cNow.model, sound_list_version: cNow.sound_list_version,
+        recordings_per_min: 12, trigger: { snr_db: 4, ratio_db: "high", coherence: 0.6, gain_db: 6 }, noise_floor_dbfs: -52,
+      },
+    }], undefined, service.url);
+    const cHealth = "12 recordings/min · trigger 4 dB / ? / 0.60 · floor -52 dBFS";
+    await expect(card(page, c).getByText(cHealth, { exact: true })).toBeVisible({ timeout: 3000 });
+
     // a stopped checking in long ago and shows offline; c just checked in and is online, with the current sound list.
     await expect(cardA.getByText("Offline", { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(card(page, c).getByText("Online", { exact: true })).toBeVisible();
@@ -172,13 +194,18 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(card(page, c).getByText("Outdated sound list")).toBeVisible({ timeout: 3000 });
     await expect(card(page, c).getByText("Updating", { exact: true })).toBeHidden();
     await expect(marker(page, "Sensor 3")).toHaveAccessibleName("Move Sensor 3, outdated sound list");
+    // An offline sensor keeps its last trigger health.
+    await expect(card(page, c).getByText(cHealth, { exact: true })).toBeVisible();
 
     // a checks in with the current list, then three times reporting the old list without fetching the new one:
     // updating after the first and second such check-in, outdated after the third, though it is online.
     const current: number = (await (await page.request.get("/dashboard/api/sounds")).json()).version;
     expect(current).toBe(old + 1);
+    // These check-ins carry no trigger health, as an older library's do: a's card shows none.
     await asSensor(a, [{ call: "checkin", fields: { sound_list_version: current } }], undefined, service.url);
     await expect(cardA.getByText("Online", { exact: true })).toBeVisible({ timeout: 3000 });
+    await expect(cardA.getByText("Trigger health", { exact: true })).toBeHidden();
+    await expect(cardA.getByText(/recordings\/min/)).toBeHidden();
     await expect(cardA.getByText("Updating", { exact: true })).toBeHidden();
     await expect(cardA.getByText("Outdated sound list")).toBeHidden();
     const behind = { call: "checkin" as const, fields: { sound_list_version: old } };

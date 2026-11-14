@@ -4,7 +4,7 @@ import { json } from "../http.ts";
 import { logLine } from "../log.ts";
 import { MAX_SENSOR_ID, badRequest, readBody, registerSensor } from "./intake.ts";
 import { calibrationCheckin } from "../calibration/calibration.ts";
-import { noteSoundListCheckin } from "../sensors/plan.ts";
+import { noteSoundListCheckin, noteTriggerHealth } from "../sensors/plan.ts";
 import { warningCheckin } from "../warnings/warnings.ts";
 
 export const MODEL = "mn10_as";
@@ -22,6 +22,7 @@ export async function checkin(request: Request, { env, params, hooks }: RouteCon
     queued_events: int(body.queued_events),
     clock_offset_ms: offsetMs,
   }, now);
+  await noteTriggerHealth(env.DB, params.sensor, body);
   // While the sensor takes part in a calibration run, the reply carries the run (docs/device-api.md). A failure there
   // is logged and the check-in still stands, like an intake hook's.
   let calibration = null;
