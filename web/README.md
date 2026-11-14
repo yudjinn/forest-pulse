@@ -17,6 +17,11 @@ Python 3 and Wrangler 4 are the only build and deployment tools required.
   polling with the connection-lost banner.
 - `migrations/` the D1 schema and the seeded sound list.
 - `tests/` the journey harness and journeys.
+- `bucket/teach/` what teaching a new sound trains against: the summaries of other
+  sounds and the hall background, rebuilt by
+  `../experiments/efficientat-chainsaw/build_negative_library.py`. The Teach page
+  runs the sensors' own model file in the browser; the build copies it and ONNX
+  Runtime's WebAssembly files (pinned in `package.json`) to `/model/`.
 
 Secrets the Worker reads: `DASHBOARD_PASSWORD`, `DEVICE_KEY` and
 `SESSION_SECRET`, set on the live Worker. Locally they come from the untracked
