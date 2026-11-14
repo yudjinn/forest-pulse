@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#0B4827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <title>Vehicle</title>
+  <path d="M4.5 17H2.5V7h11v10"/>
+  <path d="M13.5 10h4l3 3.5V17h-1.5"/>
+  <path d="M8.5 17h6"/>
+  <circle cx="6.5" cy="17" r="2"/>
+  <circle cx="16.5" cy="17" r="2"/>
+</svg>

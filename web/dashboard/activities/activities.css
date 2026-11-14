@@ -1,0 +1,140 @@
+/* Suspected activities on the overview page: one card per activity, the Clear events action and its confirmation. */
+.activities-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 4px;
+}
+
+.activities-head h2 {
+  margin: 0;
+}
+
+#activities button.secondary,
+.activities-clear {
+  background: #fff;
+  color: var(--evergreen);
+  border: 1px solid var(--line);
+}
+
+.activities-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#activities > .error {
+  margin-top: 8px;
+}
+
+.activity-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.activity-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--ivory);
+}
+
+.activity-poaching .activity-icon {
+  background: var(--alert-bg);
+}
+
+.activity-icon img {
+  display: block;
+}
+
+.activity-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.activity-body p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.activity-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.activity-title h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.activity-count,
+.activity-meta {
+  color: var(--muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-count {
+  flex: none;
+}
+
+.activities-empty {
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+
+.activities-confirm {
+  width: min(100% - 32px, 400px);
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--evergreen);
+}
+
+.activities-confirm::backdrop {
+  background: rgb(11 72 39 / 0.35);
+}
+
+.activities-confirm p {
+  margin: 0 0 16px;
+}
+
+.activities-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#activities button.danger {
+  background: var(--alert);
+  color: #fff;
+}
+
+@media (max-width: 480px) {
+  .activity-list {
+    grid-template-columns: 1fr;
+  }
+}
