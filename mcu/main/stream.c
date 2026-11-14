@@ -168,17 +168,17 @@ static void send_info(void)
     const int n = snprintf(
         line, sizeof line,
         "INFO idf=%s cpu_mhz=%d psram=%u rate=%" PRIu32 " ring_frames=%" PRIu32 " pre_frames=%" PRIu32
-        " uptime_ms=%" PRIu64 " write_idx=%" PRIu64 " state=%s rms_dbfs=%.1f floor_dbfs=%.1f ratio_db=%.1f coherence=%.2f"
+        " uptime_ms=%" PRIu64 " write_idx=%" PRIu64 " state=%s rms_dbfs=%.1f floor_dbfs=%.1f ratio_db=%.1f coherence=%.2f tone_db=%.1f"
         " events=%" PRIu32 " packets=%" PRIu32 " overruns=%" PRIu32 " streaming=%d avg_block_us=%" PRIu32
-        " max_block_us=%" PRIu32 " internal_free=%u crc_ok=%d src=%s cam_no_data=%d locked=%d"
+        " max_block_us=%" PRIu32 " internal_free=%u crc_ok=%d core0_load_pct=%.1f src=%s cam_no_data=%d locked=%d"
         " eofs=%" PRIu32 " sync_losses=%" PRIu32 " dma_overruns=%" PRIu32 " short_desc=%" PRIu32
         " stalls=%" PRIu32 " m1_dbfs=%.1f m2_dbfs=%.1f m3_dbfs=%.1f tog_bclk=%" PRIu32 " tog_ws=%" PRIu32 " tog_sd1=%" PRIu32 " tog_sd2=%" PRIu32 " tog_sd3=%" PRIu32
         " desc0_len=%" PRIu32 " buf_nonzero=%" PRIu32 "\n",
         esp_get_idf_version(), esp_clk_cpu_freq() / 1000000, (unsigned)esp_psram_get_size(), FE_SAMPLE_RATE,
         FE_RING_FRAMES, FE_PRE_FRAMES, (uint64_t)(esp_timer_get_time() / 1000), ring_write_idx(),
-        trigger_state_name(t.state), t.rms_dbfs, t.floor_dbfs, t.ratio_db, t.coherence, t.events, s_packets, s_overruns,
+        trigger_state_name(t.state), t.rms_dbfs, t.floor_dbfs, t.ratio_db, t.coherence, t.tone_db, t.events, s_packets, s_overruns,
         s_ev.active, c.avg_block_us, c.max_block_us, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
-        pkt_crc_self_test(), c.mics ? "mics" : "synth", c.no_data, c.locked, c.eofs, c.sync_losses,
+        pkt_crc_self_test(), c.load_permille / 10.0f, c.mics ? "mics" : "synth", c.no_data, c.locked, c.eofs, c.sync_losses,
         c.dma_overruns, c.short_desc, c.stalls, c.ch_dbfs[0], c.ch_dbfs[1], c.ch_dbfs[2], c.toggles_bclk,
         c.toggles_ws, c.toggles_sd1, c.toggles_sd2, c.toggles_sd3, c.desc0_len, c.buf_nonzero);
     usb_link_write(line, (size_t)n, pdMS_TO_TICKS(500));

@@ -21,7 +21,7 @@
 #include "synth_source.h"
 #endif
 
-static const char *TAG = "capture";
+static const char *TAG __attribute__((unused)) = "capture";  // unused in synthetic builds
 
 #define RAW_BYTES 256u
 #define STARTUP_DISCARD_BLOCKS (200u / FE_BLOCK_MS)  // ICS-43434 settling
@@ -166,7 +166,10 @@ static void capture_task(void *arg)
         return;
     }
     uint32_t next = 0;  // next descriptor to consume (DMA started at desc 0)
+    int64_t busy_us = 0;
+    int64_t window_start = esp_timer_get_time();
     for (;;) {
+        const int64_t t_busy = esp_timer_get_time();
         s_diag.eofs++;
         // If the EOFs still queued behind this one span (almost) the whole
         // DMA ring, the descriptors we have not read yet are already being
@@ -188,6 +191,15 @@ static void capture_task(void *arg)
             }
         }
         next = (e + 1) % BITCAP_NUM_DESC;
+
+        // Busy = everything between EOFs (deserialize + ring + trigger).
+        const int64_t now = esp_timer_get_time();
+        busy_us += now - t_busy;
+        if (now - window_start >= 1000000) {
+            s_diag.load_permille = (uint32_t)(busy_us * 1000 / (now - window_start));
+            busy_us = 0;
+            window_start = now;
+        }
 
         while (!bitcap_wait_eof(&e, pdMS_TO_TICKS(100))) {
             s_diag.stalls++;

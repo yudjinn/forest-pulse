@@ -1,11 +1,21 @@
 """Shared serial helpers for talking to the front-end over USB-Serial/JTAG."""
 
 import serial
+from serial.tools import list_ports
 
-DEFAULT_PORT = "/dev/ttyACM0"
+DEFAULT_PORT = None  # auto-detect: other CDC devices (e.g. an UNO Q) can take /dev/ttyACM0
 
 
-def open_port(port: str = DEFAULT_PORT, timeout: float = 1.0) -> serial.Serial:
+def find_esp32() -> str:
+    """Path of the ESP32's native USB-Serial/JTAG port (USB VID 0x303A)."""
+    ports = [p for p in list_ports.comports() if p.vid == 0x303A]
+    if not ports:
+        others = ", ".join(f"{p.device} ({p.description})" for p in list_ports.comports() if p.vid) or "none"
+        raise SystemExit(f"no ESP32 (USB 303a) found; serial ports: {others}")
+    return ports[0].device
+
+
+def open_port(port: str | None = DEFAULT_PORT, timeout: float = 1.0) -> serial.Serial:
     """Open the port without resetting the chip.
 
     On the ESP32-S3 USB-Serial/JTAG, the state DTR=0 & RTS=1 resets the chip.
@@ -14,7 +24,7 @@ def open_port(port: str = DEFAULT_PORT, timeout: float = 1.0) -> serial.Serial:
     asserted (the kernel's own state) never does.
     """
     s = serial.Serial()
-    s.port = port
+    s.port = port or find_esp32()
     s.baudrate = 115200  # ignored by USB-Serial/JTAG, required by pyserial
     s.timeout = timeout
     s.dtr = True

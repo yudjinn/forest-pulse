@@ -1,0 +1,15 @@
+{
+  "model": "mn10_as",
+  "sample_rate": 32000,
+  "train_len_s": 10.0,
+  "chainsaw": "Chainsaw",
+  "machinery": [
+    "Chainsaw",
+    "Power tool",
+    "Engine",
+    "Light engine (high frequency)",
+    "Medium engine (mid frequency)",
+    "Lawn mower",
+    "Sawing"
+  ]
+}
