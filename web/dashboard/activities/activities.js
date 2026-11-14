@@ -17,9 +17,9 @@ const clear = /** @type {HTMLButtonElement} */ (section.querySelector(".activiti
 const confirm = /** @type {HTMLDialogElement} */ (section.querySelector(".activities-confirm"));
 
 /**
- * @typedef {{ category: string, sounds: string[], sensors: string[], first_at: string, last_at: string,
- *   event_count: number, location: { x_m: number, y_m: number,
- *   distances: { sensor_id: string, distance_m: number }[] } | null }} Activity
+ * @typedef {{ category: string, sounds: string[], sensors: string[], sensor_names: string[], first_at: string,
+ *   last_at: string, event_count: number, location: { x_m: number, y_m: number,
+ *   distances: { sensor_id: string, sensor_name: string, distance_m: number }[] } | null }} Activity
  */
 
 let clearing = false;
@@ -61,11 +61,11 @@ function card(a) {
     title,
     line("activity-sounds", a.sounds.join(", ")),
     line("activity-meta", first === last ? first : `${first} to ${last}`),
-    line("activity-meta", a.sensors.join(", ")),
+    line("activity-meta", a.sensor_names.join(", ")),
   );
   if (a.location) {
     body.append(line("activity-meta", a.location.distances
-      .map((d) => `${d.distance_m.toFixed(1)} m from ${d.sensor_id}`).join(", ")));
+      .map((d) => `${d.distance_m.toFixed(1)} m from ${d.sensor_name}`).join(", ")));
   }
   item.append(badge, body);
   return item;

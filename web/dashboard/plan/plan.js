@@ -1,5 +1,5 @@
 // The sensor plan on the overview page: a top-down view of every sensor, drawn to fit with a 1 m grid, and a card
-// per sensor with its health. Researchers drag a sensor (or move it with the arrow keys) and type its facing; each
+// per sensor with its health, each named as the service names it ("Sensor N", its own id on the card beneath). Researchers drag a sensor (or move it with the arrow keys) and type its facing; each
 // change saves at once and the plan follows the shell's 2 s poll, so other researchers' edits appear too.
 // Plan metres: x to the right, y up. Facing: degrees clockwise from the plan's up.
 //
@@ -8,7 +8,7 @@
 import { clockTime, poll } from "/dashboard/shell.js";
 
 /**
- * @typedef {{ id: string, x_m: number, y_m: number, facing_deg: number, online: boolean, last_checkin_at: string,
+ * @typedef {{ id: string, number: number | null, name: string, x_m: number, y_m: number, facing_deg: number, online: boolean, last_checkin_at: string,
  *   sdk_version: string | null, model: string | null, sound_list_version: number | null, shared_name: boolean }}
  *   PlanSensor
  */
@@ -233,7 +233,8 @@ function drawMarkers(items, toScreen) {
     m.g.setAttribute("transform", `translate(${px.toFixed(1)} ${py.toFixed(1)})`);
     m.g.setAttribute("class", `plan-sensor${s.online ? "" : " offline"}${s.shared_name ? " shared" : ""}`);
     m.pointer.setAttribute("transform", `rotate(${s.facing_deg})`);
-    m.label.textContent = s.id.length > LABEL_CHARS ? `${s.id.slice(0, LABEL_CHARS - 1)}…` : s.id;
+    m.g.setAttribute("aria-label", `Move ${s.name}`);
+    m.label.textContent = s.name.length > LABEL_CHARS ? `${s.name.slice(0, LABEL_CHARS - 1)}…` : s.name;
   }
   for (const [id, m] of markers) {
     if (!seen.has(id)) {
@@ -245,7 +246,7 @@ function drawMarkers(items, toScreen) {
 
 /** @param {string} id */
 function makeMarker(id) {
-  const g = /** @type {SVGGElement} */ (svgEl("g", { role: "button", tabindex: 0, "aria-label": `Move ${id}` }));
+  const g = /** @type {SVGGElement} */ (svgEl("g", { role: "button", tabindex: 0 }));
   const pointer = svgEl("path", { class: "plan-sensor-facing", d: "M0 -22 L8 -7 L-8 -7 Z" });
   // A touch-sized target around the dot and its pointer, so a finger or a click near the sensor picks it up.
   const target = svgEl("circle", { class: "plan-sensor-target", r: 22 });
@@ -412,7 +413,8 @@ function signIn() {
 
 /**
  * @typedef {{ item: HTMLLIElement, name: HTMLElement, status: HTMLElement, warning: HTMLElement,
- *   checkin: HTMLElement, versions: HTMLElement, position: HTMLElement, facing: HTMLInputElement }} Card
+ *   checkin: HTMLElement, versions: HTMLElement, position: HTMLElement, facing: HTMLInputElement,
+ *   removeButton: HTMLButtonElement }} Card
  */
 /** @type {Map<string, Card>} */
 const cards = new Map();
@@ -429,6 +431,8 @@ function drawCards(items) {
       cards.set(s.id, c);
     }
     c.item.className = `plan-card${s.online ? "" : " offline"}`;
+    c.name.textContent = s.name;
+    c.removeButton.setAttribute("aria-label", `Remove ${s.name}`);
     c.status.textContent = s.online ? "Online" : "Offline";
     c.warning.hidden = !s.shared_name;
     c.checkin.textContent = checkinTime(new Date(s.last_checkin_at));
@@ -459,15 +463,20 @@ function makeCard(id) {
   const item = document.createElement("li");
   const head = document.createElement("div");
   head.className = "plan-card-head";
+  const title = document.createElement("div");
+  title.className = "plan-card-title";
   const name = document.createElement("h3");
-  name.textContent = id;
+  const sensorId = document.createElement("p");
+  sensorId.className = "plan-card-id";
+  sensorId.textContent = id;
+  title.append(name, sensorId);
   const status = document.createElement("span");
   status.className = "plan-status";
-  head.append(name, status);
+  head.append(title, status);
 
   const warning = document.createElement("p");
   warning.className = "plan-warning";
-  warning.textContent = "Two devices share this name";
+  warning.textContent = "Two devices share this id";
 
   const facts = document.createElement("dl");
   /** @param {string} term */
@@ -502,7 +511,6 @@ function makeCard(id) {
   removeButton.type = "button";
   removeButton.className = "plan-remove";
   removeButton.textContent = "Remove";
-  removeButton.setAttribute("aria-label", `Remove ${id}`);
   actions.append(label, field, removeButton);
 
   item.append(head, warning, facts, actions);
@@ -523,7 +531,7 @@ function makeCard(id) {
     if (e.key === "Enter") facing.blur();
   });
   removeButton.addEventListener("click", () => remove(id));
-  return { item, name, status, warning, checkin, versions, position, facing };
+  return { item, name, status, warning, checkin, versions, position, facing, removeButton };
 }
 
 /** The same normalisation the service applies, so the field shows the stored value at once. @param {number} deg */

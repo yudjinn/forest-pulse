@@ -1,7 +1,7 @@
 // Service core journey: a researcher signs in and watches a real sensor's event arrive in the live log.
 import { expect, test } from "@playwright/test";
 import { devVars } from "../fixtures/dashboard.ts";
-import { referenceClip, replay, uniqueSensorId } from "../fixtures/sensor.ts";
+import { referenceClip, replay, sensorName, uniqueSensorId } from "../fixtures/sensor.ts";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const clockTime = (ms: number) => {
@@ -44,7 +44,9 @@ test("a researcher signs in and sees a replayed chainsaw arrive in the live log"
   const out = await replay({ sensorId, wavs: [referenceClip("chainsaw.wav")], angle: 37 });
   expect(out).toContain("0 event(s) still queued");
   const delivered = Date.now();
-  const row = page.getByRole("row").filter({ hasText: sensorId });
+  // The log names the sensor as the plan does.
+  const name = await sensorName(page.request, sensorId);
+  const row = page.getByRole("row").filter({ has: page.getByRole("cell", { name, exact: true }) });
   await expect(row).toHaveCount(1, { timeout: 3000 });
   await expect(row).toContainText("Chainsaw");
   await expect(row).toContainText("37°");

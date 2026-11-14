@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { devVars, signIn } from "../fixtures/dashboard.ts";
-import { asSensor, referenceClip, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
+import { asSensor, referenceClip, replay, sensorName, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { soundsServicePorts } from "../ports.ts";
 
@@ -98,10 +98,11 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
     await log.goto(`${origin}/dashboard/`);
     const sensorId = uniqueSensorId("sounds");
     const stateDir = path.join(mkdtempSync(path.join(os.tmpdir(), "fp-sounds-")), "state");
-    const rows = log.getByRole("row").filter({ hasText: sensorId });
     const first = await replay({ sensorId, wavs: [referenceClip("chainsaw.wav")], stateDir, serverUrl: origin });
     expect(fetchedList(first, start)).toContain("Chainsaw");
     expect(first).toContain("0 event(s) still queued");
+    const name = await sensorName(page.request, sensorId, origin);
+    const rows = log.getByRole("row").filter({ has: log.getByRole("cell", { name, exact: true }) });
     await expect(rows.filter({ hasText: "Chainsaw" })).toHaveCount(1, { timeout: 3000 });
     const before = await rows.count();
 

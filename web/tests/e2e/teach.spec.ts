@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { devVars, signIn } from "../fixtures/dashboard.ts";
-import { asSensor, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
+import { asSensor, replay, sensorName, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { teachServicePorts, webRoot } from "../ports.ts";
 
@@ -127,11 +127,14 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     const tawny = await replay({ sensorId: tawnySensor, wavs: [playerSample("tawny-owl.wav")], serverUrl: origin });
     expect(tawny).toMatch(new RegExp(`sound list ${after.version}: .*Boreal owl`));
     expect(tawny).toContain("0 event(s) still queued");
-    await expect(log.getByRole("row").filter({ hasText: borealSensor }).filter({ hasText: "Boreal owl" }).first())
-      .toBeVisible({ timeout: 5000 });
+    // The log names each sensor as the plan does.
+    const owlRows = async (id: string) => log.getByRole("row")
+      .filter({ has: log.getByRole("cell", { name: await sensorName(page.request, id, origin), exact: true }) })
+      .filter({ hasText: "Boreal owl" });
+    const borealRows = await owlRows(borealSensor);
+    await expect(borealRows.first()).toBeVisible({ timeout: 5000 });
     await log.waitForTimeout(2500); // one more poll of the log
-    await expect(log.getByRole("row").filter({ hasText: tawnySensor }).filter({ hasText: "Boreal owl" })).toHaveCount(0);
-    const borealRows = log.getByRole("row").filter({ hasText: borealSensor }).filter({ hasText: "Boreal owl" });
+    await expect(await owlRows(tawnySensor)).toHaveCount(0);
     const heardRows = await borealRows.count();
 
     // Teaching Boreal owl again with the second set of recordings replaces its detector: the Sounds list still has

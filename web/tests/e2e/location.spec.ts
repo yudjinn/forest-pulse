@@ -9,7 +9,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
 import { devVars, signIn } from "../fixtures/dashboard.ts";
-import { referenceClip, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
+import { referenceClip, replay, sensorName, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { locationServicePorts, webRoot } from "../ports.ts";
 
@@ -75,6 +75,9 @@ test("a sensor shows where it heard a sound from, and two sensors' crossing line
     const silence = silentWav(1);
     await replay({ sensorId: a, wavs: [silence], serverUrl: origin });
     await replay({ sensorId: b, wavs: [silence], serverUrl: origin });
+    // Lines, points and activities name the sensors as the plan does; a joined first, so its name is listed first.
+    const nameA = await sensorName(page.request, a);
+    const nameB = await sensorName(page.request, b);
     for (const [id, x_m, facing_deg] of [[a, 0, 90], [b, 3, 270]] as const) {
       const placed = await page.request.patch(`/dashboard/api/sensors/${encodeURIComponent(id)}`,
         { data: { x_m, y_m: 0, facing_deg } });
@@ -86,8 +89,8 @@ test("a sensor shows where it heard a sound from, and two sensors' crossing line
     // activity has no location. The line goes 15 s after the sound.
     await chainsaw(origin, [{ id: a, angle: 315 }]).release();
     await expect(directions(page)).toHaveCount(1, { timeout: 3000 });
-    await expect(directions(page)).toHaveAccessibleName(`Direction from ${a}`);
-    await expect(logging(page)).toContainText(a, { timeout: 3000 });
+    await expect(directions(page)).toHaveAccessibleName(`Direction from ${nameA}`);
+    await expect(logging(page).getByText(nameA, { exact: true })).toBeVisible({ timeout: 3000 });
     await page.waitForTimeout(2500); // one more poll
     await expect(locations(page)).toHaveCount(0);
     await expect(logging(page)).not.toContainText(" m from ");
@@ -98,11 +101,11 @@ test("a sensor shows where it heard a sound from, and two sensors' crossing line
     // 1.4 m from a and 2.2 m from b, on the plan and on the activity.
     await crossingPair.release();
     await expect(locations(page)).toHaveCount(1, { timeout: 3000 });
-    await expect(locations(page)).toHaveAccessibleName(`Location, 1.4 m from ${a}, 2.2 m from ${b}`);
+    await expect(locations(page)).toHaveAccessibleName(`Location, 1.4 m from ${nameA}, 2.2 m from ${nameB}`);
     await expect(directions(page)).toHaveCount(2);
     await expect(page.getByText("1.4 m", { exact: true })).toBeVisible();
     await expect(page.getByText("2.2 m", { exact: true })).toBeVisible();
-    await expect(logging(page)).toContainText(`1.4 m from ${a}, 2.2 m from ${b}`, { timeout: 3000 });
+    await expect(logging(page)).toContainText(`1.4 m from ${nameA}, 2.2 m from ${nameB}`, { timeout: 3000 });
     await expect(logging(page)).toContainText("3 events");
     const divergingPair = chainsaw(origin, [{ id: a, angle: 225 }, { id: b, angle: 135 }]);
     await expect(locations(page)).toHaveCount(0, { timeout: 16_000 });
@@ -116,7 +119,7 @@ test("a sensor shows where it heard a sound from, and two sensors' crossing line
     await page.waitForTimeout(2500); // one more poll
     await expect(locations(page)).toHaveCount(0);
     await expect(directions(page)).toHaveCount(2);
-    await expect(logging(page)).toContainText(`1.4 m from ${a}, 2.2 m from ${b}`);
+    await expect(logging(page)).toContainText(`1.4 m from ${nameA}, 2.2 m from ${nameB}`);
     await context.close();
   } finally {
     await service.stop();

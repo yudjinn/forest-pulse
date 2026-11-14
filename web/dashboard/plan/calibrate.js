@@ -1,5 +1,6 @@
 // Calibrate on the sensor plan: the button, the run's state beside it, and the measured distance drawn between the
 // sensors a calibration run placed. The service runs the run; this page starts it and follows the shell's poll.
+// Sensors are named as the plan names them.
 import { poll, refresh } from "/dashboard/shell.js";
 import { addLayer, addTool } from "/dashboard/plan/plan.js";
 
@@ -55,6 +56,11 @@ let starting = false;
 /** @type {{ text: string, until: number } | null} */
 let refused = null;
 const REFUSED_MS = 4000;
+// The plan's names for its sensors, as of its latest draw.
+/** @type {Map<string, string>} */
+let names = new Map();
+/** A sensor's name on the plan, or its own id when it is not on the plan. @param {string} id */
+const nameOf = (id) => names.get(id) ?? id;
 
 /** @param {string} name @param {Record<string, string | number>} attrs */
 function svgEl(name, attrs) {
@@ -78,7 +84,8 @@ function line(s) {
   if (run?.state === "beeping") return "Beeping";
   if (run?.state === "failed" && run.failure && run.finished_at !== null
     && s.now - run.finished_at < SHOW_FAILURE_MS) {
-    const { sensors, reason } = run.failure;
+    const sensors = run.failure.sensors.map(nameOf);
+    const reason = run.failure.reason;
     const pair = PAIR_REASONS[reason];
     if (pair && sensors.length === 2) return `Calibration failed: ${pair(sensors[0], sensors[1])}`;
     return `Calibration failed: ${sensors.join(" and ")} ${REASONS[reason] ?? reason}`;
@@ -87,7 +94,7 @@ function line(s) {
     return [
       `Calibrated ${hhmm(s.layout.measured_at)}`,
       ...(s.layout.speed_of_sound_assumed ? ["speed of sound assumed"] : []),
-      ...s.layout.left_out.map((id) => `${id} left out`),
+      ...s.layout.left_out.map((id) => `${nameOf(id)} left out`),
     ].join(", ");
   }
   return "";
@@ -102,6 +109,9 @@ function show() {
 
 const layer = addLayer({
   draw(g, view) {
+    // The status line names sensors too, so it follows the plan's names.
+    names = new Map(view.sensors.map((s) => [s.id, s.name]));
+    show();
     if (!state?.layout) return;
     for (const d of state.layout.distances) {
       const a = view.sensors.find((s) => s.id === d.a);
@@ -110,7 +120,7 @@ const layer = addLayer({
       const [x1, y1] = view.toScreen(a.x_m, a.y_m);
       const [x2, y2] = view.toScreen(b.x_m, b.y_m);
       const text = `${d.distance_m.toFixed(2)} m`;
-      const group = svgEl("g", { class: "calibrate-distance", role: "img", "aria-label": `Measured ${text} from ${d.a} to ${d.b}` });
+      const group = svgEl("g", { class: "calibrate-distance", role: "img", "aria-label": `Measured ${text} from ${a.name} to ${b.name}` });
       group.append(svgEl("line", { x1, y1, x2, y2 }));
       const label = svgEl("text", { x: ((x1 + x2) / 2).toFixed(1), y: ((y1 + y2) / 2 - 8).toFixed(1), "text-anchor": "middle" });
       label.textContent = text;

@@ -1,16 +1,23 @@
-// Sensor plan journey: sensors join the plan when they first check in, researchers place and turn them, and the plan
-// shows each sensor's health. Runs on its own fresh service, so the first sensor here is the first one ever.
+// Sensor plan journey: sensors join the plan when they first check in and are named Sensor 1, 2, 3, researchers
+// place and turn them, the plan shows each sensor's health, and removing and returning sensors frees and reuses
+// their numbers. Runs on its own fresh service, so the first sensor here is the first one ever.
 import { mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { signIn } from "../fixtures/dashboard.ts";
-import { replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
+import { referenceClip, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { planServicePorts } from "../ports.ts";
 
+const sensorList = (page: Page) => page.getByRole("list", { name: "Sensors" });
+// A sensor's card, found by the sensor's own id shown beneath its name.
 const card = (page: Page, id: string) =>
-  page.getByRole("list", { name: "Sensors" }).getByRole("listitem").filter({ has: page.getByRole("heading", { name: id }) });
+  sensorList(page).getByRole("listitem").filter({ has: page.getByText(id, { exact: true }) });
+const marker = (page: Page, name: string) => page.getByRole("button", { name: `Move ${name}`, exact: true });
+// The event log's rows whose sensor column reads exactly this.
+const logRows = (page: Page, sensor: string) =>
+  page.getByRole("row").filter({ has: page.getByRole("cell", { name: sensor, exact: true }) });
 const POSITION = /^x -?\d+\.\d m, y -?\d+\.\d m$/;
 const position = (c: Locator) => c.getByText(POSITION);
 // The sensor's last check-in as the service recorded it, in ms since the epoch.
@@ -19,8 +26,8 @@ async function lastCheckin(page: Page, id: string): Promise<number> {
   return Date.parse(plan.sensors.find((s: { id: string }) => s.id === id).last_checkin_at);
 }
 
-async function dragBy(page: Page, id: string, dx: number, dy: number) {
-  const box = (await page.getByRole("button", { name: `Move ${id}`, exact: true }).boundingBox())!;
+async function dragBy(page: Page, name: string, dx: number, dy: number) {
+  const box = (await marker(page, name).boundingBox())!;
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
   await page.mouse.move(x, y);
@@ -30,7 +37,7 @@ async function dragBy(page: Page, id: string, dx: number, dy: number) {
 }
 
 test("sensors join the plan on first check-in, researchers place them, and the plan shows their health", async ({ browser }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   const service = new SecondService(planServicePorts);
   await service.start();
   try {
@@ -39,15 +46,21 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await signIn(page, "/dashboard/", service.url);
     await expect(page.getByText("No sensors yet. Sensors appear here when they first check in.")).toBeVisible();
 
-    // Two sensors check in for the first time: the first at the origin facing right, the next 3 m to its right
-    // facing it.
+    // Two sensors check in for the first time: Sensor 1 at the origin facing right, Sensor 2 3 m to its right facing
+    // it. Sensor 2 hears a chainsaw: the event log and its Logging activity name it Sensor 2.
     const silence = silentWav(1);
     const a = uniqueSensorId("plan-a");
     const b = uniqueSensorId("plan-b");
     await replay({ sensorId: a, wavs: [silence], serverUrl: service.url });
-    await replay({ sensorId: b, wavs: [silence], serverUrl: service.url });
+    await replay({ sensorId: b, wavs: [referenceClip("chainsaw.wav")], serverUrl: service.url });
     const cardA = card(page, a);
     const cardB = card(page, b);
+    await expect(cardA.getByRole("heading")).toHaveText("Sensor 1", { timeout: 3000 });
+    await expect(cardB.getByRole("heading")).toHaveText("Sensor 2");
+    await expect(logRows(page, "Sensor 2").first()).toContainText("Chainsaw", { timeout: 3000 });
+    const logging = page.getByRole("list", { name: "Activities" }).getByRole("listitem")
+      .filter({ has: page.getByRole("heading", { name: "Logging", exact: true }) });
+    await expect(logging.getByText("Sensor 2", { exact: true })).toBeVisible({ timeout: 3000 });
     await expect(position(cardA)).toHaveText("x 0.0 m, y 0.0 m", { timeout: 3000 });
     await expect(cardA.getByLabel("Facing")).toHaveValue("90");
     await expect(position(cardB)).toHaveText("x 3.0 m, y 0.0 m", { timeout: 3000 });
@@ -67,7 +80,7 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(position(card(other, b))).toHaveText("x 3.0 m, y 0.0 m", { timeout: 3000 });
 
     // Drag b up and to the left; type a facing past the range into a, which is normalised.
-    await dragBy(page, b, -60, -40);
+    await dragBy(page, "Sensor 2", -60, -40);
     await expect(position(cardB)).not.toHaveText("x 3.0 m, y 0.0 m");
     const moved = (await position(cardB).textContent())!;
     const [, mx, my] = moved.match(/^x (-?[\d.]+) m, y (-?[\d.]+) m$/)!.map(Number);
@@ -84,7 +97,7 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     // A save that fails says so and leaves the sensor where it was.
     await page.route("**/dashboard/api/sensors/*", (route) =>
       route.request().method() === "PATCH" ? route.fulfill({ status: 503 }) : route.fallback());
-    await dragBy(page, a, 50, 30);
+    await dragBy(page, "Sensor 1", 50, 30);
     await expect(page.getByText("Couldn't save, try again")).toBeVisible();
     await expect(position(cardA)).toHaveText("x 0.0 m, y 0.0 m");
     await page.unroute("**/dashboard/api/sensors/*");
@@ -96,14 +109,16 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(position(cardA)).toHaveText("x 0.0 m, y 0.0 m");
     await expect(page.getByText("Couldn't save, try again")).toBeHidden();
 
-    // Removing b takes it off the plan, for the other researcher too; its next check-in brings it back where it was.
-    await cardB.getByRole("button", { name: `Remove ${b}` }).click();
+    // Removing b takes it off the plan, for the other researcher too; its next check-in brings it back where it was,
+    // still Sensor 2 because no other sensor took that number meanwhile.
+    await cardB.getByRole("button", { name: "Remove Sensor 2" }).click();
     await expect(cardB).toHaveCount(0);
-    await expect(page.getByRole("button", { name: `Move ${b}`, exact: true })).toHaveCount(0);
+    await expect(marker(page, "Sensor 2")).toHaveCount(0);
     await expect(card(other, b)).toHaveCount(0, { timeout: 3000 });
     await replay({ sensorId: b, wavs: [silence], serverUrl: service.url });
     await expect(position(cardB)).toHaveText(moved, { timeout: 3000 });
     await expect(cardB.getByLabel("Facing")).toHaveValue("270");
+    await expect(cardB.getByRole("heading")).toHaveText("Sensor 2");
 
     // Two running devices under one name: the sensor warns that its name is shared.
     // c's two runs share one state folder, so the second starts with the sound list the first fetched and its first
@@ -113,14 +128,23 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     const cState = path.join(mkdtempSync(path.join(os.tmpdir(), "fp-plan-c-")), "state");
     await replay({ sensorId: c, wavs: [silence], serverUrl: service.url, stateDir: cState });
     await expect(card(page, c)).toHaveCount(1, { timeout: 3000 });
-    await expect(card(page, c).getByText("Two devices share this name")).toBeHidden();
+    await expect(card(page, c).getByText("Two devices share this id")).toBeHidden();
+
+    // Three sensors on the plan: the cards read Sensor 1 to Sensor 3 in order, each with its own id beneath and a
+    // marker of the same name.
+    await expect(sensorList(page).getByRole("heading")).toHaveText(["Sensor 1", "Sensor 2", "Sensor 3"]);
+    await expect(sensorList(page).getByRole("listitem")).toContainText([a, b, c]);
+    for (const [id, name] of [[a, "Sensor 1"], [b, "Sensor 2"], [c, "Sensor 3"]]) {
+      await expect(card(page, id).getByRole("heading")).toHaveText(name);
+      await expect(marker(page, name)).toHaveText(name);
+    }
     const firstRunCheckin = await lastCheckin(page, c);
     await replay({ sensorId: c, wavs: [silence], serverUrl: service.url, stateDir: cState });
     const runsApart = (await lastCheckin(page, c)) - firstRunCheckin;
-    await expect(card(page, c).getByText("Two devices share this name"),
+    await expect(card(page, c).getByText("Two devices share this id"),
       `c's runs last checked in ${runsApart} ms apart; the shared-name window is 10 s`).toBeVisible({ timeout: 3000 });
     await expect(card(page, c).getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list \d+$/)).toBeVisible();
-    await expect(cardA.getByText("Two devices share this name")).toBeHidden();
+    await expect(cardA.getByText("Two devices share this id")).toBeHidden();
 
     // a stopped checking in long ago and shows offline; c just checked in and is online.
     await expect(cardA.getByText("Offline", { exact: true })).toBeVisible({ timeout: 15_000 });
@@ -133,14 +157,42 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     expect(silentFor).toBeGreaterThanOrEqual(10_000);
     expect(silentFor).toBeLessThan(15_000);
 
-    // A new sensor after one was removed takes its default spot from the last sensor still on the plan: c is
-    // removed, so d goes 3 m to the right of b, not of c.
-    await card(page, c).getByRole("button", { name: `Remove ${c}` }).click();
+    // A new sensor after one was removed takes its default spot from the last sensor still on the plan and the
+    // lowest free number: c is removed, so d goes 3 m to the right of b, not of c, and is Sensor 3.
+    await card(page, c).getByRole("button", { name: "Remove Sensor 3" }).click();
     await expect(card(page, c)).toHaveCount(0);
     const d = uniqueSensorId("plan-d");
     await replay({ sensorId: d, wavs: [silence], serverUrl: service.url });
     await expect(position(card(page, d))).toHaveText(`x ${(mx + 3).toFixed(1)} m, y ${my.toFixed(1)} m`, { timeout: 3000 });
     await expect(card(page, d).getByLabel("Facing")).toHaveValue("270");
+    await expect(card(page, d).getByRole("heading")).toHaveText("Sensor 3");
+
+    // Removing Sensor 2 frees its number, and its events show its own id. A new board takes the number; the removed
+    // board checking in again finds it taken and becomes Sensor 4, and its events read Sensor 4.
+    await cardB.getByRole("button", { name: "Remove Sensor 2" }).click();
+    await expect(cardB).toHaveCount(0);
+    await expect(logRows(page, b).first()).toContainText("Chainsaw", { timeout: 3000 });
+    await expect(logRows(page, "Sensor 2")).toHaveCount(0);
+    await expect(logging.getByText(b, { exact: true })).toBeVisible();
+    const e = uniqueSensorId("plan-e");
+    await replay({ sensorId: e, wavs: [silence], serverUrl: service.url });
+    await expect(card(page, e).getByRole("heading")).toHaveText("Sensor 2", { timeout: 3000 });
+    await replay({ sensorId: b, wavs: [silence], serverUrl: service.url });
+    await expect(cardB.getByRole("heading")).toHaveText("Sensor 4", { timeout: 3000 });
+    await expect(logRows(page, "Sensor 4").first()).toContainText("Chainsaw", { timeout: 3000 });
+    await expect(logRows(page, b)).toHaveCount(0);
+
+    // A sensor on the plan keeps its number: with Sensor 3 removed, the Sensor 4 board checking in again is still
+    // Sensor 4. The plan lists sensors by number, not by when they joined.
+    await card(page, d).getByRole("button", { name: "Remove Sensor 3" }).click();
+    await expect(card(page, d)).toHaveCount(0);
+    const sensor4Checkin = await lastCheckin(page, b);
+    await replay({ sensorId: b, wavs: [silence], serverUrl: service.url });
+    expect(await lastCheckin(page, b)).toBeGreaterThan(sensor4Checkin);
+    await page.waitForTimeout(2500); // one more poll of the plan
+    await expect(cardB.getByRole("heading")).toHaveText("Sensor 4");
+    await expect(sensorList(page).getByRole("heading")).toHaveText(["Sensor 1", "Sensor 2", "Sensor 4"]);
+    await expect(sensorList(page).getByRole("listitem")).toContainText([a, e, b]);
     await context.close();
   } finally {
     await service.stop();
