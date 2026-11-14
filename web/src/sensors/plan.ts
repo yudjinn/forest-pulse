@@ -78,7 +78,7 @@ export async function sensorNames(db: D1Database): Promise<(id: string) => strin
   return (id) => names.get(id) ?? id;
 }
 
-// Orders names for listing: Sensor 2 before Sensor 10, ids after names.
+// Orders names for listing, alphabetically with numbers by value: Sensor 2 before Sensor 10.
 export const byName = (a: string, b: string) => a.localeCompare(b, "en", { numeric: true });
 
 // The lowest number no sensor on the plan holds.
