@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["tests/**/*.ts", "playwright.config.ts", "scripts/**/*.ts"]
+  "include": ["tests/**/*.ts", "playwright.config.ts", "scripts/**/*.ts", "../demo-kit/train_detector.ts"]
 }
