@@ -226,6 +226,33 @@ the pair the fit fits worst when the bearings disagree.
 A participant that never confirms ready is left out (step 3 of the run): the two that ran are solved as a pair, and
 the dashboard says which sensor was left out.
 
+## Warnings (planned: not served yet)
+
+A researcher can send a warning about a logging activity to the boards that heard it.
+
+- Check-in request, added fields: `"can_warn": true` when the sensor's hooks include the buzzer (missing means
+  false), and after playing an alarm `"alarm_done": {"id": "...", "result": "played" | "failed"}`, sent on each
+  check-in until one succeeds.
+- Check-in reply, added field: `"alarm": {"id": "..."}` while the service wants this sensor to play that warning.
+  The sensor plays each id once (the alarm itself is the library's, see its README) and reports no sound events
+  while playing; the audio recorded meanwhile is not analysed.
+- The service gives up on a sensor that has not picked the alarm up within 15 s (it never plays late), or not
+  confirmed it within 15 s of delivery.
+
+## Trigger health (planned: not stored yet)
+
+Check-in request, added fields, each omitted when unknown:
+
+```json
+{
+  "recordings_per_min": 12,                                   // audio bursts the sensor received in the last 60 s
+  "trigger": {"snr_db": 4.0, "ratio_db": 0.0, "coherence": 0.6},  // any key may be missing
+  "noise_floor_dbfs": -52.0
+}
+```
+
+Read-only: the service shows them and never sends trigger settings back.
+
 ## Errors
 
 | Response | Meaning | Sensor does |

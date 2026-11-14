@@ -18,6 +18,6 @@
 - **Measured layout**: a plan set by a calibration run, relative to the sensors (first sensor at the origin, second to its right). A manual layout is one set by dragging and typing facings.
 - **Sensor name**: "Sensor N" on the dashboard, N the lowest number not held by another sensor on the plan when it joins. The sensor's own id still identifies it to the service.
 - **Warning**: the operator's response to a logging activity: every board that heard it plays the alarm on its buzzer, standing in for a radio warning to the loggers that logging here is unauthorised.
-- **Alarm**: the warning's sound: a harsh hi-lo stutter (3.5 kHz and 2.5 kHz bursts, 120 ms each) for 10 s, unlike the smooth calibration sweeps.
+- **Alarm**: the warning's sound: a harsh hi-lo stutter (3.5 kHz and 2.5 kHz tones, 120 ms each, one every 150 ms) for about 5 s, unlike the smooth calibration sweeps.
 - **Sensitivity**: one confidence threshold, set on the Sounds page, that every sound of interest must reach before a sensor reports it.
 - **Trigger health**: what a sensor's front-end is doing: recordings per minute (counted by the library) and, when the board provides them, its trigger values and noise floor.
