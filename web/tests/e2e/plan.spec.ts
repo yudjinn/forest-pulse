@@ -13,6 +13,11 @@ const card = (page: Page, id: string) =>
   page.getByRole("list", { name: "Sensors" }).getByRole("listitem").filter({ has: page.getByRole("heading", { name: id }) });
 const POSITION = /^x -?\d+\.\d m, y -?\d+\.\d m$/;
 const position = (c: Locator) => c.getByText(POSITION);
+// The sensor's last check-in as the service recorded it, in ms since the epoch.
+async function lastCheckin(page: Page, id: string): Promise<number> {
+  const plan = await (await page.request.get("/dashboard/api/sensors")).json();
+  return Date.parse(plan.sensors.find((s: { id: string }) => s.id === id).last_checkin_at);
+}
 
 async function dragBy(page: Page, id: string, dx: number, dy: number) {
   const box = (await page.getByRole("button", { name: `Move ${id}`, exact: true }).boundingBox())!;
@@ -102,14 +107,18 @@ test("sensors join the plan on first check-in, researchers place them, and the p
 
     // Two running devices under one name: the sensor warns that its name is shared.
     // c's two runs share one state folder, so the second starts with the sound list the first fetched and its first
-    // check-in reports that list's version.
+    // check-in reports that list's version. The warning needs both runs inside the 10 s shared-name window, so a
+    // failure says how far apart they checked in.
     const c = uniqueSensorId("plan-c");
     const cState = path.join(mkdtempSync(path.join(os.tmpdir(), "fp-plan-c-")), "state");
     await replay({ sensorId: c, wavs: [silence], serverUrl: service.url, stateDir: cState });
     await expect(card(page, c)).toHaveCount(1, { timeout: 3000 });
     await expect(card(page, c).getByText("Two devices share this name")).toBeHidden();
+    const firstRunCheckin = await lastCheckin(page, c);
     await replay({ sensorId: c, wavs: [silence], serverUrl: service.url, stateDir: cState });
-    await expect(card(page, c).getByText("Two devices share this name")).toBeVisible({ timeout: 3000 });
+    const runsApart = (await lastCheckin(page, c)) - firstRunCheckin;
+    await expect(card(page, c).getByText("Two devices share this name"),
+      `c's runs last checked in ${runsApart} ms apart; the shared-name window is 10 s`).toBeVisible({ timeout: 3000 });
     await expect(card(page, c).getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list \d+$/)).toBeVisible();
     await expect(cardA.getByText("Two devices share this name")).toBeHidden();
 
@@ -118,8 +127,7 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(card(page, c).getByText("Online", { exact: true })).toBeVisible();
 
     // c has stopped too: it shows offline 10 s after its last check-in, give or take the plan's 2 s poll.
-    const plan = await (await page.request.get("/dashboard/api/sensors")).json();
-    const cLastCheckin = Date.parse(plan.sensors.find((s: { id: string }) => s.id === c).last_checkin_at);
+    const cLastCheckin = await lastCheckin(page, c);
     await expect(card(page, c).getByText("Offline", { exact: true })).toBeVisible({ timeout: 20_000 });
     const silentFor = Date.now() - cLastCheckin;
     expect(silentFor).toBeGreaterThanOrEqual(10_000);
