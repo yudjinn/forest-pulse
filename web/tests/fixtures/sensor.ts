@@ -27,6 +27,8 @@ export interface ReplayOptions {
   // Keep the sensor's queue and sound list across replays by passing the same directory.
   stateDir?: string;
   serverUrl?: string;
+  // Moves the library's wall clock by this many seconds (negative is behind): a sensor whose clock is wrong.
+  clockShiftS?: number;
 }
 
 // Runs `python -m forestpulse_sensor.replay --config <toml>` and returns its output once the sensor has stopped.
@@ -40,7 +42,10 @@ export async function replay(o: ReplayOptions): Promise<string> {
     `state_dir = ${JSON.stringify(o.stateDir ?? path.join(dir, "state"))}`,
     "checkin_interval = 1.0",
   ].join("\n") + "\n");
-  const args = ["-m", "forestpulse_sensor.replay", "--config", config];
+  const command = o.clockShiftS === undefined
+    ? ["-m", "forestpulse_sensor.replay"]
+    : [path.join(webRoot, "tests", "fixtures", "shifted_clock.py"), String(o.clockShiftS)];
+  const args = [...command, "--config", config];
   if (o.angle !== undefined) args.push("--angle", String(o.angle));
   const { stdout, stderr } = await run(python, [...args, ...o.wavs], { timeout: 90_000 });
   return stdout + stderr;
@@ -52,8 +57,9 @@ export type SensorCall =
   | { call: "post_events"; events: unknown[] };
 
 // Makes the calls in order through the library's own client (forestpulse_sensor.api.Api), one reply per call.
-export async function asSensor(sensorId: string, calls: SensorCall[], key = devVars().DEVICE_KEY): Promise<any[]> {
-  const child = run(python, [path.join(webRoot, "tests", "fixtures", "sensor_client.py"), baseURL, key, sensorId],
+export async function asSensor(sensorId: string, calls: SensorCall[], key = devVars().DEVICE_KEY,
+  serverUrl = baseURL): Promise<any[]> {
+  const child = run(python, [path.join(webRoot, "tests", "fixtures", "sensor_client.py"), serverUrl, key, sensorId],
     { timeout: 30_000 });
   child.child.stdin!.end(JSON.stringify(calls));
   return JSON.parse((await child).stdout);

@@ -2,7 +2,9 @@
 // comes from FP_E2E_PORT_BASE, so concurrent runs in different worktrees never
 // collide: app = base, inspector = base + 1, a journey's own second service = base + 2 (inspector base + 3),
 // the sounds journey's own service = base + 4 (inspector base + 5), the teaching journeys' own service = base + 6
-// (inspector base + 7), base + 8 and base + 9 reserved.
+// (inspector base + 7), the plan journey's own service = base + 8 (inspector base + 9).
+// A second block, base + 50 to base + 59, holds five more pairs for journeys that need their own fresh service:
+// the activities journey = base + 50 (inspector base + 51), base + 52 to base + 59 reserved.
 // A journey that changes the sound list (teach, reteach, delete, switch) never runs on the shared service, whose list
 // other journeys compare against the seed: it starts its own service on its own pair.
 import { fileURLToPath } from "node:url";
@@ -24,8 +26,14 @@ export const secondInspectorPort = portBase + 3;
 export const soundsServicePorts = { appPort: portBase + 4, inspectorPort: portBase + 5 };
 // The teaching journeys' own service (teach, and later reteach and delete).
 export const teachServicePorts = { appPort: portBase + 6, inspectorPort: portBase + 7 };
+// The plan journey's own service: it needs a plan no other journey has added sensors to.
+export const planServicePorts = { appPort: portBase + 8, inspectorPort: portBase + 9 };
+// The activities journey's own service: it clears every event, which other journeys on the shared service read.
+export const activitiesServicePorts = { appPort: portBase + 50, inspectorPort: portBase + 51 };
 
 export const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Local D1 and R2 state for this server only; wiped when it starts. Keyed by the app port, which is the port base
 // for the main server, so a second service never shares its state.
 export const stateDir = path.join(webRoot, ".wrangler", `e2e-${appPort}`);
+// The activities journey's own service's local state, read to check what clearing kept.
+export const activitiesServiceStateDir = path.join(webRoot, ".wrangler", `e2e-${activitiesServicePorts.appPort}`);
