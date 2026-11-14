@@ -1,0 +1,5 @@
+# Teach page invariants
+
+- Summaries must match the sensor's (the teach-summaries journey checks cosine similarity above 0.999 on the sensor library's reference clips). Recordings are decoded at their own sample rate and resampled here through the spectrum, as the sensor library does; decoding straight at 32 kHz lets the browser's resampler cut everything above about 14 kHz, and the quiet hall reference clip then drops to 0.995.
+- The windows (first 60 s, 5 s each, one window under 5 s, none under 1 s, each resampled on its own) and the mix (hall background, -3 to +15 dB) are defined twice: here and in experiments/efficientat-chainsaw/build_negative_library.py, which builds the stored other-sounds library. Change one and rebuild the library, or taught detectors train on summaries of a different shape than the ones they are compared with.
+- ONNX Runtime is pinned in web/package.json and web/build.py copies its WebAssembly loader files to /model/ by name; ort.wasm.min.mjs imports ort-wasm-simd-threaded.mjs and .wasm from there. A version bump that renames them breaks teaching only in the browser, at the first recording.

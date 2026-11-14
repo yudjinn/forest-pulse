@@ -1,0 +1,131 @@
+/* The Teach page: the form in one column, the dropped recordings listed with their progress underneath. */
+#teach {
+  max-width: 720px;
+  width: 100%;
+  justify-self: center;
+}
+
+.teach-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.teach-form input,
+.teach-form select {
+  width: 100%;
+  min-width: 0;
+}
+
+.teach-form select {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+}
+
+.drop {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 16px;
+  border: 2px dashed var(--line);
+  border-radius: 8px;
+}
+
+.drop.over {
+  border-color: var(--evergreen);
+  background: var(--ivory);
+}
+
+/* Only the button shows: the chosen recordings are listed below, each with its own state. */
+.drop input[type="file"] {
+  border: 0;
+  padding: 0;
+  color: transparent;
+}
+
+.drop input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--evergreen);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clip-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.clip-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.clip-list li:last-child {
+  border-bottom: 0;
+}
+
+.clip-name {
+  overflow-wrap: anywhere;
+}
+
+.clip-status {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.clip-list li.skipped .clip-status {
+  color: var(--alert);
+  font-weight: 600;
+}
+
+.clip-list progress {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 6px;
+  accent-color: var(--evergreen);
+}
+
+.clip-list progress[hidden] {
+  display: none;
+}
+
+.clip-remove {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--evergreen);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.teach-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.teach-actions a {
+  color: var(--evergreen);
+}
+
+.teach-form button[type="submit"]:disabled {
+  background: var(--line);
+  color: var(--muted);
+  cursor: progress;
+}
