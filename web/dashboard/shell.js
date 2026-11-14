@@ -17,7 +17,7 @@ banner.className = "connection-lost";
 banner.setAttribute("role", "alert");
 banner.hidden = true;
 
-/** @type {Set<{ failures: number }>} */
+/** @type {Set<{ failures: number, tick: () => void }>} */
 const pollers = new Set();
 /** @type {Date | null} */
 let lastUpdate = null;
@@ -70,28 +70,45 @@ function showConnection() {
  * @param {(data: any) => void} render
  */
 export function poll(path, render) {
-  const state = { failures: 0 };
-  pollers.add(state);
+  let run = 0;
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
   const tick = async () => {
+    const mine = ++run;
+    clearTimeout(timer);
     const started = Date.now();
     try {
       const res = await fetch(path, { cache: "no-store", signal: AbortSignal.timeout(POLL_MS) });
+      if (mine !== run) return;
       if (res.status === 401) {
         const back = location.pathname + location.search;
         location.assign(back === "/dashboard/" ? "/dashboard/signin" : `/dashboard/signin?next=${encodeURIComponent(back)}`);
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      render(await res.json());
+      const data = await res.json();
+      if (mine !== run) return;
+      render(data);
       state.failures = 0;
       lastUpdate = new Date();
     } catch {
+      if (mine !== run) return;
       state.failures += 1;
     }
     showConnection();
-    setTimeout(tick, Math.max(0, POLL_MS - (Date.now() - started)));
+    timer = setTimeout(tick, Math.max(0, POLL_MS - (Date.now() - started)));
   };
+  const state = { failures: 0, tick };
+  pollers.add(state);
   tick();
+}
+
+/**
+ * Polls every live view on the page now and discards replies to requests already in flight, which may have been
+ * answered before a change the page just made.
+ */
+export function refresh() {
+  for (const p of pollers) p.tick();
 }
 
 mountHeader();

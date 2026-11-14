@@ -42,4 +42,10 @@
   #log td {
     padding: 6px 4px;
   }
+
+  /* A long sensor name wraps, so every column fits a phone. */
+  #log td:nth-child(2) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }

@@ -6,6 +6,9 @@ carry an angle, never audio) and ADR-20261114110501489 (one fixed model, small d
 
 - Base URL: `https://forestpulse.paxid.com/api/v1`
 - Every request: `Authorization: Bearer <sensor key>` (one shared key for all sensors) and JSON bodies.
+- Every request also sends a `User-Agent` naming the client and its version (the library sends
+  `forestpulse-sensor/<version>`). The site's bot check refuses the default user agent of common HTTP clients,
+  such as Python's, before the request reaches the server.
 - `{sensor_id}` is chosen by the sensor (default: its hostname). The first check-in makes it appear on the dashboard.
 - Times are UTC ISO 8601 with milliseconds, from the sensor's clock. Every request carries `sent_at`, the sensor's
   clock at sending; the server corrects event times by `server receive time - sent_at`, so a drifting clock or a

@@ -1,6 +1,6 @@
 // Suspected activities on the overview page, newest first, refreshed by the shell's 2 s poll, and the Clear events
 // action behind its confirmation.
-import { clockTime, poll } from "/dashboard/shell.js";
+import { clockTime, poll, refresh } from "/dashboard/shell.js";
 
 const CATEGORY = /** @type {Record<string, string>} */ ({
   logging: "Logging",
@@ -99,6 +99,7 @@ confirm.addEventListener("click", async (e) => {
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     render({ activities: [] });
+    refresh();
   } catch {
     error.textContent = "Couldn't clear, try again";
     error.hidden = false;

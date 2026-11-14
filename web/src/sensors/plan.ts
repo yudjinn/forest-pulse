@@ -12,7 +12,7 @@ import { logLine } from "../log.ts";
 export const OFFLINE_AFTER_MS = 30_000;
 // Two process identities checking in under one name within this window share the name.
 export const SHARED_NAME_WINDOW_MS = 30_000;
-// The default spot of each new sensor: this far to the right of the most recently added one, facing it.
+// The default spot of each new sensor: this far to the right of the most recently added one on the plan, facing it.
 const NEW_SENSOR_SPACING_M = 3;
 // Positions beyond this many metres from the origin are refused.
 const MAX_COORDINATE_M = 100_000;
@@ -56,7 +56,8 @@ export async function readPlan(db: D1Database, now: number, ids?: string[]): Pro
 }
 
 // Check-in hook: a sensor new to the plan gets its default spot (the first at the origin facing right, each later
-// one 3 m to the right of the most recently added, facing it); a removed sensor comes back at its kept placement.
+// one 3 m to the right of the most recently added one still on the plan, facing it); a removed sensor comes back at
+// its kept placement.
 // One statement, so two first check-ins at once still get different spots. Then records the device identity.
 export async function placeOnCheckin(env: Env, { current, now }: SensorCheckin): Promise<void> {
   const db = env.DB;
@@ -64,9 +65,9 @@ export async function placeOnCheckin(env: Env, { current, now }: SensorCheckin):
     db.prepare(
       `INSERT INTO sensor_placements (sensor_id, x_m, y_m, facing_deg)
        SELECT ?1,
-         COALESCE((SELECT x_m + ?2 FROM sensor_placements ORDER BY seq DESC LIMIT 1), 0),
-         COALESCE((SELECT y_m FROM sensor_placements ORDER BY seq DESC LIMIT 1), 0),
-         CASE WHEN EXISTS (SELECT 1 FROM sensor_placements) THEN 270 ELSE 90 END
+         COALESCE((SELECT x_m + ?2 FROM sensor_placements WHERE removed = 0 ORDER BY seq DESC LIMIT 1), 0),
+         COALESCE((SELECT y_m FROM sensor_placements WHERE removed = 0 ORDER BY seq DESC LIMIT 1), 0),
+         CASE WHEN EXISTS (SELECT 1 FROM sensor_placements WHERE removed = 0) THEN 270 ELSE 90 END
        WHERE true
        ON CONFLICT (sensor_id) DO UPDATE SET removed = 0 WHERE removed = 1`,
     ).bind(current.id, NEW_SENSOR_SPACING_M),

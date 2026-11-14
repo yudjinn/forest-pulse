@@ -142,13 +142,14 @@ export async function teachSound(request: Request, { env }: RouteContext): Promi
     });
 
     if (existing) {
-      const replaced = await changeSoundList(env.DB, [
+      const replaced = await changeSoundList(
+        env.DB,
         env.DB.prepare(
           "UPDATE sounds SET weights = ?, bias = ?, taught_at = ? WHERE id = ? AND taught_at IS NOT NULL " +
           "RETURNING id, name, category, kind, enabled",
         ).bind(JSON.stringify(detector.weights), detector.bias, Date.now(), existing.id),
-      ]);
-      const row = (replaced.results[0].results as { id: string; name: string; category: string; kind: string;
+      );
+      const row = (replaced.result.results as { id: string; name: string; category: string; kind: string;
         enabled: number }[])[0];
       if (row) {
         logLine("teach_replaced", { name: row.name, sound: row.id, version: replaced.version });
@@ -163,12 +164,13 @@ export async function teachSound(request: Request, { env }: RouteContext): Promi
     const id = soundId(name);
     let saved;
     try {
-      saved = await changeSoundList(env.DB, [
+      saved = await changeSoundList(
+        env.DB,
         env.DB.prepare(
           "INSERT INTO sounds (id, name, category, kind, threshold, enabled, weights, bias, taught_at) " +
           "VALUES (?, ?, ?, 'detector', ?, 1, ?, ?, ?)",
         ).bind(id, name, category, THRESHOLD, JSON.stringify(detector.weights), detector.bias, Date.now()),
-      ]);
+      );
     } catch (e) {
       // Taught under the same name by someone else since the check above: the batch saved nothing.
       if (String(e).includes("UNIQUE")) {

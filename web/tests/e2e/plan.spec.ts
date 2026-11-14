@@ -118,6 +118,15 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(cardA.getByText("Offline", { exact: true })).toBeVisible({ timeout: 40_000 });
     expect(Date.now() - aStarted).toBeGreaterThanOrEqual(30_000);
     await expect(card(page, c).getByText("Online", { exact: true })).toBeVisible();
+
+    // A new sensor after one was removed takes its default spot from the last sensor still on the plan: c is
+    // removed, so d goes 3 m to the right of b, not of c.
+    await card(page, c).getByRole("button", { name: `Remove ${c}` }).click();
+    await expect(card(page, c)).toHaveCount(0);
+    const d = uniqueSensorId("plan-d");
+    await replay({ sensorId: d, wavs: [silence], serverUrl: service.url });
+    await expect(position(card(page, d))).toHaveText(`x ${(mx + 3).toFixed(1)} m, y ${my.toFixed(1)} m`, { timeout: 3000 });
+    await expect(card(page, d).getByLabel("Facing")).toHaveValue("270");
     await context.close();
   } finally {
     await service.stop();
