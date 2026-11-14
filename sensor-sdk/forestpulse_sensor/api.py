@@ -4,6 +4,11 @@ import urllib.error
 import urllib.request
 from datetime import UTC, datetime
 
+from . import __version__
+
+# Cloudflare's edge refuses Python's default user agent (HTTP 403, error 1010) before the service sees the request.
+USER_AGENT = f"forestpulse-sensor/{__version__}"
+
 
 class KeyRejected(Exception):
     """401: the sensor key is wrong. Nothing is discarded; fixing the key flushes the queue."""
@@ -34,7 +39,7 @@ class Api:
     def _call(self, method: str, path: str, body: dict | None = None) -> dict:
         data = None if body is None else json.dumps({"sent_at": utc_now_iso(), **body}).encode()
         req = urllib.request.Request(self.base + path, data=data, method=method, headers={
-            "Authorization": f"Bearer {self.key}", "Content-Type": "application/json"})
+            "Authorization": f"Bearer {self.key}", "Content-Type": "application/json", "User-Agent": USER_AGENT})
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
                 return json.loads(r.read() or b"{}")

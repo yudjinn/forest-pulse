@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "python3 build.py",
+    "deploy": "node scripts/deploy.ts",
     "serve": "node tests/serve.ts",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit && tsc --noEmit -p src && tsc --noEmit -p dashboard"
