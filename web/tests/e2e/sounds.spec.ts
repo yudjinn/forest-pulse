@@ -5,7 +5,7 @@ import { mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { signIn } from "../fixtures/dashboard.ts";
+import { devVars, signIn } from "../fixtures/dashboard.ts";
 import { referenceClip, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { soundsServicePorts } from "../ports.ts";
@@ -85,6 +85,14 @@ test("a researcher switches Chainsaw off and on; a sensor follows at its next ch
     // A chainsaw now adds nothing, and the earlier chainsaw row is still there.
     const off = await replay({ sensorId, wavs: [referenceClip("chainsaw.wav")], stateDir, serverUrl: origin });
     expect(off).toContain("0 event(s) still queued");
+    // An event for it sent anyway (a sensor still on its old list) is answered as dropped and not stored.
+    const sent = await page.request.post(`${origin}/api/v1/sensors/${sensorId}/events`, {
+      headers: { Authorization: `Bearer ${devVars().DEVICE_KEY}` },
+      data: { sent_at: new Date().toISOString(), events: [
+        { event_id: "late-chainsaw", detected_at: new Date().toISOString(), sound_id: "chainsaw", confidence: 0.9 },
+      ] },
+    });
+    expect((await sent.json()).results).toEqual([{ event_id: "late-chainsaw", status: "dropped" }]);
     await log.waitForTimeout(2500); // one more poll of the log
     await expect(rows).toHaveCount(before);
     await expect(rows.filter({ hasText: "Chainsaw" })).toHaveCount(1);
