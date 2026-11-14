@@ -1,6 +1,6 @@
 """Live trigger monitor: level, floor, band ratio, inter-mic coherence, state.
 
-Usage: uv run monitor.py [--port /dev/ttyACM0] [--hz 4]
+Usage: uv run monitor.py [--port PATH (default: auto-detect ESP32)] [--hz 4]
 
 Only one program can open the serial port at a time. To watch status AND
 save events, run `uv run receiver.py` instead (it shows the same status).

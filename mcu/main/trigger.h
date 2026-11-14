@@ -19,6 +19,7 @@ typedef struct {
     float floor_dbfs;  // adaptive noise floor
     float ratio_db;    // last block band-energy / wind-energy ratio
     float coherence;   // smoothed mean inter-mic MSC over 1-3 kHz (0..1)
+    float tone_db;     // TEST: test-tone bin over its neighbours (-99 when the test mode is off)
     uint32_t events;   // events started since boot
 } trig_stats_t;
 

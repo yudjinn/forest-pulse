@@ -1,0 +1,2 @@
+# Overlay for the synthetic-source test build (see README "Build, flash, test")
+CONFIG_FE_SOURCE_SYNTH=y

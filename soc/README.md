@@ -7,7 +7,13 @@ The Linux side of a sensor node. It:
 - estimates the **bearing** (the direction the sound comes from, relative to the board);
 - uploads results to the server over Wi-Fi.
 
-Status: **receiver running.** [`atech-serial-listener/`](atech-serial-listener/) is an Arduino App Lab app for the Uno Q. It reads the USB stream, validates and parses the packets, tracks events, and logs the notify line on header pin D7. Classification, bearing and uplink are not started. This document records the requirements and design decisions agreed so far.
+Status: **running on the Uno Q** (hot-plug serial bridge, ESP32 connected). **Classification moved to the server SDK**: the node sends the audio file and the bearing. The on-device classifier below is kept but disabled. Earlier status: [`atech-serial-listener/`](atech-serial-listener/) is an Arduino App Lab app. It:
+- receives events and classifies them (EfficientAT `mn10_as`, ONNX, from [`experiments/efficientat-chainsaw`](../experiments/efficientat-chainsaw/));
+- estimates the bearing (GCC-PHAT / SRP-PHAT, with the speed of sound from a Modulino Thermo);
+- stores each event and queues it for a **stub** uplink;
+- shows a direction arrow on the LED matrix for chainsaws.
+
+See its README for files, setup and what still needs checking on the device. Laptop tests and harness: [`dev/`](dev/).
 For the system picture, see the [repo README](../README.md).
 
 ## Responsibilities
@@ -163,9 +169,14 @@ For each analysis window (0.25–0.5 s, 50% overlap) that the classifier accepts
 ## TODO
 
 - [x] Choose the Uno Q pin for the notify line: STM32 header D7.
-- [ ] Receiver service: reuse `mcu/tools/fe_protocol.py`; run as a systemd service; reconnect on USB re-enumeration.
-- [ ] Measure the real mic sound-port positions (±1 mm); put them in a geometry config.
-- [ ] Implement GCC-PHAT + SRP-PHAT; validate with claps at known angles.
-- [ ] Classifier (chainsaw / machinery / other) to choose which windows the bearing uses.
-- [ ] Event record + FLAC upload over Wi-Fi with store-and-forward; agree the API with the server.
-- [ ] NTP on the Uno Q; trigger-time estimate.
+- [x] Receiver: `atech-serial-listener` (App Lab app, socat bridge brick, reconnects); processing split into plain-Python modules.
+- [x] GCC-PHAT + SRP-PHAT bearing with a quality gate. Synthetic tests: ≤ 1° error down to 0 dB SNR. The phone-clip event gives 276.7° ± 0.9°; hall background gives no bearing.
+- [x] Classifier: the experiment's `Tagger` exported to ONNX (`export_onnx.py`); app path matches `Tagger` to 1.5e-6, 31/40 vs 0/36 on ESC-50.
+- [x] Speed of sound from the Modulino Thermo, falling back to 343 m/s.
+- [x] LED-matrix arrow toward classified chainsaws (`led.rotation_deg` for mounting).
+- [x] Event record (§4 schema) + WAV on disk, newest 50 kept; trigger time from the D7 rise (else end − live length).
+- [ ] **Run on the Uno Q:** sketch compiles (LED matrix + Modulino libraries), `onnxruntime` installs, Bridge payloads, A53 timing. See the app README "Not yet verified on the device".
+- [ ] **Demo classification:** the hall phone-clip test scored chainsaw 0.005 (top: Speech/Vehicle). Play it louder or closer, or tune the threshold on clips captured in the hall.
+- [ ] Measure the real mic sound-port positions (±1 mm) → `config.json` `mic_positions_cm`; validate with claps at known angles.
+- [ ] Uplink: replace `StubUplink` once the server API exists (teammate). Records are queued in `data/outbox/`. FLAC compression optional.
+- [ ] NTP on the Uno Q (record timestamps use the system clock).

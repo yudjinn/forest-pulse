@@ -100,6 +100,16 @@ static float s_coh_alpha;
 static float s_auto[FE_CHANNELS][N_HIGH];       // smoothed |X|^2 per mic per bin
 static float s_cross_re[3][N_HIGH], s_cross_im[3][N_HIGH];  // pairs 12, 13, 23
 static volatile float s_last_rms, s_last_ratio_db, s_last_coherence;
+
+// ---- TEST: pure-tone trigger (CONFIG_FE_TEST_TONE_HZ, 0 = off) ----------------
+#define TEST_TONE_HZ CONFIG_FE_TEST_TONE_HZ
+#define TEST_TONE_MIN_DB 20.0f      // tone bin over its neighbours
+#define TEST_TONE_LEVEL_DB 6.0f     // level over the noise floor
+#if TEST_TONE_HZ > 0
+_Static_assert(TEST_TONE_HZ % 50 == 0, "FE_TEST_TONE_HZ must be a multiple of 50 Hz (20 ms bins)");
+static float s_coeff_tone, s_coeff_tone_nb[4];
+#endif
+static volatile float s_last_tone_db = -99.0f;
 static volatile uint32_t s_events;
 
 static atomic_bool s_req_force;
@@ -131,6 +141,15 @@ void trigger_init(void)
         s_sin_high[i] = sinf(w);
     }
     s_coeff_wind = goertzel_coeff(k_wind_hz);
+#if TEST_TONE_HZ > 0
+    s_coeff_tone = goertzel_coeff(TEST_TONE_HZ);
+    // Neighbours outside the Hann main lobe (+-100 Hz) of the tone bin.
+    const float nb[4] = {TEST_TONE_HZ - 200, TEST_TONE_HZ - 150, TEST_TONE_HZ + 150, TEST_TONE_HZ + 200};
+    for (int i = 0; i < 4; i++) {
+        s_coeff_tone_nb[i] = goertzel_coeff(nb[i]);
+    }
+    ESP_LOGW(TAG, "TEST MODE: also triggering on a %d Hz tone", TEST_TONE_HZ);
+#endif
     // Hann window: rectangular-window leakage (-13 dB sidelobes) would let an
     // off-bin engine harmonic spill into the 50 Hz "wind" bin.
     for (uint32_t i = 0; i < FE_BLOCK_FRAMES; i++) {
@@ -235,7 +254,20 @@ static bool evaluate(const int16_t *block, uint32_t n)
     const bool gate = to_db(level) > to_db(s_floor_rms) + SNR_DB;
     const bool spectral = ratio_db > RATIO_DB;
     const bool coherent = !COHERENCE_GATE || coherence > COHERENCE_MIN;
-    const bool positive = gate && spectral && coherent;
+    bool positive = gate && spectral && coherent;
+#if TEST_TONE_HZ > 0
+    {
+        float nb = 0;
+        for (int i = 0; i < 4; i++) {
+            nb += goertzel_power(s_x[0], n, s_coeff_tone_nb[i]);
+        }
+        const float tone_db = 10.0f * log10f((goertzel_power(s_x[0], n, s_coeff_tone) + 1e-12f) / (nb / 4 + 1e-12f));
+        s_last_tone_db = tone_db;
+        if (tone_db >= TEST_TONE_MIN_DB && to_db(level) > to_db(s_floor_rms) + TEST_TONE_LEVEL_DB) {
+            positive = true;
+        }
+    }
+#endif
 
     // Noise floor: never adapts during an event. On background blocks it falls
     // fast / rises slowly - but it does NOT rise while a coherent (directional)
@@ -356,6 +388,7 @@ void trigger_get_stats(trig_stats_t *out)
     out->floor_dbfs = to_db(s_floor_rms);
     out->ratio_db = s_last_ratio_db;
     out->coherence = s_last_coherence;
+    out->tone_db = s_last_tone_db;
     out->events = s_events;
 }
 

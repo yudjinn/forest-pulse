@@ -1,0 +1,7 @@
+# Forest Pulse sensor SDK config. Copy to forestpulse.toml (next to main.py; gitignored: it holds the key).
+server_url = "https://forestpulse.paxid.com"   # the SDK adds /api/v1/sensors/<sensor_id>/...
+sensor_key = "<sensor key from the server team>"
+# Must be unique and stable per board. The app container can't see the board's
+# MAC (or a stable hostname), so set it explicitly from the board's wlan0 MAC:
+#   ssh arduino@<board> cat /sys/class/net/wlan0/address
+sensor_id = "fp-<wlan0 MAC without colons>"

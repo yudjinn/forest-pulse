@@ -1,0 +1,22 @@
+[project]
+name = "atech-soc-dev"
+version = "0.1.0"
+description = "Local development and tests for the Uno Q app (soc/atech-serial-listener/python)"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "onnxruntime>=1.18",
+    "pyserial>=3.5",
+    "pytest>=8",
+    "forestpulse-sensor",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+forestpulse-sensor = { path = "../../sensor-sdk", editable = true }
+
+[tool.pytest.ini_options]
+pythonpath = ["../atech-serial-listener/python", ".", "tests"]
+testpaths = ["tests"]
