@@ -35,6 +35,7 @@ SLOT_LEAD_S = 0.1           # a slot's window opens this long before the slot: t
 BEARING_BEFORE_S = 0.002    # the bearing window around one arrival
 BEARING_AFTER_S = 0.01
 OFFSET_SAMPLES = 30         # the service clock offset comes from the fastest of the latest check-ins
+ENDED_AFTER_REPLIES = 2     # the run has ended once this many replies in a row leave it out (one may be a hiccup)
 INT16_MAX, INT16_MIN = 32767, -32768
 
 
@@ -159,6 +160,7 @@ class Calibrator:
         self._run = None
         self._done = deque(maxlen=50)
         self._offsets = deque(maxlen=OFFSET_SAMPLES)  # (round trip, service clock minus this board's)
+        self._missing = 0  # replies in a row without the run
         self.stream = None
 
     @property
@@ -183,9 +185,11 @@ class Calibrator:
         with self._lock:
             run = self._run
             if not isinstance(block, dict):
-                if run is not None:
+                self._missing += 1
+                if run is not None and self._missing >= ENDED_AFTER_REPLIES:
                     run.abort("the run ended")
                 return
+            self._missing = 0
             if run is not None and run.id == block.get("run_id"):
                 run.update(block)
                 return
@@ -244,6 +248,7 @@ class Run:
             raise ValueError(f"run {self.id}: role {self.role} or a pattern is missing from the run")
         self.start_at = None
         self.ready = False
+        self._stream = None  # this run's stream while it runs
         self._scheduled = threading.Event()
         self._aborted = threading.Event()
         self._why = None
@@ -280,7 +285,8 @@ class Run:
         deadline = None
         try:
             stream = Stream(int(hooks.fs))
-            cal.stream = stream
+            with cal._lock:
+                self._stream = cal.stream = stream
             try:
                 started = hooks.start_stream()
             except Exception:
@@ -295,8 +301,12 @@ class Run:
                 self.ready = True
                 cal._wake()
                 log.info("calibration run %s: stream flowing, ready", self.id)
-                if not self._scheduled.wait(SCHEDULE_TIMEOUT_S) and not self._aborted.is_set():
-                    raise Aborted("never scheduled")
+                give_up = time.monotonic() + SCHEDULE_TIMEOUT_S
+                while not self._scheduled.is_set():
+                    self._check()
+                    if time.monotonic() > give_up:
+                        raise Aborted("never scheduled")
+                    self._scheduled.wait(0.1)
                 self._check()
                 offset = cal.offset()
                 end = schedule_end(self.order, self.start_at, self.slot_ms, self.round_gap_ms, self.rounds)
@@ -382,9 +392,14 @@ class Run:
             self._aborted.wait(0.02)
 
     def _stop_stream(self):
-        if self.cal.stream is None:
+        """Stops this run's stream, unless a newer run already took the stream over."""
+        with self.cal._lock:
+            mine = self._stream is not None and self.cal.stream is self._stream
+            self._stream = None
+            if mine:
+                self.cal.stream = None
+        if not mine:
             return
-        self.cal.stream = None
         try:
             self.cal.hooks.stop_stream()
         except Exception:

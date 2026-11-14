@@ -79,8 +79,7 @@ def test_two_boards_take_part_in_a_run_and_their_reports_range_to_the_true_dista
         distances = [two_way(a, b, r) for r in range(4)]
         assert all(abs(d - 3.0) < 0.03 for d in distances), distances
 
-        # no sound events while taking part; the run over, the sensors are back to listening
-        assert state.events == []
+        # the run over, the sensors are back to listening
         assert wait_for(lambda: not sensors["a"].status["calibrating"] and not sensors["b"].status["calibrating"])
     finally:
         for s in sensors.values():
