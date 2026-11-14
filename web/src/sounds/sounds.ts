@@ -3,17 +3,19 @@ import type { RouteContext } from "../router.ts";
 import { json } from "../http.ts";
 import { logLine } from "../log.ts";
 
-// Runs statements that change the sounds table together with the sound-list version bump, in one D1 batch, so a
-// change and its new version land or fail together and every sensor fetches the new list at its next check-in.
-// Returns the changes' own results, in order, and the new version. Teaching and deleting go through this too.
-export async function changeSoundList(db: D1Database, changes: D1PreparedStatement[]):
-  Promise<{ results: D1Result[]; version: number }> {
-  const replies = await db.batch([
-    ...changes,
-    db.prepare("UPDATE sound_list SET version = version + 1 WHERE id = 1 RETURNING version"),
+// Runs one statement that changes the sounds table together with the sound-list version bump, in one D1 batch, so
+// a change and its new version land or fail together and every sensor fetches the new list at its next check-in.
+// The version moves on only when the change touched a row: a sound gone between a caller's read and this write
+// changes nothing, and sensors would otherwise refetch an unchanged list. Returns the change's own result and the
+// list's version. Teaching and deleting go through this too.
+export async function changeSoundList(db: D1Database, change: D1PreparedStatement):
+  Promise<{ result: D1Result; version: number }> {
+  const [result, , version] = await db.batch([
+    change,
+    db.prepare("UPDATE sound_list SET version = version + 1 WHERE id = 1 AND changes() > 0"),
+    db.prepare("SELECT version FROM sound_list WHERE id = 1"),
   ]);
-  const bump = replies[replies.length - 1] as D1Result<{ version: number }>;
-  return { results: replies.slice(0, -1), version: bump.results[0].version };
+  return { result, version: (version.results[0] as { version: number }).version };
 }
 
 interface SoundRow {
@@ -62,11 +64,11 @@ export async function switchSound(request: Request, { env, params }: RouteContex
     const version = await env.DB.prepare("SELECT version FROM sound_list WHERE id = 1").first<number>("version");
     return json({ sound: toSound(current), version });
   }
-  const { results, version } = await changeSoundList(env.DB, [
-    env.DB.prepare(`UPDATE sounds SET enabled = ? WHERE id = ? RETURNING ${COLUMNS}`)
-      .bind(enabled ? 1 : 0, params.sound),
-  ]);
-  const row = (results[0].results as SoundRow[])[0];
+  const { result, version } = await changeSoundList(
+    env.DB,
+    env.DB.prepare(`UPDATE sounds SET enabled = ? WHERE id = ? RETURNING ${COLUMNS}`).bind(enabled ? 1 : 0, params.sound),
+  );
+  const row = (result.results as SoundRow[])[0];
   if (!row) return json({ error: "no such sound" }, 404); // deleted between the read and the switch
   logLine("sound_switched", { sound: row.id, enabled, version });
   return json({ sound: toSound(row), version });
@@ -79,10 +81,11 @@ export async function deleteSound(_request: Request, { env, params }: RouteConte
   const current = await env.DB.prepare(`SELECT ${COLUMNS} FROM sounds WHERE id = ?`).bind(params.sound).first<SoundRow>();
   if (!current) return json({ error: "no such sound" }, 404);
   if (current.taught_at === null) return json({ error: SEEDED_KEPT }, 409);
-  const { results, version } = await changeSoundList(env.DB, [
+  const { result, version } = await changeSoundList(
+    env.DB,
     env.DB.prepare("DELETE FROM sounds WHERE id = ? AND taught_at IS NOT NULL RETURNING id").bind(params.sound),
-  ]);
-  if (!results[0].results.length) return json({ error: "no such sound" }, 404); // deleted meanwhile
+  );
+  if (!result.results.length) return json({ error: "no such sound" }, 404); // deleted meanwhile
   logLine("sound_deleted", { sound: current.id, name: current.name, version });
   return json({ id: current.id, version });
 }

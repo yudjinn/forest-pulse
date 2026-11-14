@@ -15,7 +15,7 @@ const SERVICE_REFUSALS = new Set([TOO_FEW, "A sound with this name already exist
 
 /**
  * @typedef {{
- *   file: File, item: HTMLLIElement, status: HTMLElement, progress: HTMLProgressElement,
+ *   file: File, item: HTMLLIElement, status: HTMLElement, progress: HTMLProgressElement, retry: HTMLButtonElement,
  *   state: "waiting" | "working" | "ready" | "skipped", removed: boolean,
  *   clean: Float32Array[], mixed: Float32Array[],
  * }} Clip
@@ -88,21 +88,54 @@ function addClip(file) {
   const progress = document.createElement("progress");
   progress.setAttribute("aria-label", `${file.name} progress`);
   progress.value = 0;
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.className = "clip-retry";
+  retry.textContent = "Try again";
+  retry.setAttribute("aria-label", `Try ${file.name} again`);
+  retry.hidden = true;
   const remove = document.createElement("button");
   remove.type = "button";
   remove.className = "clip-remove";
   remove.textContent = "Remove";
   remove.setAttribute("aria-label", `Remove ${file.name}`);
-  item.append(name, status, progress, remove);
+  item.append(name, status, retry, remove, progress);
   list.append(item);
   /** @type {Clip} */
-  const clip = { file, item, status, progress, state: "waiting", removed: false, clean: [], mixed: [] };
+  const clip = { file, item, status, progress, retry, state: "waiting", removed: false, clean: [], mixed: [] };
   remove.addEventListener("click", () => {
     clip.removed = true;
     item.remove();
     refresh();
   });
+  // Only a recording the model or the hall background failed on: it summarises again from the start.
+  retry.addEventListener("click", () => {
+    showError();
+    retry.hidden = true;
+    item.classList.remove("skipped");
+    clip.clean = [];
+    clip.mixed = [];
+    clip.progress.value = 0;
+    clip.progress.hidden = false;
+    admit(clip);
+    refresh();
+  });
   return clip;
+}
+
+/** Skips a recording over a limit, otherwise queues it to be summarised. @param {Clip} clip */
+function admit(clip) {
+  const { file } = clip;
+  const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+  const total = accepted().reduce((sum, c) => sum + c.file.size, 0);
+  if (accepted().length >= MAX_CLIPS) skip(clip, "Too many recordings");
+  else if (!EXTENSIONS.includes(extension)) skip(clip, "Couldn't be read");
+  else if (file.size > MAX_FILE || total + file.size > MAX_TOTAL) skip(clip, "Too large");
+  else {
+    clip.state = "waiting";
+    setStatus(clip, "Waiting");
+    queue = queue.then(() => summariseClip(clip));
+  }
 }
 
 /** @param {FileList | File[]} files */
@@ -114,15 +147,7 @@ function addFiles(files) {
     if (seen.has(key)) continue;
     seen.add(key);
     const clip = addClip(file);
-    const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-    const total = accepted().reduce((sum, c) => sum + c.file.size, 0);
-    if (accepted().length >= MAX_CLIPS) skip(clip, "Too many recordings");
-    else if (!EXTENSIONS.includes(extension)) skip(clip, "Couldn't be read");
-    else if (file.size > MAX_FILE || total + file.size > MAX_TOTAL) skip(clip, "Too large");
-    else {
-      setStatus(clip, "Waiting");
-      queue = queue.then(() => summariseClip(clip));
-    }
+    admit(clip);
     clips.push(clip);
   }
   clips = live();
@@ -162,6 +187,7 @@ async function summariseClip(clip) {
     }
   } catch {
     skip(clip, "Not summarised");
+    clip.retry.hidden = false;
     showError(FAILED);
     refresh();
     return;

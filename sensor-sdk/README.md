@@ -18,6 +18,9 @@ ESP32 packets ─► atech-serial-listener ─► sensor.feed_channels() ─► 
    forestpulse-sensor @ https://github.com/yudjinn/forest-pulse/archive/refs/heads/main.zip#subdirectory=sensor-sdk
    ```
 
+   Boards need version 0.2.0 or later: the live site refuses older versions before they reach the server, and they
+   look like they cannot reach it. To update an installed copy, `pip install --upgrade` the same line.
+
    No git needed. Installs `numpy` and `onnxruntime` (prebuilt for Linux ARM64) and the bundled 20 MB model;
    about 130 MB in total. Checked on Linux ARM64 with Python 3.13.
 
@@ -33,8 +36,8 @@ ESP32 packets ─► atech-serial-listener ─► sensor.feed_channels() ─► 
 3. **Create `forestpulse.toml` next to `main.py`:**
 
    ```toml
-   server_url = "http://<laptop-ip>:8787"   # dev server for now, see below; later https://forestpulse.paxid.com
-   sensor_key = "dev-key"
+   server_url = "https://forestpulse.paxid.com"
+   sensor_key = "<live sensor key>"          # from the Forest Pulse team; "dev-key" for the dev server below
    sensor_id = "node-01"                     # optional, defaults to the hostname; must differ per board
    ```
 
@@ -64,7 +67,7 @@ ESP32 packets ─► atech-serial-listener ─► sensor.feed_channels() ─► 
 
    Until the bearing code exists, leave out `angle_fn`; events then arrive without an angle.
 
-5. **Run a dev server on a laptop on the same network** (until ours is deployed):
+5. **Or try it against a dev server on a laptop on the same network** (`server_url = "http://<laptop-ip>:8787"`):
 
    ```sh
    pip install ./sensor-sdk

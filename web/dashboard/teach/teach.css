@@ -67,7 +67,7 @@
 
 .clip-list li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 4px 12px;
   padding: 8px 0;
@@ -103,6 +103,27 @@
   display: none;
 }
 
+.clip-retry {
+  grid-column: 3;
+}
+
+.clip-remove {
+  grid-column: 4;
+}
+
+/* On a phone, a row with both buttons puts its status under the name, so the name keeps its width. */
+@media (max-width: 480px) {
+  .clip-list li:has(.clip-retry:not([hidden])) .clip-status {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .clip-list li:has(.clip-retry:not([hidden])) :is(.clip-name, .clip-retry, .clip-remove) {
+    grid-row: 1;
+  }
+}
+
+.clip-retry,
 .clip-remove {
   padding: 4px 10px;
   border: 1px solid var(--line);

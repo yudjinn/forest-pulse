@@ -85,6 +85,12 @@
   font-size: 14px;
 }
 
+/* Seeded rows keep Delete's space, unseen, so every row's switch lines up. */
+.sound-delete[hidden] {
+  display: block;
+  visibility: hidden;
+}
+
 .sound-delete:disabled {
   opacity: 0.6;
   cursor: progress;

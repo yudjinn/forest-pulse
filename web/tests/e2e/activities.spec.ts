@@ -96,7 +96,13 @@ test("events become activities by category and corrected time, and Clear events 
     await expect(page.getByText("Couldn't clear, try again")).toBeHidden();
     await expect(activities(page)).toHaveCount(2);
 
-    // Confirmed, every event and activity is gone; the sensors and the sounds stay as they were.
+    // Confirmed, every event and activity is gone; the sensors, their placements and the sounds stay as they were.
+    const sawCard = page.getByRole("list", { name: "Sensors" }).getByRole("listitem")
+      .filter({ has: page.getByRole("heading", { name: saw }) });
+    await sawCard.getByLabel("Facing").fill("45");
+    await sawCard.getByLabel("Facing").press("Enter");
+    await expect(sawCard.getByLabel("Facing")).toHaveValue("45");
+    const sawPosition = await sawCard.getByText(/^x -?\d+\.\d m, y -?\d+\.\d m$/).textContent();
     await page.getByRole("button", { name: "Clear events" }).click();
     await confirm.getByRole("button", { name: "Clear events" }).click();
     await expect(page.getByText("Nothing heard yet")).toBeVisible();
@@ -106,6 +112,9 @@ test("events become activities by category and corrected time, and Clear events 
     await expect(page.getByText("Nothing heard yet")).toBeVisible();
     await expect(page.getByRole("button", { name: "Clear events" })).toBeDisabled();
     expect(await storedSensors()).toEqual([saw, road, behind].sort());
+    await page.reload();
+    await expect(sawCard.getByLabel("Facing")).toHaveValue("45");
+    await expect(sawCard.getByText(/^x -?\d+\.\d m, y -?\d+\.\d m$/)).toHaveText(sawPosition!);
 
     await page.goto(`${origin}/dashboard/sounds/`);
     for (const name of SEEDED) await expect(page.getByRole("switch", { name, exact: true })).toBeChecked();
