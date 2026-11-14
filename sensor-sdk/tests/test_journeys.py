@@ -57,7 +57,7 @@ def test_detects_reports_angle_and_follows_the_server_sound_list(tmp_path, model
                     checkin_interval=0.2, angle_fn=lambda w: angles.append(w.shape) or (37.0, 0.8)).start()
     try:
         assert wait_for(lambda: "node-a" in state.sensors)
-        assert wait_for(lambda: sensor.status["sound_list_version"] == 1)
+        assert wait_for(lambda: sensor.status["sound_list_version"] == SEED["version"])
 
         # a chainsaw is reported once (repeats within 5 s suppressed), with the angle; rain and the hall are not
         play(sensor, "chainsaw.wav")
@@ -77,7 +77,7 @@ def test_detects_reports_angle_and_follows_the_server_sound_list(tmp_path, model
         broken["sounds"][0]["weights"] = [0.0] * 10
         put_sounds(port, broken)
         time.sleep(1.0)
-        assert sensor.status["sound_list_version"] == 1
+        assert sensor.status["sound_list_version"] == SEED["version"]
 
         # switching chainsaw off on the server reaches the sensor at its next check-in
         no_chainsaw = {**SEED, "sounds": [s for s in SEED["sounds"] if s["id"] != "chainsaw"]}

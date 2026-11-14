@@ -6,6 +6,7 @@
 const NAV = [
   { href: "/dashboard/", label: "Live" },
   { href: "/dashboard/sounds/", label: "Sounds" },
+  { href: "/dashboard/player/", label: "Player" },
 ];
 
 const POLL_MS = 2000;

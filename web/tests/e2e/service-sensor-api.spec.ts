@@ -33,12 +33,12 @@ test("sensors get the contract's replies: sound list, duplicates, dropped, rejec
   await signIn(page);
   const sensorId = uniqueSensorId("contract");
 
-  // Check-in and the sound list: the seeded list, verbatim from the library's built-in one, at version 1.
+  // Check-in and the sound list: the seeded list, verbatim from the library's built-in one, at its version.
   const [checkin, sounds] = await asSensor(sensorId, [
     { call: "checkin", fields: { instance_id: "i-1", sdk_version: "0.1.0", model: "mn10_as", sound_list_version: null, queued_events: 0 } },
     { call: "sounds" },
   ]);
-  expect(checkin.sound_list_version).toBe(1);
+  expect(checkin.sound_list_version).toBe(seedSounds.version);
   expect(Math.abs(Date.parse(checkin.server_time) - Date.now())).toBeLessThan(5000);
   expect(sounds).toEqual(seedSounds);
 
@@ -48,8 +48,8 @@ test("sensors get the contract's replies: sound list, duplicates, dropped, rejec
     { call: "post_events", events: batch },
     { call: "post_events", events: batch },
   ]);
-  expect(first).toEqual({ results: [{ event_id: "fixed-1", status: "accepted" }], sound_list_version: 1 });
-  expect(second).toEqual({ results: [{ event_id: "fixed-1", status: "duplicate" }], sound_list_version: 1 });
+  expect(first).toEqual({ results: [{ event_id: "fixed-1", status: "accepted" }], sound_list_version: seedSounds.version });
+  expect(second).toEqual({ results: [{ event_id: "fixed-1", status: "duplicate" }], sound_list_version: seedSounds.version });
   const rows = await logRows(page, sensorId);
   expect(rows).toHaveLength(1);
   expect(rows[0]).toMatchObject({ sound_name: "Chainsaw", angle_deg: 40 }); // stored modulo 360
@@ -62,7 +62,7 @@ test("sensors get the contract's replies: sound list, duplicates, dropped, rejec
     "not an event",
     event("ok-2"),
   ] }]);
-  expect(mixed.sound_list_version).toBe(1);
+  expect(mixed.sound_list_version).toBe(seedSounds.version);
   expect(mixed.results.map((r: any) => [r.event_id, r.status])).toEqual([
     ["owl-1", "dropped"], ["bad-1", "rejected"], ["bad-2", "rejected"], [null, "rejected"], ["ok-2", "accepted"],
   ]);
@@ -92,7 +92,7 @@ test("sensors get the contract's replies: sound list, duplicates, dropped, rejec
     headers: { Authorization: `Bearer ${devVars().DEVICE_KEY}` },
     data: { sent_at: iso(sentAt), events: [event("late-1", { detected_at: iso(sentAt - 2000) })] },
   });
-  expect(await res.json()).toEqual({ results: [{ event_id: "late-1", status: "accepted" }], sound_list_version: 1 });
+  expect(await res.json()).toEqual({ results: [{ event_id: "late-1", status: "accepted" }], sound_list_version: seedSounds.version });
   const [late] = await logRows(page, lateId);
   const expected = Date.now() - 2000;
   expect(Math.abs(Date.parse(late.occurred_at) - expected)).toBeLessThan(3000);

@@ -1,0 +1,96 @@
+/* The phone player: one large tap target per sample, its credit underneath, Stop beside the heading. */
+#player {
+  max-width: 560px;
+  width: 100%;
+  justify-self: center;
+}
+
+.player-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.player-head h2 {
+  margin: 0;
+}
+
+.player-stop {
+  min-width: 96px;
+  min-height: 48px;
+  background: var(--alert);
+}
+
+.player-stop:disabled {
+  background: var(--line);
+  color: var(--muted);
+  cursor: default;
+}
+
+.sample-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sample-list li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.sample-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.sample {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 16px;
+  border: 2px solid var(--evergreen);
+  background: #fff;
+  color: var(--evergreen);
+  text-align: left;
+  font-size: 18px;
+}
+
+.sample[aria-pressed="true"] {
+  background: var(--evergreen);
+  color: var(--ivory);
+}
+
+.sample[aria-busy="true"] {
+  border-style: dashed;
+}
+
+.sample-state {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.sample-credit {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.sample-credit a {
+  color: inherit;
+  white-space: nowrap;
+}
+
+.sample-list .error {
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+#player > .error {
+  margin-top: 12px;
+}
