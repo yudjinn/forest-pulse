@@ -75,4 +75,6 @@ Plain-text version:
 ```
 mcu/     ESP32-S3 firmware (ESP-IDF v5.5) + host tools (uv): see mcu/README.md
 soc/     Arduino Uno Q / Linux side: requirements + design in soc/README.md (not started)
+sensor-sdk/  Python library the Uno Q app uses to classify and report events: see sensor-sdk/README.md
+docs/    sensor API (docs/device-api.md), architecture decisions (docs/adr/)
 ```
