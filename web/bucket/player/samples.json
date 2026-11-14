@@ -1,0 +1,116 @@
+{
+ "rms_dbfs": -20.0,
+ "samples": [
+  {
+   "id": "chainsaw-1",
+   "name": "Chainsaw 1",
+   "kind": "chainsaw",
+   "file": "chainsaw-1.wav",
+   "credit": {
+    "recordist": "UncleSigmund",
+    "source": "ESC-50, Freesound 116765",
+    "url": "https://freesound.org/s/116765/",
+    "licence": "CC BY-NC 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "source": {
+    "dataset": "ESC-50",
+    "clip": "1-116765-A-41.wav",
+    "recording": "116765"
+   },
+   "seconds": 4.9
+  },
+  {
+   "id": "chainsaw-2",
+   "name": "Chainsaw 2",
+   "kind": "chainsaw",
+   "file": "chainsaw-2.wav",
+   "credit": {
+    "recordist": "Benboncan",
+    "source": "ESC-50, Freesound 64398",
+    "url": "https://freesound.org/s/64398/",
+    "licence": "CC BY-NC 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "source": {
+    "dataset": "ESC-50",
+    "clip": "1-64398-A-41.wav",
+    "recording": "64398"
+   },
+   "seconds": 4.27
+  },
+  {
+   "id": "chainsaw-3",
+   "name": "Chainsaw 3",
+   "kind": "chainsaw",
+   "file": "chainsaw-3.wav",
+   "credit": {
+    "recordist": "fkurz",
+    "source": "ESC-50, Freesound 169127",
+    "url": "https://freesound.org/s/169127/",
+    "licence": "CC BY-NC 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "source": {
+    "dataset": "ESC-50",
+    "clip": "4-169127-A-41.wav",
+    "recording": "169127"
+   },
+   "seconds": 4.9
+  },
+  {
+   "id": "boreal-owl-1",
+   "name": "Boreal owl 1",
+   "kind": "boreal owl",
+   "file": "boreal-owl-1.wav",
+   "credit": {
+    "recordist": "Johan Lundgren",
+    "source": "xeno-canto XC1145038",
+    "url": "https://xeno-canto.org/1145038",
+    "licence": "CC BY-NC-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "source": {
+    "dataset": "xeno-canto",
+    "recording": "1145038"
+   },
+   "seconds": 26.54
+  },
+  {
+   "id": "boreal-owl-2",
+   "name": "Boreal owl 2",
+   "kind": "boreal owl",
+   "file": "boreal-owl-2.wav",
+   "credit": {
+    "recordist": "Stein Ø. Nilsen",
+    "source": "xeno-canto XC217840",
+    "url": "https://xeno-canto.org/217840",
+    "licence": "CC BY-NC-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "source": {
+    "dataset": "xeno-canto",
+    "recording": "217840"
+   },
+   "seconds": 25.62
+  },
+  {
+   "id": "tawny-owl",
+   "name": "Tawny owl",
+   "kind": "tawny owl",
+   "file": "tawny-owl.wav",
+   "credit": {
+    "recordist": "Mark Plummer",
+    "source": "xeno-canto XC1080086",
+    "url": "https://xeno-canto.org/1080086",
+    "licence": "CC BY-NC-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "source": {
+    "dataset": "xeno-canto",
+    "recording": "1080086"
+   },
+   "seconds": 11.7
+  }
+ ]
+}

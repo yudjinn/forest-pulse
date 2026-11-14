@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Player - Forest Pulse dashboard</title>
+    <meta name="theme-color" content="#0B4827">
+    <link rel="icon" href="/brand/icons/favicon.ico" sizes="16x16 32x32 48x48">
+    <link rel="icon" href="/brand/icons/favicon.svg" type="image/svg+xml" sizes="any">
+    <link rel="apple-touch-icon" href="/brand/icons/apple-touch-icon.png" sizes="180x180">
+    <link rel="stylesheet" href="/dashboard/shell.css">
+    <link rel="stylesheet" href="/dashboard/player/player.css">
+    <script type="module" src="/dashboard/shell.js"></script>
+    <script type="module" src="/dashboard/player/player.js"></script>
+  </head>
+  <body>
+    <main class="panels">
+      <section id="player" class="panel" aria-labelledby="player-title">
+        <div class="player-head">
+          <h2 id="player-title">Player</h2>
+          <button type="button" class="player-stop" disabled>Stop</button>
+        </div>
+        <ul class="sample-list"></ul>
+        <p class="error" role="alert" hidden>Couldn't load the samples</p>
+      </section>
+    </main>
+  </body>
+</html>
