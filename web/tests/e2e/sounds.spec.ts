@@ -1,6 +1,7 @@
 // Sounds journey: a researcher reads the sound list, sees a failed save flip back, switches Chainsaw off and on, and
-// moves the sensitivity, while a real sensor (the library's replay) picks each change up at its next check-in and a
-// second researcher's page follows. It runs on its own fresh service: switching a sound off or moving the sensitivity
+// moves the sensitivity, while a real sensor (the library's replay) picks each change up at its next check-in, the
+// page counts the sensors the change has reached and the plan flags the sensor until it has, and a second
+// researcher's page follows. It runs on its own fresh service: switching a sound off or moving the sensitivity
 // applies to every sensor, so the shared service never sees it.
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -22,6 +23,7 @@ const SEEDED = [
 ];
 
 const soundSwitch = (page: Page, name: string) => page.getByRole("switch", { name, exact: true });
+const reach = (page: Page) => page.getByRole("status").filter({ hasText: /^Reached / });
 
 // The sound names in the list a replay's sensor fetched at a given version, from its own log line.
 function fetchedList(out: string, version: number): string[] {
@@ -106,21 +108,38 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
     await expect(rows.filter({ hasText: "Chainsaw" })).toHaveCount(1, { timeout: 3000 });
     const before = await rows.count();
 
-    // Switched off, it stays off after a reload, and the sensor's next check-in fetches a list without it.
+    // Before any change the page says nothing about the sensors.
+    await expect(reach(page)).toHaveCount(0);
+
+    // Switched off: the page counts the sensor as not reached yet and the plan shows it updating, until the sensor's
+    // next check-ins fetch a list without Chainsaw and report it: its next run fetches the list, and the run after
+    // reports it at its first check-in (a run can stop before a second one).
+    const sensorCard = log.getByRole("list", { name: "Sensors" }).getByRole("listitem")
+      .filter({ has: log.getByText(sensorId, { exact: true }) });
+    // The sensor has just checked in with the list it holds, so it is online when the switch lands.
+    await asSensor(sensorId, [{ call: "checkin", fields: { sound_list_version: start } }], undefined, origin);
     await soundSwitch(page, "Chainsaw").click();
     await expect(soundSwitch(page, "Chainsaw")).not.toBeChecked();
     await expect(soundSwitch(page, "Chainsaw")).toBeEnabled();
     await expect(page.getByRole("listitem").filter({ has: soundSwitch(page, "Chainsaw") }))
       .not.toContainText("Couldn't save");
-    await page.reload();
-    await expect(soundSwitch(page, "Chainsaw")).not.toBeChecked();
-    await expect(soundSwitch(page, "Gunshot")).toBeChecked();
+    await expect(reach(page)).toHaveText("Reached 0 of 1 sensor");
+    await expect(sensorCard.getByText("Updating", { exact: true })).toBeVisible({ timeout: 3000 });
     const checkin = await replay({ sensorId, wavs: [silentWav()], stateDir, serverUrl: origin });
     expect(fetchedList(checkin, start + 1)).not.toContain("Chainsaw");
 
     // A chainsaw now adds nothing, and the earlier chainsaw row is still there.
     const off = await replay({ sensorId, wavs: [referenceClip("chainsaw.wav")], stateDir, serverUrl: origin });
     expect(off).toContain("0 event(s) still queued");
+    await expect(reach(page)).toHaveText("Reached 1 of 1 sensor", { timeout: 3000 });
+    await expect(sensorCard.getByText("Updating", { exact: true })).toBeHidden({ timeout: 3000 });
+    await expect(sensorCard.getByText("Outdated sound list")).toBeHidden();
+
+    // The switch stays off after a reload; the count does not.
+    await page.reload();
+    await expect(soundSwitch(page, "Chainsaw")).not.toBeChecked();
+    await expect(soundSwitch(page, "Gunshot")).toBeChecked();
+    await expect(reach(page)).toHaveCount(0);
     // An event for it sent anyway (a sensor still on its old list) is answered as dropped and not stored.
     const sent = await page.request.post(`${origin}/api/v1/sensors/${sensorId}/events`, {
       headers: { Authorization: `Bearer ${devVars().DEVICE_KEY}` },
@@ -151,6 +170,8 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
     await sensitivity.fill("70");
     await expect(page.getByText("Report sounds at 70% confidence or more")).toBeVisible();
     await expect(page.getByRole("alert")).toBeHidden();
+    // A sensitivity change is a sound-list change: the sensor has not reached it yet.
+    await expect(reach(page)).toHaveText("Reached 0 of 1 sensor");
     await expect.poll(async () => (await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()))
       .toMatchObject({ sensitivity: 0.7, version: start + 3 });
     await expect(otherPage.getByRole("slider")).toHaveValue("70");

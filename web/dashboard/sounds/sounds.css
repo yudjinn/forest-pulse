@@ -24,6 +24,19 @@
   text-decoration: none;
 }
 
+/* How far the researcher's latest change has reached the sensors. */
+.sound-reach {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sound-reach[hidden] {
+  display: none;
+}
+
 /* The sensitivity: its sentence over a full-width slider, above the list. */
 .sensitivity {
   display: grid;

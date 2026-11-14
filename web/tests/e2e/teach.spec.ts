@@ -1,7 +1,8 @@
 // Teaching journey: a researcher teaches Boreal owl from dropped recordings on the Teach page, after seeing too few
 // usable recordings refused and a failed upload save nothing; the sound appears in the Sounds list, and sensors
 // pull it at their next check-in: a boreal owl the detector never heard is reported, a tawny owl is not. Teaching
-// Boreal owl again with other recordings replaces its detector in place; deleting it, after a confirmation and a
+// Boreal owl again with other recordings replaces its detector in place, and the Sounds list it returns to counts
+// the sensors that have the new list; deleting it, after a confirmation and a
 // failed attempt, takes it off sensors at their next check-in while the log keeps its earlier rows.
 // It runs on its own fresh service: teaching changes the sound list for every sensor, so the shared service never
 // sees it. The teaching clips are boreal owls by recordists the player's samples do not use; the replayed owls are
@@ -23,6 +24,7 @@ const asFile = (file: string) => ({ name: path.basename(file), mimeType: "audio/
 const playerSample = (file: string) => path.join(webRoot, "bucket", "player", file);
 
 const clipRow = (page: Page, file: string) => page.getByRole("listitem").filter({ hasText: file });
+const reach = (page: Page) => page.getByRole("status").filter({ hasText: /^Reached / });
 
 // The sound names in the list a replay's sensor fetched at a given version, from its own log line.
 function fetchedList(out: string, version: number): string[] {
@@ -102,6 +104,8 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     const after = await (await page.request.get(`${origin}/dashboard/api/sounds`)).json();
     expect(after.version).toBe(before.version + 1);
     expect(after.sounds).toHaveLength(before.sounds.length + 1);
+    // No sensor is on the plan yet, so there is nothing to count.
+    await expect(reach(page)).toHaveCount(0);
 
     // A seeded sound's name, in any case, is refused and changes nothing.
     const again = await page.request.post(`${origin}/dashboard/api/teach`, {
@@ -124,7 +128,10 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     });
     expect(heard).toMatch(new RegExp(`sound list ${after.version}: .*Boreal owl`));
     expect(heard).toContain("0 event(s) still queued");
-    const tawny = await replay({ sensorId: tawnySensor, wavs: [playerSample("tawny-owl.wav")], serverUrl: origin });
+    const tawnyState = path.join(mkdtempSync(path.join(os.tmpdir(), "fp-teach-")), "state");
+    const tawny = await replay({
+      sensorId: tawnySensor, wavs: [playerSample("tawny-owl.wav")], stateDir: tawnyState, serverUrl: origin,
+    });
     expect(tawny).toMatch(new RegExp(`sound list ${after.version}: .*Boreal owl`));
     expect(tawny).toContain("0 event(s) still queued");
     // The log names each sensor as the plan does.
@@ -152,6 +159,14 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     await expect(page).toHaveURL(`${origin}/dashboard/sounds/`, { timeout: 60_000 });
     await expect(owl).toBeChecked();
     await expect(page.getByRole("switch", { name: "Boreal owl" })).toHaveCount(1);
+    // The Sounds list counts the two sensors on the plan as not reached until they report the new list: each one's
+    // next run fetches it, and the run after reports it at its first check-in (a run can stop before a second one).
+    await expect(reach(page)).toHaveText("Reached 0 of 2 sensors");
+    for (let run = 0; run < 2; run++) {
+      await replay({ sensorId: borealSensor, wavs: [silentWav()], stateDir: borealState, serverUrl: origin });
+      await replay({ sensorId: tawnySensor, wavs: [silentWav()], stateDir: tawnyState, serverUrl: origin });
+    }
+    await expect(reach(page)).toHaveText("Reached 2 of 2 sensors", { timeout: 3000 });
     const replaced = await fetchSounds();
     expect(replaced.version).toBe(after.version + 1);
     const newOwl = replaced.sounds.find((s: { name: string }) => s.name === "Boreal owl");

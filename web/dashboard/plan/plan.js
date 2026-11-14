@@ -1,5 +1,7 @@
 // The sensor plan on the overview page: a top-down view of every sensor, drawn to fit with a 1 m grid, and a card
-// per sensor with its health, each named as the service names it ("Sensor N", its own id on the card beneath). Researchers drag a sensor (or move it with the arrow keys) and type its facing; each
+// per sensor with its health, each named as the service names it ("Sensor N", its own id on the card beneath), and
+// whether it has the current sound list as the service judges it. Researchers drag a sensor (or move it with the
+// arrow keys) and type its facing; each
 // change saves at once and the plan follows the shell's 2 s poll, so other researchers' edits appear too.
 // Plan metres: x to the right, y up. Facing: degrees clockwise from the plan's up.
 //
@@ -9,7 +11,8 @@ import { clockTime, poll } from "/dashboard/shell.js";
 
 /**
  * @typedef {{ id: string, number: number | null, name: string, x_m: number, y_m: number, facing_deg: number, online: boolean, last_checkin_at: string,
- *   sdk_version: string | null, model: string | null, sound_list_version: number | null, shared_name: boolean }}
+ *   sdk_version: string | null, model: string | null, sound_list_version: number | null, shared_name: boolean,
+ *   sound_list: "current" | "updating" | "outdated" }}
  *   PlanSensor
  */
 /**
@@ -231,9 +234,11 @@ function drawMarkers(items, toScreen) {
     }
     const [px, py] = toScreen(s.x_m, s.y_m);
     m.g.setAttribute("transform", `translate(${px.toFixed(1)} ${py.toFixed(1)})`);
-    m.g.setAttribute("class", `plan-sensor${s.online ? "" : " offline"}${s.shared_name ? " shared" : ""}`);
+    const outdated = s.sound_list === "outdated";
+    m.g.setAttribute("class",
+      `plan-sensor${s.online ? "" : " offline"}${s.shared_name ? " shared" : ""}${outdated ? " outdated" : ""}`);
     m.pointer.setAttribute("transform", `rotate(${s.facing_deg})`);
-    m.g.setAttribute("aria-label", `Move ${s.name}`);
+    m.g.setAttribute("aria-label", outdated ? `Move ${s.name}, outdated sound list` : `Move ${s.name}`);
     m.label.textContent = s.name.length > LABEL_CHARS ? `${s.name.slice(0, LABEL_CHARS - 1)}…` : s.name;
   }
   for (const [id, m] of markers) {
@@ -252,7 +257,10 @@ function makeMarker(id) {
   const target = svgEl("circle", { class: "plan-sensor-target", r: 22 });
   const dot = svgEl("circle", { class: "plan-sensor-dot", r: 10 });
   const label = svgEl("text", { class: "plan-sensor-label", y: 30, "text-anchor": "middle" });
-  g.append(target, pointer, dot, label);
+  // The outdated sound-list warning: a small alert badge on the dot's upper right, shown by the outdated class.
+  const badge = svgEl("g", { class: "plan-sensor-badge", transform: "translate(10 -10)" });
+  badge.append(svgEl("circle", { r: 7 }), svgEl("path", { d: "M0 -3.5 V0.5 M0 3.5 V3.6" }));
+  g.append(target, pointer, dot, label, badge);
   g.addEventListener("pointerdown", (e) => startDrag(id, g, e));
   g.addEventListener("pointermove", (e) => moveDrag(id, e));
   g.addEventListener("pointerup", (e) => endDrag(id, e, false));
@@ -413,7 +421,7 @@ function signIn() {
 
 /**
  * @typedef {{ item: HTMLLIElement, name: HTMLElement, status: HTMLElement, warning: HTMLElement,
- *   checkin: HTMLElement, versions: HTMLElement, position: HTMLElement, facing: HTMLInputElement,
+ *   soundList: HTMLElement, checkin: HTMLElement, versions: HTMLElement, position: HTMLElement, facing: HTMLInputElement,
  *   removeButton: HTMLButtonElement }} Card
  */
 /** @type {Map<string, Card>} */
@@ -435,6 +443,9 @@ function drawCards(items) {
     c.removeButton.setAttribute("aria-label", `Remove ${s.name}`);
     c.status.textContent = s.online ? "Online" : "Offline";
     c.warning.hidden = !s.shared_name;
+    c.soundList.hidden = s.sound_list === "current";
+    c.soundList.className = s.sound_list === "outdated" ? "plan-warning" : "plan-updating";
+    c.soundList.textContent = s.sound_list === "outdated" ? "Outdated sound list" : "Updating";
     c.checkin.textContent = checkinTime(new Date(s.last_checkin_at));
     c.versions.textContent = [
       `Library ${s.sdk_version ?? "unknown"}`,
@@ -478,6 +489,9 @@ function makeCard(id) {
   warning.className = "plan-warning";
   warning.textContent = "Two devices share this id";
 
+  const soundList = document.createElement("p");
+  soundList.hidden = true;
+
   const facts = document.createElement("dl");
   /** @param {string} term */
   const fact = (term) => {
@@ -513,7 +527,7 @@ function makeCard(id) {
   removeButton.textContent = "Remove";
   actions.append(label, field, removeButton);
 
-  item.append(head, warning, facts, actions);
+  item.append(head, warning, soundList, facts, actions);
 
   facing.addEventListener("change", () => {
     const value = Number.parseFloat(facing.value);
@@ -531,7 +545,7 @@ function makeCard(id) {
     if (e.key === "Enter") facing.blur();
   });
   removeButton.addEventListener("click", () => remove(id));
-  return { item, name, status, warning, checkin, versions, position, facing, removeButton };
+  return { item, name, status, warning, soundList, checkin, versions, position, facing, removeButton };
 }
 
 /** The same normalisation the service applies, so the field shows the stored value at once. @param {number} deg */

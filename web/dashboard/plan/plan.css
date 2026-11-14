@@ -101,6 +101,27 @@
   opacity: 0.35;
 }
 
+.plan-sensor:not(.outdated) .plan-sensor-badge {
+  display: none;
+}
+
+.plan-sensor-badge circle {
+  fill: var(--alert);
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.plan-sensor-badge path {
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* An outdated sensor that is also offline keeps its warning legible on the faded marker. */
+.plan-sensor.offline.outdated {
+  opacity: 0.6;
+}
+
 .plan-sensors {
   display: grid;
   gap: 8px;
@@ -165,6 +186,17 @@
 }
 
 .plan-warning[hidden] {
+  display: none;
+}
+
+.plan-updating {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.plan-updating[hidden] {
   display: none;
 }
 

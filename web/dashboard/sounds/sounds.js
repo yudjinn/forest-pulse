@@ -1,7 +1,9 @@
 // The Sounds page: the sensitivity every sound must reach, then every sound sensors can report, each with its switch,
 // and a Delete for each taught sound behind a confirmation. The page follows the shell's 2 s poll; a switch or the
-// sensitivity saves at once and goes back to the saved value if the save fails.
-import { poll } from "/dashboard/shell.js";
+// sensitivity saves at once and goes back to the saved value if the save fails. Once this researcher changes the
+// list (here, or by teaching, which returns here with ?changed), a line says how many sensors on the plan have the
+// latest version, from the same poll, until the page is reloaded.
+import { poll, refresh } from "/dashboard/shell.js";
 
 const CATEGORY = /** @type {Record<string, string>} */ ({
   logging: "Logging",
@@ -26,6 +28,18 @@ const rows = new Map();
 // before a save this page already knows about, and is ignored.
 let version = 0;
 let nextId = 0;
+const reach = /** @type {HTMLElement} */ (document.querySelector("#sounds .sound-reach"));
+// Whether this researcher changed the sound list since the page loaded. The teach page hands its change across in
+// the address, dropped at once so a reload starts without the line.
+let changed = new URLSearchParams(location.search).has("changed");
+if (changed) history.replaceState(null, "", location.pathname);
+
+/** A change this page made: the version it moved the list to. @param {number} to */
+function madeChange(to) {
+  version = Math.max(version, to);
+  changed = true;
+  refresh();
+}
 // The sound the open confirmation would delete.
 /** @type {string | null} */
 let pending = null;
@@ -85,7 +99,7 @@ async function remove(id, row) {
     if (res.status === 404) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const reply = /** @type {{ version: number }} */ (await res.json());
-    version = Math.max(version, reply.version);
+    madeChange(reply.version);
     rows.delete(id);
     row.item.remove();
   } catch {
@@ -124,7 +138,7 @@ async function save(id, row) {
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const reply = /** @type {{ sound: Sound, version: number }} */ (await res.json());
-    version = Math.max(version, reply.version);
+    madeChange(reply.version);
     row.toggle.checked = reply.sound.enabled;
   } catch {
     row.toggle.checked = !enabled;
@@ -172,7 +186,7 @@ async function saveSensitivity() {
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const reply = /** @type {{ sensitivity: number, version: number }} */ (await res.json());
-      version = Math.max(version, reply.version);
+      madeChange(reply.version);
       saved = Math.round(reply.sensitivity * 100);
     }
   } catch {
@@ -199,10 +213,15 @@ for (const type of ["pointerup", "blur"]) {
   });
 }
 
-/** @param {{ version: number, sensitivity: number, sounds: Sound[] }} data */
+/**
+ * @param {{ version: number, sensitivity: number, reach: { sensors: number, reached: number }, sounds: Sound[] }} data
+ */
 function render(data) {
   if (data.version < version) return;
   version = data.version;
+  const { sensors, reached } = data.reach;
+  reach.hidden = !changed || sensors === 0;
+  reach.textContent = `Reached ${reached} of ${sensors} ${sensors === 1 ? "sensor" : "sensors"}`;
   saved = Math.round(data.sensitivity * 100);
   if (!moving && !savingSensitivity) showSensitivity(saved);
   sensitivity.hidden = false;

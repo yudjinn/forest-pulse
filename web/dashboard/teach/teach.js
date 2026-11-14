@@ -242,7 +242,8 @@ async function teach() {
       return;
     }
     if (res.ok) {
-      location.assign("/dashboard/sounds/");
+      // The Sounds page shows how far this change has reached the sensors.
+      location.assign("/dashboard/sounds/?changed");
       return;
     }
     const reply = /** @type {{ error?: string }} */ (await res.json().catch(() => ({})));

@@ -2,8 +2,9 @@
 import type { RouteContext } from "../router.ts";
 import { json } from "../http.ts";
 import { logLine } from "../log.ts";
-import { MAX_SENSOR_ID, badRequest, readBody, registerSensor, soundListVersion } from "./intake.ts";
+import { MAX_SENSOR_ID, badRequest, readBody, registerSensor } from "./intake.ts";
 import { calibrationCheckin } from "../calibration/calibration.ts";
+import { noteSoundListCheckin } from "../sensors/plan.ts";
 import { warningCheckin } from "../warnings/warnings.ts";
 
 export const MODEL = "mn10_as";
@@ -38,7 +39,7 @@ export async function checkin(request: Request, { env, params, hooks }: RouteCon
     logLine("hook_failed", { hook: "warningCheckin", error: e instanceof Error ? e.message : String(e) });
   }
   return json({
-    server_time: new Date(now).toISOString(), sound_list_version: await soundListVersion(env.DB),
+    server_time: new Date(now).toISOString(), sound_list_version: await noteSoundListCheckin(env.DB, params.sensor),
     ...(calibration ? { calibration } : {}),
     ...(alarm ? { alarm } : {}),
   });

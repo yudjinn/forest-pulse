@@ -1,10 +1,10 @@
-// The sensors on the plan: where each stands and faces, its name, whether it is online, and whether two running
-// devices share its id. A sensor joins the plan on check-in (the check-in hook), researchers move, turn and remove
+// The sensors on the plan: where each stands and faces, its name, whether it is online, whether two running
+// devices share its id, and whether it has the current sound list. A sensor joins the plan on check-in (the check-in hook), researchers move, turn and remove
 // it, and everything that needs a sensor's placement or online state reads it through readPlan; everything that
 // shows a sensor to researchers names it through sensorNames.
 // Plan metres: x to the right, y up. Facing: degrees clockwise from the plan's up, 0 to under 360.
 import type { Env } from "../env.ts";
-import type { SensorCheckin } from "../api/intake.ts";
+import { type SensorCheckin, soundListVersion } from "../api/intake.ts";
 import type { RouteContext } from "../router.ts";
 import { json } from "../http.ts";
 import { logLine } from "../log.ts";
@@ -21,6 +21,43 @@ const NEW_SENSOR_SPACING_M = 3;
 const MAX_COORDINATE_M = 100_000;
 
 export const isOnline = (lastCheckinAt: number, now: number) => now - lastCheckinAt < OFFLINE_AFTER_MS;
+
+// A sensor behind on the sound list for this many check-ins in a row is outdated rather than updating. Counted in
+// check-ins, not time, so it holds whatever a board's interval.
+export const OUTDATED_AFTER_CHECKINS = 3;
+
+// Whether a sensor has the current sound list. Behind means its last check-in reported any other version, or none
+// (it never fetched one): "updating" while it is online and has been behind for fewer than 3 check-ins, "outdated"
+// once it has been behind for 3 or more, or is offline. The one place the rule lives.
+export type SoundListState = "current" | "updating" | "outdated";
+export function soundListState(reported: number | null, current: number, behindCheckins: number, online: boolean):
+  SoundListState {
+  if (reported === current) return "current";
+  return online && behindCheckins < OUTDATED_AFTER_CHECKINS ? "updating" : "outdated";
+}
+
+// Check-in only (never an event delivery): counts the check-in the sensor just stored as behind or resets the count
+// when it reported the current version, and returns the current version for the reply, in one batch so the count
+// and the reply judge the same version.
+export async function noteSoundListCheckin(db: D1Database, id: string): Promise<number> {
+  const [, list] = await db.batch([
+    db.prepare(
+      `UPDATE sensors SET sound_list_behind = CASE
+         WHEN sound_list_version IS (SELECT version FROM sound_list WHERE id = 1) THEN 0 ELSE sound_list_behind + 1 END
+       WHERE id = ?`,
+    ).bind(id),
+    db.prepare("SELECT version FROM sound_list WHERE id = 1"),
+  ]);
+  return (list.results[0] as { version: number } | undefined)?.version ?? 0;
+}
+
+// How far the current sound list has reached: the sensors on the plan, online or not, and how many of them last
+// reported the current version. A statement, so a caller reads it in the same batch as the version it counts against.
+export const soundListReach = (db: D1Database) => db.prepare(
+  `SELECT COUNT(*) AS sensors,
+     COALESCE(SUM(s.sound_list_version IS (SELECT version FROM sound_list WHERE id = 1)), 0) AS reached
+   FROM sensor_placements p JOIN sensors s ON s.id = p.sensor_id WHERE p.removed = 0`,
+);
 
 export interface PlanSensor {
   id: string;
@@ -39,29 +76,37 @@ export interface PlanSensor {
   sound_list_version: number | null;
   // Two different running devices checked in under this id within the shared-name window.
   shared_name: boolean;
+  // Whether it has the current sound list (soundListState).
+  sound_list: SoundListState;
 }
 
-interface PlanRow extends Omit<PlanSensor, "name" | "online" | "shared_name"> {
+interface PlanRow extends Omit<PlanSensor, "name" | "online" | "shared_name" | "sound_list"> {
   instances: number;
+  sound_list_behind: number;
+  current_version: number;
 }
 
 // The sensors on the plan (removed ones excluded), by number, so "plan order" is Sensor 1 first; only those named
-// when ids is given. Online and the shared-name warning are judged at now.
+// when ids is given. Online, the shared-name warning and the sound-list state are judged at now.
 export async function readPlan(db: D1Database, now: number, ids?: string[]): Promise<PlanSensor[]> {
   const rows = await db.prepare(
     `SELECT p.sensor_id AS id, p.number, p.x_m, p.y_m, p.facing_deg, s.last_checkin_at, s.sdk_version, s.model,
-       s.sound_list_version,
+       s.sound_list_version, s.sound_list_behind, (SELECT version FROM sound_list WHERE id = 1) AS current_version,
        (SELECT COUNT(*) FROM sensor_instances i WHERE i.sensor_id = p.sensor_id AND i.last_checkin_at > ?1) AS instances
      FROM sensor_placements p JOIN sensors s ON s.id = p.sensor_id
      WHERE p.removed = 0 AND (?2 IS NULL OR p.sensor_id IN (SELECT value FROM json_each(?2)))
      ORDER BY p.number IS NULL, p.number, p.seq`,
   ).bind(now - SHARED_NAME_WINDOW_MS, ids ? JSON.stringify(ids) : null).all<PlanRow>();
-  return rows.results.map(({ instances, ...r }) => ({
-    ...r,
-    name: r.number === null ? r.id : sensorName(r.number),
-    online: isOnline(r.last_checkin_at, now),
-    shared_name: instances >= 2,
-  }));
+  return rows.results.map(({ instances, sound_list_behind, current_version, ...r }) => {
+    const online = isOnline(r.last_checkin_at, now);
+    return {
+      ...r,
+      name: r.number === null ? r.id : sensorName(r.number),
+      online,
+      shared_name: instances >= 2,
+      sound_list: soundListState(r.sound_list_version, current_version, sound_list_behind, online),
+    };
+  });
 }
 
 // The name researchers see for the sensor holding this number on the plan.
@@ -123,9 +168,11 @@ export async function placeOnCheckin(env: Env, { current, now }: SensorCheckin):
   await db.batch(statements);
 }
 
-// GET /dashboard/api/sensors: the plan as researchers see it.
+// GET /dashboard/api/sensors: the plan as researchers see it, with the current sound-list version each sensor's
+// sound_list state is judged against.
 export async function listPlan(_request: Request, { env }: RouteContext): Promise<Response> {
-  return json({ sensors: (await readPlan(env.DB, Date.now())).map(toJson) });
+  const [sensors, version] = await Promise.all([readPlan(env.DB, Date.now()), soundListVersion(env.DB)]);
+  return json({ sound_list_version: version, sensors: sensors.map(toJson) });
 }
 
 // PATCH /dashboard/api/sensors/:sensor with {"x_m", "y_m"} (both together), {"facing_deg"}, or all three. Each field
