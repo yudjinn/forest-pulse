@@ -4,7 +4,7 @@
 // files the service writes itself. web/bucket/README.md and dotfiles are not data and are never uploaded.
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -79,10 +79,19 @@ export type BucketTarget = { remote: true; env?: NodeJS.ProcessEnv } | { localSt
 export function mirrorBucket(target: BucketTarget): number {
   const objects = bucketObjects();
   if (objects.length === 0) return 0;
+  if ("localStateDir" in target) {
+    // Every service start pays for this, twice in a journey that starts a second service, so it is one local runtime
+    // in a child process (about 1 s) that sets each object's own content type, never a `wrangler r2 bulk put` launch
+    // per content type (about 2 s each).
+    const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), "--local", target.localStateDir], {
+      cwd: webRoot,
+      stdio: ["ignore", "inherit", "inherit"],
+    });
+    if (r.status !== 0) throw new Error("seeding the local bucket failed");
+    return objects.length;
+  }
   const bucket = storageBucket();
-  const where = "remote" in target
-    ? ["--remote", ...(bucket.jurisdiction ? ["--jurisdiction", bucket.jurisdiction] : [])]
-    : ["--local", "--persist-to", target.localStateDir];
+  const where = ["--remote", ...(bucket.jurisdiction ? ["--jurisdiction", bucket.jurisdiction] : [])];
   const byType = new Map<string | undefined, BucketObject[]>();
   for (const o of objects) byType.set(o.contentType, [...(byType.get(o.contentType) ?? []), o]);
   const tmp = mkdtempSync(path.join(os.tmpdir(), "fp-bucket-"));
@@ -92,15 +101,37 @@ export function mirrorBucket(target: BucketTarget): number {
       writeFileSync(manifest, JSON.stringify(group.map(({ key, file }) => ({ key, file }))));
       const args = ["r2", "bulk", "put", bucket.name, "--filename", manifest, ...where];
       if (contentType) args.push("--content-type", contentType);
-      const r = spawnSync(wrangler, args, {
-        cwd: webRoot,
-        stdio: ["ignore", "inherit", "inherit"],
-        env: "remote" in target ? target.env : process.env,
-      });
+      const r = spawnSync(wrangler, args, { cwd: webRoot, stdio: ["ignore", "inherit", "inherit"], env: target.env });
       if (r.status !== 0) throw new Error(`uploading the bucket data to "${bucket.name}" failed`);
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
   return objects.length;
+}
+
+interface LocalBucket {
+  put(key: string, value: Uint8Array, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+}
+
+// Puts every object into the local STORAGE bucket that `wrangler dev --persist-to <stateDir>` serves.
+async function putLocal(stateDir: string) {
+  const { getPlatformProxy } = await import("wrangler");
+  // getPlatformProxy persists to the folder itself; `wrangler dev --persist-to <dir>` keeps its state in <dir>/v3.
+  const proxy = await getPlatformProxy<{ STORAGE: LocalBucket }>({
+    configPath: path.join(webRoot, "wrangler.jsonc"),
+    persist: { path: path.join(stateDir, "v3") },
+  });
+  try {
+    for (const o of bucketObjects()) {
+      const contentType = o.contentType;
+      await proxy.env.STORAGE.put(o.key, readFileSync(o.file), contentType ? { httpMetadata: { contentType } } : {});
+    }
+  } finally {
+    await proxy.dispose();
+  }
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "--local" && process.argv[3]) {
+  await putLocal(process.argv[3]);
 }
