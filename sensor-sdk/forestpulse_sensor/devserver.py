@@ -116,9 +116,9 @@ def make_handler(state: State, quiet: bool):
             offset = time.time() - _parse_time(body["sent_at"]) if "sent_at" in body else 0.0
             with state.lock:
                 if method == "POST" and action == "checkin":
-                    state.sensors[sensor_id] = {**body, "last_checkin": utc_now_iso(), "clock_offset_s": offset}
-                    if not quiet:
+                    if not quiet:  # before storing it, so whoever sees the check-in stored can read its line
                         print(checkin_line(sensor_id, body), flush=True)
+                    state.sensors[sensor_id] = {**body, "last_checkin": utc_now_iso(), "clock_offset_s": offset}
                     reply = {"server_time": utc_now_iso(), "sound_list_version": state.sounds["version"]}
                     block = state.calibration_block(sensor_id, body, time.time())
                     if block:

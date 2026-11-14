@@ -254,8 +254,8 @@ Library 0.5.0 and later. Check-in request, added fields, each omitted when unkno
 ```
 
 - `recordings_per_min`: a whole number, 0 or more: the bursts whose first audio arrived in the last 60 s (fewer in the
-  sensor's first minute, which counts from its start). Missing only when the sensor runs its own model and is fed no
-  audio.
+  sensor's first minute, which counts from its start). Missing when the sensor runs its own model: once it has
+  reported a detection itself and has never been fed audio.
 - `trigger`: numbers, from the board's trigger health hook; a key whose value is not a number is left out, and
   `trigger` is missing when no key is left or the board has no hook.
 - `noise_floor_dbfs`: a number, from the same hook; missing when the hook does not give it.

@@ -430,11 +430,11 @@ class TriggerHealth:
         return trigger
 
     def _noise_floor(self):
-        read = getattr(self.settings, "noise_floor_dbfs", None)
-        if not callable(read):
-            return self._once("noise-missing", logging.INFO, "trigger_settings has no noise_floor_dbfs(); "
-                              "noise floor left out of the check-in")
         try:
+            read = getattr(self.settings, "noise_floor_dbfs", None)
+            if not callable(read):
+                return self._once("noise-missing", logging.INFO, "trigger_settings has no noise_floor_dbfs(); "
+                                  "noise floor left out of the check-in")
             value = read()
         except Exception as e:
             return self._once("noise-raised", logging.WARNING, "trigger_settings.noise_floor_dbfs() raised %r; "

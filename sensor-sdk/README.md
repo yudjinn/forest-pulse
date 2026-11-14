@@ -250,7 +250,8 @@ play_alarm(hooks.emit)            # True when every tone played, False if emit r
 
 Optional (version 0.5.0 or later). With it, the plan card shows what the front-end's trigger is set to and how quiet
 the room is. Without it, the card still shows recordings per minute, which the library counts itself: the audio
-bursts that started in the last 60 s, a burst being audio fed with `break_before=True`.
+bursts that started in the last 60 s, a burst being audio fed with `break_before=True` (a laptop microphone streams
+without breaks, so it counts none).
 
 Pass your existing trigger settings object as it is:
 
