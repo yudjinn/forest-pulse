@@ -1,7 +1,8 @@
 """The sensor: turns 3-mic audio into events for the server, and keeps its sound list in sync.
 
 Threads: `feed()` only queues audio and returns at once, so the caller's USB reader is never blocked. An analysis
-thread runs the model; a sync thread checks in, pulls sound lists and delivers queued events.
+thread runs the model; a sync thread checks in, pulls sound lists and delivers queued events; a warning's alarm plays
+on a thread of its own (warning.py).
 """
 import collections
 import json
@@ -24,6 +25,7 @@ from .calibration.run import Calibrator
 from .model import MODEL_ID, Model, to_model_audio
 from .outbox import Outbox
 from .sounds import InvalidSoundList, SoundList
+from .warning import Warnings
 
 log = logging.getLogger("forestpulse_sensor")
 
@@ -49,7 +51,8 @@ class Sensor:
             that produced a detection. `window` is the (N, channels) int16 audio that was classified, at
             `sample_rate`. Return degrees clockwise from the board's forward (0-360); see board_to_angle().
         calibration: the node's calibration hooks (README, "Calibration hooks"). Checked at start-up; the sensor
-            takes part in calibration runs only when every hook and attribute is there.
+            takes part in calibration runs only when every hook and attribute is there. Its emit() alone also plays
+            a warning's alarm (README, "Warning alarm").
         trigger_settings: the optional trigger health hook (README, "Trigger health hook"): read at each check-in,
             never changed.
         clock: the wall clock, seconds since the epoch; default the system's. Simulated boards pass their own.
@@ -80,6 +83,8 @@ class Sensor:
         self._checkin_soon = threading.Event()
         self._calibration = Calibrator(calibration, self.api, self.clock, wake=self._checkin_now)
         self._health = TriggerHealth(trigger_settings)
+        self._warnings = Warnings(calibration, wake=self._checkin_now)
+        self._break_next = False  # audio was dropped while the alarm sounded: what comes next is not contiguous
 
     @classmethod
     def from_file(cls, path: str, **overrides) -> "Sensor":
@@ -133,8 +138,13 @@ class Sensor:
             frames = frames[:, None]
         if self._calibration.feed(frames, break_before):
             return  # the calibration stream: the run's alone, never analysed for sounds
+        if self._warnings.silenced:
+            self._break_next = True
+            return  # recorded while the alarm sounds: never analysed, never counted as a recording
         if break_before:
             self._health.note_recording()
+        if self._break_next:
+            self._break_next, break_before = False, True
         with self._backlog_lock:
             if self._backlog_frames + len(frames) > MAX_BACKLOG_S * self.sample_rate:
                 log.warning("analysis is behind by more than %.0f s; dropping audio", MAX_BACKLOG_S)
@@ -169,7 +179,8 @@ class Sensor:
         return {"sensor_id": self.sensor_id, "sound_list_version": self._sounds.version if self._sounds_from_server
                 else None, "queued_events": len(self.outbox), "dropped_events": self.outbox.dropped,
                 "key_rejected": self.key_rejected, "last_checkin_ok": self.last_checkin_ok,
-                "calibration_capable": self._calibration.capable, "calibrating": self._calibration.active}
+                "calibration_capable": self._calibration.capable, "calibrating": self._calibration.active,
+                "can_warn": self._warnings.capable, "alarm_playing": self._warnings.silenced}
 
     # ---- analysis --------------------------------------------------------------------------------------------
 
@@ -238,6 +249,8 @@ class Sensor:
     def _report(self, scores, embedding, detected_at, angle):
         if self._calibration.active:
             return []  # no sound events between start_stream() and the calibration report
+        if self._warnings.silenced:
+            return []  # nor while the alarm sounds
         hits = [(s, c) for s, c in self._sounds.matches(scores, embedding)
                 if detected_at - self._last_reported.get(s.id, -1e18) >= REPEAT_S]
         if not hits:
@@ -305,11 +318,14 @@ class Sensor:
                 next_checkin = now + self.checkin_interval
                 try:
                     sent = self.clock()
+                    warning = self._warnings.checkin_fields()
                     reply = self.api.checkin(instance_id=self.instance_id, sdk_version=__version__, model=MODEL_ID,
                                              sound_list_version=self._sounds.version if self._sounds_from_server
                                              else None, queued_events=len(self.outbox),
-                                             **self._calibration.checkin_fields(), **self._health.checkin_fields())
+                                             **self._calibration.checkin_fields(), **self._health.checkin_fields(),
+                                             **warning)
                     self._calibration.note_reply(reply, sent, self.clock())
+                    self._warnings.note_reply(reply, warning, self._calibration.active)
                     self._set_key_ok()
                     self.last_checkin_ok = time.time()
                     self._note_version(reply.get("sound_list_version"))

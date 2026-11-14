@@ -1,6 +1,7 @@
 // Suspected activities on the overview page, newest first, refreshed by the shell's 2 s poll, and the Clear events
-// action behind its confirmation.
+// action behind its confirmation. A logging card also carries its warnings and Send warning (warnings.js).
 import { clockTime, poll, refresh } from "/dashboard/shell.js";
+import { warningPart } from "/dashboard/activities/warnings.js";
 
 const CATEGORY = /** @type {Record<string, string>} */ ({
   logging: "Logging",
@@ -19,11 +20,15 @@ const confirm = /** @type {HTMLDialogElement} */ (section.querySelector(".activi
 /**
  * @typedef {{ category: string, sounds: string[], sensors: string[], sensor_names: string[], first_at: string,
  *   last_at: string, event_count: number, location: { x_m: number, y_m: number,
- *   distances: { sensor_id: string, sensor_name: string, distance_m: number }[] } | null }} Activity
+ *   distances: { sensor_id: string, sensor_name: string, distance_m: number }[] } | null }
+ *   & import("./warnings.js").Warnable} Activity
  */
 
 let clearing = false;
 let count = 0;
+/** @type {{ activities: Activity[] } | null} */
+let last = null;
+const redraw = () => last && render(last);
 
 /** @param {string} className @param {string} text */
 function line(className, text) {
@@ -67,12 +72,14 @@ function card(a) {
     body.append(line("activity-meta", a.location.distances
       .map((d) => `${d.distance_m.toFixed(1)} m from ${d.sensor_name}`).join(", ")));
   }
+  if (a.category === "logging") body.append(...warningPart(a, redraw));
   item.append(badge, body);
   return item;
 }
 
 /** @param {{ activities: Activity[] }} data */
 function render(data) {
+  last = data;
   list.replaceChildren(...data.activities.map(card));
   count = data.activities.length;
   empty.hidden = count > 0;
