@@ -10,11 +10,30 @@
     <link rel="apple-touch-icon" href="/brand/icons/apple-touch-icon.png" sizes="180x180">
     <link rel="stylesheet" href="/dashboard/shell.css">
     <link rel="stylesheet" href="/dashboard/log/log.css">
+    <link rel="stylesheet" href="/dashboard/activities/activities.css">
     <script type="module" src="/dashboard/shell.js"></script>
     <script type="module" src="/dashboard/log/log.js"></script>
+    <script type="module" src="/dashboard/activities/activities.js"></script>
   </head>
   <body>
     <main class="panels">
+      <section id="activities" class="panel" aria-labelledby="activities-title">
+        <div class="activities-head">
+          <h2 id="activities-title">Activities</h2>
+          <button type="button" class="activities-clear" disabled>Clear events</button>
+        </div>
+        <p class="error" role="alert" hidden></p>
+        <ol class="activity-list" aria-labelledby="activities-title"></ol>
+        <p class="activities-empty" hidden>Nothing heard yet</p>
+        <dialog class="activities-confirm" aria-labelledby="clear-title" aria-describedby="clear-what">
+          <h2 id="clear-title">Clear events?</h2>
+          <p id="clear-what">Every event and activity will be removed. Sensors and sounds stay.</p>
+          <div class="activities-confirm-actions">
+            <button type="button" class="secondary" data-action="cancel">Cancel</button>
+            <button type="button" class="danger" data-action="clear">Clear events</button>
+          </div>
+        </dialog>
+      </section>
       <section id="log" class="panel" aria-labelledby="log-title">
         <h2 id="log-title">Event log</h2>
         <div class="log-scroll">
