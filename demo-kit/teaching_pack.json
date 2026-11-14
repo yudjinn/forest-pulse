@@ -7,7 +7,7 @@
   15,
   20
  ],
- "chosen_size": 10,
+ "chosen_size": 15,
  "mix_seeds": [
   11,
   12,
@@ -15,11 +15,12 @@
   14,
   15
  ],
- "how": "summaries with the sensor library's model, trained with web/src/teach/train.ts against web/bucket/teach/other-sounds.f32, replayed through the sensor library at threshold 0.5; a size works only if it works for every mix seed",
+ "how": "summaries with the sensor library's model, trained with web/src/teach/train.ts against web/bucket/teach/other-sounds.f32, replayed through the sensor library at threshold 0.5; a size works only if it works for every mix seed, and the working size with the highest worst_boreal_confidence is chosen",
  "sizes": [
   {
    "size": 10,
    "passed": true,
+   "worst_boreal_confidence": 0.5577,
    "recordings": [
     "XC1097665",
     "XC560096",
@@ -265,6 +266,7 @@
   {
    "size": 15,
    "passed": true,
+   "worst_boreal_confidence": 0.8192,
    "recordings": [
     "XC1097665",
     "XC560096",
@@ -515,6 +517,7 @@
   {
    "size": 20,
    "passed": false,
+   "worst_boreal_confidence": 0.9426,
    "recordings": [
     "XC1097665",
     "XC560096",
@@ -876,6 +879,56 @@
    "url": "https://xeno-canto.org/782854",
    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
    "seconds": 40.66
+  },
+  {
+   "file": "boreal-owl-XC307650.wav",
+   "recording": "XC307650",
+   "recordist": "PE Svahn",
+   "country": "Sweden",
+   "type": "song",
+   "url": "https://xeno-canto.org/307650",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 39.05
+  },
+  {
+   "file": "boreal-owl-XC638436.wav",
+   "recording": "XC638436",
+   "recordist": "Sergiusz Nizinski",
+   "country": "Poland",
+   "type": "aberrant, song",
+   "url": "https://xeno-canto.org/638436",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 32.4
+  },
+  {
+   "file": "boreal-owl-XC325180.wav",
+   "recording": "XC325180",
+   "recordist": "Jarek Matusiak",
+   "country": "Poland",
+   "type": "song",
+   "url": "https://xeno-canto.org/325180",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 29.48
+  },
+  {
+   "file": "boreal-owl-XC343176.wav",
+   "recording": "XC343176",
+   "recordist": "Tero Linjama",
+   "country": "Finland",
+   "type": "song",
+   "url": "https://xeno-canto.org/343176",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 21.28
+  },
+  {
+   "file": "boreal-owl-XC234260.wav",
+   "recording": "XC234260",
+   "recordist": "Mats Svensson Pavval",
+   "country": "Sweden",
+   "type": "song",
+   "url": "https://xeno-canto.org/234260",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 10.09
   }
  ]
 }
