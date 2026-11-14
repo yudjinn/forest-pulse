@@ -125,10 +125,11 @@ $("start").onclick = async () => {
 function render(r) {
   history.push(r); if (history.length > 120) history.shift();
   const hit = r.chainsaw >= thresh();
+  const level = `mic ${(20 * Math.log10(r.rms + 1e-9)).toFixed(0)} dB`;
   $("status").className = hit ? "alert" : "";
   $("status").innerHTML = hit
-    ? `CHAINSAW DETECTED<small>score ${r.chainsaw.toFixed(2)} · ${r.model}</small>`
-    : `Listening<small>chainsaw ${r.chainsaw.toFixed(2)} · machinery ${r.machinery.toFixed(2)} · ${r.model}</small>`;
+    ? `CHAINSAW DETECTED<small>score ${r.chainsaw.toFixed(2)} · ${level} · ${r.model}</small>`
+    : `Listening<small>chainsaw ${r.chainsaw.toFixed(2)} · machinery ${r.machinery.toFixed(2)} · ${level} · ${r.model}</small>`;
   $("top").innerHTML = r.top.map(([name, p]) =>
     `<div class="row"><div class="bar"><i style="width:${(p * 100).toFixed(1)}%;${name === "Chainsaw" ? "background:var(--alert)" : ""}"></i><span>${name}</span></div><div class="num">${p.toFixed(2)}</div></div>`).join("");
   draw();
