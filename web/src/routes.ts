@@ -11,6 +11,7 @@ import { listEvents } from "./eventlog.ts";
 import { listSounds, switchSound } from "./sounds/sounds.ts";
 import { listSamples, sampleAudio } from "./player/player.ts";
 import { listPlan, placeOnCheckin, placeSensor, removeSensor } from "./sensors/plan.ts";
+import { clearEvents, listActivities } from "./activities/activities.ts";
 
 export const routes: Route[] = [
   { method: "GET", path: "/dashboard/signin", access: "public", handle: signInPage },
@@ -26,6 +27,8 @@ export const routes: Route[] = [
   { method: "GET", path: "/dashboard/api/sensors", access: "researcher", handle: listPlan },
   { method: "PATCH", path: "/dashboard/api/sensors/:sensor", access: "researcher", handle: placeSensor },
   { method: "DELETE", path: "/dashboard/api/sensors/:sensor", access: "researcher", handle: removeSensor },
+  { method: "GET", path: "/dashboard/api/activities", access: "researcher", handle: listActivities },
+  { method: "DELETE", path: "/dashboard/api/events", access: "researcher", handle: clearEvents },
 ];
 
 // Run after a check-in (or first contact) is stored, and after a request's accepted events are stored.
