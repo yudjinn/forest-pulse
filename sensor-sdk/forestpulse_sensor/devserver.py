@@ -6,6 +6,8 @@ usage: python -m forestpulse_sensor.devserver [--host 0.0.0.0] [--port 8787] [--
 Extra endpoints for testing (not part of the API): PUT /dev/sounds replaces the sound list (bumping its version),
 GET /dev/events and GET /dev/sensors show what arrived, POST /dev/calibration {"sensors": [ids]} starts a
 calibration run with those sensors as roles A, B, C, and GET /dev/calibration shows the latest run with its reports.
+POST /dev/warnings {"sensors": [ids]} sends a warning to those sensors, and GET /dev/warnings shows every warning with
+when each sensor picked it up and what it confirmed.
 
 Each check-in prints the sensor's trigger health (recordings per minute, trigger values, noise floor), "missing" for
 any field the sensor left out.
@@ -13,6 +15,9 @@ any field the sensor left out.
 Calibration as the service runs it, minus the solving: participants get the run in their check-in replies, it is
 scheduled 4 s after the last ready confirmation once every participant is ready, and it ends when every participant
 has reported.
+
+Warnings as the service sends them: the alarm is on a sensor's check-in replies from its first pickup until it confirms,
+for at most 15 s after the warning was sent, and a confirmation is recorded once.
 """
 import argparse
 import json
@@ -28,6 +33,7 @@ from .calibration.patterns import DEFAULT_PATTERNS
 
 ROLES = "ABC"
 START_AFTER_READY_S = 4.0
+ALARM_PICKUP_S = 15.0
 
 
 def _parse_time(s):
@@ -42,6 +48,29 @@ class State:
         self.sounds.setdefault("version", 1)
         self.sensors, self.events, self.seen = {}, [], set()
         self.run = None  # the latest calibration run
+        self.warnings = {}  # id -> {"sent_at", "sensors": {id: {"delivered_at", "result"}}}, oldest first
+
+    def send_warning(self, sensors):
+        with self.lock:
+            warning = uuid.uuid4().hex
+            self.warnings[warning] = {"sent_at": time.time(),
+                                      "sensors": {s: {"delivered_at": None, "result": None} for s in sensors}}
+            return {"id": warning}
+
+    def alarm_block(self, sensor_id, body, now):
+        """Records the sensor's confirmation, and returns its reply's alarm block (None if none)."""
+        done = body.get("alarm_done")
+        if isinstance(done, dict):
+            target = self.warnings.get(done.get("id"), {}).get("sensors", {}).get(sensor_id)
+            if target is not None and target["result"] is None and done.get("result") in ("played", "failed"):
+                target["result"] = done["result"]
+        for warning, w in self.warnings.items():
+            target = w["sensors"].get(sensor_id)
+            if target is not None and target["result"] is None and now - w["sent_at"] < ALARM_PICKUP_S:
+                if target["delivered_at"] is None:
+                    target["delivered_at"] = now
+                return {"id": warning}
+        return None
 
     def start_run(self, sensors):
         with self.lock:
@@ -123,6 +152,12 @@ def make_handler(state: State, quiet: bool):
                     block = state.calibration_block(sensor_id, body, time.time())
                     if block:
                         reply["calibration"] = block
+                    if not quiet and isinstance(body.get("alarm_done"), dict):
+                        print(f"{sensor_id}: alarm {body['alarm_done'].get('id')} "
+                              f"{body['alarm_done'].get('result')}", flush=True)
+                    alarm = state.alarm_block(sensor_id, body, time.time())
+                    if alarm:
+                        reply["alarm"] = alarm
                     return self._send(200, reply)
                 if method == "POST" and action == "calibration":
                     run = state.run
@@ -179,6 +214,11 @@ def make_handler(state: State, quiet: bool):
             if method == "GET" and parts == ["calibration"]:
                 with state.lock:
                     return self._send(200, state.run)
+            if method == "POST" and parts == ["warnings"]:
+                return self._send(200, state.send_warning(self._body()["sensors"]))
+            if method == "GET" and parts == ["warnings"]:
+                with state.lock:
+                    return self._send(200, state.warnings)
             return self._send(404, {"error": "not found"})
 
         def do_GET(self):
