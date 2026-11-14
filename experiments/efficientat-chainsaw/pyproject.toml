@@ -8,6 +8,7 @@ dependencies = [
   "torchvision==0.20.1",
   "librosa>=0.10",
   "numpy<2.1",
+  "scikit-learn",
   "fastapi",
   "uvicorn[standard]",
 ]
