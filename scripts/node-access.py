@@ -31,11 +31,16 @@ def default_key() -> Path | None:
 
 
 def key_login_ok(host: str) -> tuple[bool, str]:
-    p = subprocess.run(SSH + ["-o", "StrictHostKeyChecking=accept-new", ssh_target(host), "hostname"],
-                       capture_output=True, text=True, timeout=30)
+    try:
+        p = subprocess.run(SSH + ["-o", "StrictHostKeyChecking=accept-new", ssh_target(host), "hostname"],
+                           capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return False, "port 22 answered but the SSH login hung for 30 s; the board is busy or its Wi-Fi is stalling, try again"
     if p.returncode == 0:
         return True, p.stdout.strip()
     err = p.stderr.strip().splitlines()
+    if any("Connection reset" in line for line in err):
+        return False, "the board is refusing this machine for now after repeated failed logins (sshd penalty); wait a minute"
     return False, err[-1] if err else f"ssh exit {p.returncode}"
 
 
