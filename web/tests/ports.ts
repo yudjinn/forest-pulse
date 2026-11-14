@@ -1,7 +1,8 @@
 // The only place a local port or state path is derived. Every port a run uses
 // comes from FP_E2E_PORT_BASE, so concurrent runs in different worktrees never
 // collide: app = base, inspector = base + 1, a journey's own second service = base + 2 (inspector base + 3),
-// the sounds journey's own service = base + 4 (inspector base + 5), base + 6 to base + 9 reserved.
+// the sounds journey's own service = base + 4 (inspector base + 5), base + 6 to base + 7 reserved,
+// the plan journey's own service = base + 8 (inspector base + 9).
 // A second block, base + 50 to base + 59, holds five more pairs for journeys that need their own fresh service:
 // the activities journey = base + 50 (inspector base + 51), base + 52 to base + 59 reserved.
 import { fileURLToPath } from "node:url";
@@ -21,6 +22,8 @@ export const secondAppPort = portBase + 2;
 export const secondInspectorPort = portBase + 3;
 // The sounds journey's own service: it switches sounds off for everyone on it, so it never shares one.
 export const soundsServicePorts = { appPort: portBase + 4, inspectorPort: portBase + 5 };
+// The plan journey's own service: it needs a plan no other journey has added sensors to.
+export const planServicePorts = { appPort: portBase + 8, inspectorPort: portBase + 9 };
 // The activities journey's own service: it clears every event, which other journeys on the shared service read.
 export const activitiesServicePorts = { appPort: portBase + 50, inspectorPort: portBase + 51 };
 
