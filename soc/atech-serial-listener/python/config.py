@@ -1,6 +1,8 @@
-"""Node configuration: python/config.json merged over defaults.
+"""Node configuration: python/config.json merged over defaults, then python/config.local.json (if present).
 
-Environment overrides: ATECH_CONFIG (path to a JSON file), ATECH_DATA_DIR.
+config.local.json is per-board and git-ignored; scripts/deploy-nodes.py never sends or overwrites it, so
+board-specific or test settings put there survive redeploys.
+Environment overrides: ATECH_CONFIG (path to a JSON file), ATECH_CONFIG_LOCAL, ATECH_DATA_DIR.
 """
 
 from __future__ import annotations
@@ -30,13 +32,23 @@ DEFAULTS = {
     # The server can change them through the check-in reply. Lower = more sensitive.
     "trigger": {"snr_db": None, "ratio_db": None, "coherence": None},
     # Location calibration (LocationCalibrationIntegrationSpec.md): the SDK runs it, we provide the hooks.
-    "calibration": {"emitter_offset_cm": 3.0,       # s_i: buzzer to array centre (ruler)
+    "calibration": {"emitter_offset_cm": 3.0,       # s_i: buzzer to the mic array's centre (ruler)
                     "band_hz": [1000, 4000],        # default bearing band when the SDK gives none
-                    "nfft": 2048,                   # bearing of one short arrival (~43 ms)
-                    "min_peak_ratio": 3.0, "max_closure_samples": 1.0,
-                    # the shared calibration sweep (every node plays the same; the server's "sweep" overrides)
-                    "sweep": [1500, 2500, 3500, 300],       # f_start, f_mid, f_end (Hz), ms: rising 1.5 -> 3.5 kHz
-                    "test_beep_every_s": 0},                # TEST: play the sweep periodically (0 = off)
+                    "nfft": 2048,                   # bearing of one short arrival (the SDK gives 40 ms)
+                    # gates for that one arrival: on the SDK's 40 ms windows of its sweeps these keep 96 %
+                    # of bearings, worst accepted error ~12 deg (soc/dev/tests/test_calibration.py)
+                    "min_peak_ratio": 2.5, "max_closure_samples": 1.5,
+                    # TEST only: play test_beep every test_beep_every_s (0 = off). In a calibration run the
+                    # service sends each role's sweep; this is the SDK's role A sweep (rising 1.5 -> 3.5 kHz).
+                    "test_beep": [1500, 2500, 3500, 120],   # f_start, f_mid, f_end (Hz), ms
+                    "test_beep_every_s": 0,
+                    # TEST only (put them in config.local.json on one board): fake this node's bearing of every
+                    # other node's beep (degrees clockwise from forward, quality 1), and feed the SDK one mic
+                    # copied into all 3 channels during calibration (1-based: 2 = mic2) so the SDK's mean of the
+                    # 3 mics' arrival times is that mic's. Works for a 2-node run; a 3-node run fails its
+                    # angle check with faked bearings.
+                    "test_fake_bearing_deg": None,
+                    "test_mono_mic": None},
 }
 
 
@@ -53,6 +65,12 @@ def load(path: str | None = None) -> dict:
     if os.path.exists(path):
         with open(path) as f:
             cfg = _merge(DEFAULTS, json.load(f))
+    local = os.environ.get("ATECH_CONFIG_LOCAL") or os.path.join(os.path.dirname(os.path.abspath(path)),
+                                                                   "config.local.json")
+    if os.path.exists(local):
+        with open(local) as f:
+            cfg = _merge(cfg, json.load(f))
+        cfg["_local"] = local
     cfg = copy.deepcopy(cfg)
     cfg["data_dir"] = os.environ.get("ATECH_DATA_DIR") or cfg["data_dir"] or os.path.join(HERE, "..", "data")
     model = cfg["classifier"]["model"]

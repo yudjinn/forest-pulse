@@ -160,10 +160,20 @@ logging.basicConfig(level=logging.INFO, format="[sdk] %(message)s")  # SDK logs:
 # One tee for the life of the app: the receiver writes to it, it feeds the SDK
 # and the pipeline (bypassed while the SDK runs a location calibration).
 tee = SensorTee(pipeline.queue, None, log=log)
+if cfg.get("_local"):
+    log(f"[app] board overrides from {os.path.basename(cfg['_local'])}")
+_c = cfg["calibration"]
+if _c.get("test_mono_mic"):
+    tee.mono_mic = int(_c["test_mono_mic"]) - 1
+    log(f"[calib] TEST: calibration stream uses mic{_c['test_mono_mic']} only (copied to all 3 channels)")
+if _c.get("test_fake_bearing_deg") is not None:
+    log(f"[calib] TEST: faking every calibration bearing as {_c['test_fake_bearing_deg']} deg "
+        "(fine for a 2-node run; a 3-node run fails its angle check)")
 # Location calibration (LocationCalibrationIntegrationSpec.md): the SDK runs it
 # and calls these hooks for the stream (ESP32 C/X), buzzer, speed of sound and bearing.
 calibration = CalibrationHooks(cfg, climate, send_command=lambda c: send_command(c), notify=notify, tee=tee, log=log,
-                               on_calibrating=matrix.set_calibrating)
+                               on_calibrating=matrix.set_calibrating,
+                               buzzer_ok=lambda: None if _modulino_last is None else _modulino_last[1])
 # ESP32 trigger thresholds: config.json "trigger" first, then whatever the server
 # sends in check-in replies (through the SDK); re-applied after every ESP32 reset.
 trigger = TriggerSettings(lambda b: send_command(b), cfg["trigger"], log=log)
@@ -331,9 +341,9 @@ def _test_beep_loop(every_s: float, sweep) -> None:
 
 
 if cfg["calibration"].get("test_beep_every_s"):
-    log(f"[calib] TEST: beep {cfg['calibration']['sweep']} every {cfg['calibration']['test_beep_every_s']} s")
+    log(f"[calib] TEST: beep {cfg['calibration']['test_beep']} every {cfg['calibration']['test_beep_every_s']} s")
     threading.Thread(target=_test_beep_loop, name="test-beep", daemon=True,
-                     args=(float(cfg["calibration"]["test_beep_every_s"]), cfg["calibration"]["sweep"])).start()
+                     args=(float(cfg["calibration"]["test_beep_every_s"]), cfg["calibration"]["test_beep"])).start()
 
 log(f"[app] node {cfg['node_id']}, data in {os.path.abspath(cfg['data_dir'])}, "
     f"sensor SDK {'on: ' + sensor.sensor_id if sensor else 'OFF'}")

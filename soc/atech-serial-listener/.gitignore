@@ -6,3 +6,4 @@ data/
 python/forestpulse.toml
 python/forestpulse-state/
 python/models/
+python/config.local.json

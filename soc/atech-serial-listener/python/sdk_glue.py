@@ -25,6 +25,7 @@ from climate import Climate
 from events import AudioBlock, EventEnd, EventStart, PipelineReset
 
 FS = 48000
+STREAM_SWITCH_S = 0.1  # between 'X' and 'C': the ESP32 takes one stream request per 20 ms block
 
 
 def board_to_angle(bearing_ccw_deg: float, forward_ccw_deg: float = 90.0) -> float:
@@ -59,6 +60,7 @@ class SensorTee:
         self._lock = threading.Lock()
         self._bypass = False
         self._release_at_end = False
+        self.mono_mic: int | None = None  # TEST: 0-based column fed to the SDK as all 3 channels while calibrating
 
     def set_calibrating(self, on: bool) -> None:
         with self._lock:
@@ -94,7 +96,10 @@ class SensorTee:
         try:
             if isinstance(msg, AudioBlock):
                 # frame_offset 0 = first packet of a new event: a new burst for the SDK
-                self.sensor.feed(msg.pcm, break_before=msg.break_before or msg.frame_offset == 0)
+                pcm = msg.pcm
+                if self.mono_mic is not None and self._bypass:  # TEST: one mic for the calibration stream
+                    pcm = pcm[:, [self.mono_mic] * 3]
+                self.sensor.feed(pcm, break_before=msg.break_before or msg.frame_offset == 0)
             elif isinstance(msg, EventEnd):
                 self.sensor.end_of_audio()
         except Exception as e:  # never let the SDK take the reader down
@@ -144,21 +149,26 @@ class DetectionBearing:
 
 
 class CalibrationHooks:
-    """Hardware side of location calibration; the SDK runs the method and calls these.
-    Contract: LocationCalibrationIntegrationSpec.md section 3. Any SDK thread may call any hook.
+    """Hardware side of location calibration; the SDK (forestpulse_sensor.calibration) runs it.
+    Contract: sensor-sdk/README.md "Calibration hooks" and forestpulse_sensor/calibration/hooks.py
+    (upstream is the source of truth). Any SDK thread may call any hook.
 
     send_command(c) -> bool sends one byte to the ESP32 ('C' / 'X');
     notify(name, *args) is Bridge.notify (the sketch plays the sweep);
-    tee is the SensorTee (bypasses our own pipeline while calibrating)."""
+    tee is the SensorTee (bypasses our own pipeline while calibrating);
+    buzzer_ok() -> bool | None: whether the sketch found the Modulino Buzzer (None = not known yet)."""
 
     def __init__(self, cfg: dict, climate: Climate, send_command: Callable[[str], bool],
                  notify: Callable[..., None], tee: SensorTee | None = None, log=print,
-                 on_calibrating: Callable[[bool], None] | None = None):
+                 on_calibrating: Callable[[bool], None] | None = None,
+                 buzzer_ok: Callable[[], bool | None] | None = None, sleep=None):
         c = cfg["calibration"]
         self.c = c
         self.fs = FS
+        # The SDK measures arrivals as the mean over the 3 mics (the array's centre); s_i is the
+        # buzzer's distance from that centre. Mic positions: board frame, as configured.
         self.emitter_offset_m = float(c["emitter_offset_cm"]) / 100.0
-        self.mic_positions_m = [[x / 100.0, y / 100.0] for x, y in cfg["mic_positions_cm"]]
+        self.mic_positions_m = tuple((x / 100.0, y / 100.0) for x, y in cfg["mic_positions_cm"])
         self.forward_ccw_deg = float(cfg["forward_ccw_deg"])
         self.geometry = Geometry.from_cm(cfg["mic_positions_cm"])
         self.climate = climate
@@ -167,15 +177,22 @@ class CalibrationHooks:
         self.tee = tee
         self.log = log
         self.on_calibrating = on_calibrating or (lambda on: None)
+        self.buzzer_ok = buzzer_ok or (lambda: None)
+        self._sleep = sleep or __import__("time").sleep
         self._est: dict = {}  # (lo, hi) -> BearingEstimator
         self._lock = threading.Lock()
 
     # ---- stream control ----------------------------------------------------------
 
     def start_stream(self) -> bool:
+        """Continuous streaming. The firmware ignores 'C' while a triggered recording runs, so end it
+        first with 'X' (which also ends a normal recording), then start."""
         if self.tee is not None:
             self.tee.set_calibrating(True)
-        ok = bool(self.send_command("C"))
+        ok = bool(self.send_command("X"))
+        if ok:
+            self._sleep(STREAM_SWITCH_S)
+            ok = bool(self.send_command("C"))
         self.log(f"[calib] continuous stream {'started' if ok else 'NOT started (ESP32 not connected)'}")
         if not ok and self.tee is not None:
             self.tee.set_calibrating(False)
@@ -191,12 +208,17 @@ class CalibrationHooks:
 
     # ---- emitter ---------------------------------------------------------------
 
-    def emit(self, f_start_hz: int, f_mid_hz: int, f_end_hz: int, duration_ms: int) -> None:
-        args = [int(f_start_hz), int(f_mid_hz), int(f_end_hz), int(duration_ms)]
+    def emit(self, f_start_hz, f_mid_hz, f_end_hz, duration_ms) -> bool:
+        """Play one sweep now. False when the sketch reported no buzzer; raises on bad values."""
+        args = [int(round(float(v))) for v in (f_start_hz, f_mid_hz, f_end_hz, duration_ms)]
         if not all(0 < f <= 20000 for f in args[:3]) or not 0 < args[3] <= 1000:
             raise ValueError(f"emit: bad sweep {args}")
+        if self.buzzer_ok() is False:
+            self.log("[calib] emit: no Modulino Buzzer")
+            return False
         self.notify("emit", *args)
         self.log(f"[calib] emit {args[0]}->{args[1]}->{args[2]} Hz, {args[3]} ms")
+        return True
 
     # ---- physics / direction -------------------------------------------------------
 
@@ -212,6 +234,12 @@ class CalibrationHooks:
         return est
 
     def bearing(self, window, band_hz=None):
+        fake = self.c.get("test_fake_bearing_deg")
+        if fake is not None:  # TEST: see config.py
+            return float(fake) % 360.0, 1.0
+        return self._bearing(window, band_hz)
+
+    def _bearing(self, window, band_hz=None):
         """(angle_deg clockwise from forward, quality 0..1) of the one arrival in `window`, or None.
         A window shorter than one FFT frame is centred in it (a short burst at the edge of a Hann window would be lost)."""
         x = np.asarray(window)

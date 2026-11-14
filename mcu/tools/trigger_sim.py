@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import numpy as np
 
 RATE = 48000
+REF_MIC = 1  # mic2 drives the level + spectral gates, as in main/trigger.c (REF_MIC)
 BLOCK_MS = 20
 N = RATE * BLOCK_MS // 1000  # 960
 LOW_HZ = [100, 150, 200, 250, 300, 350, 400]
@@ -76,13 +77,13 @@ def simulate(audio: np.ndarray, p: Params) -> tuple[list[dict], list[float]]:
     for b in range(len(audio) // N):
         blk = audio[b * N : (b + 1) * N].astype(np.float64) / 32768.0
         blk -= blk.mean(axis=0)
-        rms = math.sqrt(float(np.mean(blk[:, 0] ** 2)))
+        rms = math.sqrt(float(np.mean(blk[:, REF_MIC] ** 2)))
         X = np.fft.rfft(blk * win[:, None], axis=0)  # (bins, 3)
 
-        p_low = np.abs(X[bins_low, 0]) ** 2
-        p_high = np.abs(X[bins_high, 0]) ** 2
+        p_low = np.abs(X[bins_low, REF_MIC]) ** 2
+        p_high = np.abs(X[bins_high, REF_MIC]) ** 2
         band = (p_low.sum() + p_high.sum()) / (len(bins_low) + len(bins_high))
-        wind = abs(X[bin_wind, 0]) ** 2
+        wind = abs(X[bin_wind, REF_MIC]) ** 2
         band_s += a_spec * (band - band_s)
         wind_s += a_spec * (wind - wind_s)
         ratio_db = 10 * math.log10((band_s + 1e-12) / (wind_s + 1e-12))

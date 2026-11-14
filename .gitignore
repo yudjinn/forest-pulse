@@ -4,3 +4,5 @@ secrets-and-prerequisites.md
 .dev.vars
 .claude/worktrees/
 .venv/
+__pycache__/
+*.pyc

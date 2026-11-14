@@ -102,7 +102,14 @@ static uint64_t s_trigger_frame;
 static bool s_continuous;
 static float s_spec_alpha;
 static float s_band_smooth, s_wind_smooth;
-static float s_power_smooth;  // mic1 mean-square level, ~100 ms EMA (level gate)
+// The reference ("root") mic drives the level, spectral and test-tone gates: mic2 (channel index 1), which
+// is the board-frame origin and is fitted on every node. The synthetic source carries its audio on channel 0.
+#if CONFIG_FE_SOURCE_SYNTH
+#define REF_MIC 0
+#else
+#define REF_MIC 1
+#endif
+static float s_power_smooth;  // reference mic mean-square level, ~100 ms EMA (level gate)
 static float s_floor_alpha_long;  // floor rise on positive blocks while re-arming
 static float s_coh_alpha;
 static float s_auto[FE_CHANNELS][N_HIGH];       // smoothed |X|^2 per mic per bin
@@ -195,10 +202,10 @@ static float prepare_channel(const int16_t *block, uint32_t n, uint32_t ch)
 
 // Update smoothed spectra for the 1-3 kHz bins of all mics and return the
 // mean magnitude-squared coherence over the three mic pairs. Also returns
-// mic1's summed 1-3 kHz power for this block (reused by the spectral gate).
-static float update_coherence(uint32_t n, float *mic1_high_power)
+// the reference mic's summed 1-3 kHz power for this block (reused by the spectral gate).
+static float update_coherence(uint32_t n, float *ref_high_power)
 {
-    *mic1_high_power = 0;
+    *ref_high_power = 0;
     static const uint8_t pair[3][2] = {{0, 1}, {0, 2}, {1, 2}};
     float msc_sum = 0;
     for (size_t k = 0; k < N_HIGH; k++) {
@@ -207,8 +214,8 @@ static float update_coherence(uint32_t n, float *mic1_high_power)
             goertzel_cplx(s_x[ch], n, s_coeff_high[k], s_cos_high[k], s_sin_high[k], &re[ch], &im[ch]);
             const float p = re[ch] * re[ch] + im[ch] * im[ch];
             s_auto[ch][k] += s_coh_alpha * (p - s_auto[ch][k]);
-            if (ch == 0) {
-                *mic1_high_power += p;
+            if (ch == REF_MIC) {
+                *ref_high_power += p;
             }
         }
         for (int p = 0; p < 3; p++) {
@@ -229,18 +236,22 @@ static float update_coherence(uint32_t n, float *mic1_high_power)
 // Returns true if this block looks like chainsaw/machinery.
 static bool evaluate(const int16_t *block, uint32_t n)
 {
-    const float rms = prepare_channel(block, n, 0);  // mic1 drives the level + spectral gates
-    prepare_channel(block, n, 1);
-    prepare_channel(block, n, 2);
+    float rms = 0;
+    for (uint32_t ch = 0; ch < FE_CHANNELS; ch++) {
+        const float r = prepare_channel(block, n, ch);
+        if (ch == REF_MIC) {
+            rms = r;  // the reference mic drives the level + spectral gates
+        }
+    }
     float high_power;
     const float coherence = update_coherence(n, &high_power);
 
     float band = high_power;
     for (size_t i = 0; i < N_LOW; i++) {
-        band += goertzel_power(s_x[0], n, s_coeff_low[i]);
+        band += goertzel_power(s_x[REF_MIC], n, s_coeff_low[i]);
     }
     band /= (float)(N_LOW + N_HIGH);
-    const float wind = goertzel_power(s_x[0], n, s_coeff_wind);
+    const float wind = goertzel_power(s_x[REF_MIC], n, s_coeff_wind);
     s_band_smooth += s_spec_alpha * (band - s_band_smooth);
     s_wind_smooth += s_spec_alpha * (wind - s_wind_smooth);
     const float ratio_db = 10.0f * log10f((s_band_smooth + 1e-12f) / (s_wind_smooth + 1e-12f));
@@ -267,9 +278,9 @@ static bool evaluate(const int16_t *block, uint32_t n)
     {
         float nb = 0;
         for (int i = 0; i < 4; i++) {
-            nb += goertzel_power(s_x[0], n, s_coeff_tone_nb[i]);
+            nb += goertzel_power(s_x[REF_MIC], n, s_coeff_tone_nb[i]);
         }
-        const float tone_db = 10.0f * log10f((goertzel_power(s_x[0], n, s_coeff_tone) + 1e-12f) / (nb / 4 + 1e-12f));
+        const float tone_db = 10.0f * log10f((goertzel_power(s_x[REF_MIC], n, s_coeff_tone) + 1e-12f) / (nb / 4 + 1e-12f));
         s_last_tone_db = tone_db;
         if (tone_db >= TEST_TONE_MIN_DB && to_db(level) > to_db(s_floor_rms) + TEST_TONE_LEVEL_DB) {
             positive = true;

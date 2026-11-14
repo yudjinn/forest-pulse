@@ -49,9 +49,9 @@
     "emitter_offset_cm": 3.0,
     "band_hz": [1000, 4000],
     "nfft": 2048,
-    "min_peak_ratio": 3.0,
-    "max_closure_samples": 1.0,
-    "sweep": [1500, 2500, 3500, 300],
+    "min_peak_ratio": 2.5,
+    "max_closure_samples": 1.5,
+    "test_beep": [1500, 2500, 3500, 120],
     "test_beep_every_s": 0
   }
 }

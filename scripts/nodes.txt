@@ -1,0 +1,5 @@
+# Forest Pulse Uno Q nodes for scripts/deploy-nodes.py: wlan0 MAC, then a short name.
+# The MAC is what's stable across venues; the script finds each node's IP from it.
+# (On a board: cat /sys/class/net/wlan0/address. Its sensor_id is fp-<MAC without colons>.)
+14:b5:cd:0f:39:99  node1
+14:b5:cd:e2:25:21  node2

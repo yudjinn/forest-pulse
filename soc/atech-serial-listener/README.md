@@ -86,12 +86,13 @@ Highest priority first:
 Python sends `node_status(esp_ok, server_ok, recording)` on every change (within 0.25 s) and at least every 2 s, and logs ESP32/server changes as `[status] ESP32 OK, server OK`. The LED is active-low (common anode): the sketch writes `LOW` to light a colour.
 
 ## Location calibration
-Contract and method: [`LocationCalibrationIntegrationSpec.md`](../../LocationCalibrationIntegrationSpec.md). The sensor SDK runs the calibration; this app only provides `CalibrationHooks` (`sdk_glue.py`):
-- `start_stream()` / `stop_stream()` send `C` / `X` to the ESP32 (continuous stream). While calibrating, every block still goes to the SDK, but our own pipeline is bypassed: no event bearing, WAV or LED.
-- Every node plays the same rising sweep (`calibration.sweep`, 1.5 → 3.5 kHz, 300 ms) in its own 500 ms slot; the SDK tells beeps apart by slot. Set `calibration.test_beep_every_s` to hear it every few seconds.
-- `emit(f_start, f_mid, f_end, ms)` → Bridge `emit` → the sketch plays a stepped sweep on the Modulino Buzzer and answers `emit_done` (logged as `[calib] sketch played the sweep`).
-- `speed_of_sound()` comes from the Modulino Thermo; `bearing(window, band)` gives the direction of one arrival (the early part of a beep, or all of it), clockwise from forward.
-- Static facts: `emitter_offset_m` (`config.json` `calibration.emitter_offset_cm`, measure it with a ruler), mic positions, forward.
+The sensor SDK (0.3.0+) runs it. Contract: [`sensor-sdk/README.md`](../../sensor-sdk/README.md) "Calibration hooks" and [`docs/device-api.md`](../../docs/device-api.md) "Calibration"; **upstream is the source of truth**. This app provides `CalibrationHooks` (`sdk_glue.py`), which pass the SDK's own `self_check()` (tested in `soc/dev`):
+- `start_stream()` sends `X` (ends any running recording: the firmware ignores `C` during one), waits 100 ms, then sends `C` (continuous stream). `stop_stream()` sends `X`. While calibrating every block still goes to the SDK, but our own pipeline is bypassed (no event bearing, WAV or arrow) and the matrix shows "CAL".
+- `emit(f_start, f_mid, f_end, ms)` → Bridge `emit` → the sketch plays the stepped sweep on the Modulino Buzzer and answers `emit_done`. Returns False when the sketch reported no buzzer. The service sends each role's sweep (A rises, B falls, C rises and falls, 1.5–3.5 kHz, 120 ms).
+- `speed_of_sound()` from the Modulino Thermo; `bearing(window, band_hz)` gives the direction of one arrival (the SDK passes 40 ms from 5 ms before the first path), clockwise from forward, or None when unsure. Gates: `calibration.min_peak_ratio` 2.5, `max_closure_samples` 1.5.
+- Static facts: `fs`, `emitter_offset_m` (`calibration.emitter_offset_cm`: ruler distance from the buzzer to the **centre of the mic array**), `forward_ccw_deg`, `mic_positions_m` (board frame).
+- `calibration.test_beep_every_s` > 0 plays `calibration.test_beep` (role A's sweep) periodically, to hear the buzzer.
+- **Test modes** (put them in `python/config.local.json` on one board; it is git-ignored and never overwritten by `scripts/deploy-nodes.py`): `calibration.test_fake_bearing_deg` (e.g. `0`) makes `bearing()` always answer that angle with quality 1; `calibration.test_mono_mic` (e.g. `2`) feeds the SDK mic2 copied into all 3 channels during calibration, so distances are measured at mic2. Fine for a 2-node run; a 3-node run fails the server's angle check with faked bearings. The log says `[calib] TEST: …` at start-up.
 
 The hooks are registered only if the installed SDK's `Sensor` takes a `calibration` argument. Otherwise the log shows `[calib] this SDK has no location calibration yet`.
 

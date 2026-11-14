@@ -57,12 +57,12 @@ class Fake:
         self.notes.append((name, args))
 
 
-def make(connected=True):
+def make(connected=True, buzzer=None):
     q = queue.Queue()
     tee = sdk_glue.SensorTee(q, None, log=lambda s: None)
     f = Fake(connected)
     hooks = sdk_glue.CalibrationHooks(config.load(), Climate(), send_command=f.send, notify=f.notify, tee=tee,
-                                      log=lambda s: None)
+                                      log=lambda s: None, buzzer_ok=lambda: buzzer, sleep=lambda s: None)
     return hooks, tee, q, f
 
 
@@ -83,7 +83,7 @@ def test_static_facts():
     hooks, *_ = make()
     assert hooks.fs == 48000
     assert hooks.emitter_offset_m == pytest.approx(0.03)
-    assert hooks.mic_positions_m[2] == pytest.approx([0.0, -0.06])
+    assert np.allclose(hooks.mic_positions_m, [(-0.04, 0.0), (0.0, 0.0), (0.0, -0.06)])  # board frame
     assert hooks.forward_ccw_deg == 90.0
     assert hooks.speed_of_sound() == pytest.approx(343.0)
 
@@ -92,10 +92,10 @@ def test_stream_control_bypasses_pipeline_until_stream_end():
     hooks, tee, q, f = make()
     tee.put(EventStart(1, 0.0, False))           # a normal event in progress
     tee.put(block())
-    assert hooks.start_stream() is True and f.sent == ["C"]
+    assert hooks.start_stream() is True and f.sent == ["X", "C"]   # end any recording, then stream
     tee.put(block())                             # calibration audio: not for the pipeline
     hooks.stop_stream()
-    assert f.sent == ["C", "X"]
+    assert f.sent == ["X", "C", "X"]
     tee.put(block())                             # tail of the stream after X
     tee.put(EventEnd(9, 0.0, 0))                 # the stream's end: swallowed
     tee.put(EventStart(10, 0.0, False))          # next normal event goes through again
@@ -145,10 +145,21 @@ def test_sdk_keeps_getting_audio_while_calibrating():
 
 def test_emit_sends_sweep_to_sketch():
     hooks, _, _, f = make()
-    hooks.emit(1500, 2500, 3500, 30)
-    assert f.notes == [("emit", (1500, 2500, 3500, 30))]
+    assert hooks.emit(1500.0, 2500, 3500, 120) is True   # the service may send floats
+    assert f.notes == [("emit", (1500, 2500, 3500, 120))]
     with pytest.raises(ValueError):
         hooks.emit(1500, 2500, 3500, 0)
+
+
+def test_emit_fails_without_buzzer():
+    hooks, _, _, f = make(buzzer=False)
+    assert hooks.emit(1500, 2500, 3500, 120) is False and f.notes == []
+
+
+def test_hooks_pass_the_sdk_self_check():
+    from forestpulse_sensor.calibration.hooks import self_check
+    hooks, *_ = make()
+    assert self_check(hooks) == []
 
 
 @pytest.mark.parametrize("theta", [0, 45, 90, 135, 200, 270, 330])
@@ -160,17 +171,24 @@ def test_bearing_of_one_short_sweep(theta):
     assert 0 < q <= 1
 
 
-@pytest.mark.parametrize("theta", [30, 120, 250])
-def test_bearing_of_the_shared_sweep(theta):
-    """The shared 300 ms rising sweep (config calibration.sweep), first 50 ms and the whole beep."""
+def test_bearing_on_the_sdks_windows_and_patterns():
+    """What the SDK gives bearing(): 40 ms from 5 ms before the first path, each role's sweep and band.
+    Accept most, and never far off (the SDK's solver assumes ~12 deg per bearing)."""
+    from forestpulse_sensor.calibration.patterns import DEFAULT_PATTERNS
     hooks, *_ = make()
-    sweep = tuple(config.load()["calibration"]["sweep"])
-    assert sweep == (1500, 2500, 3500, 300)
-    full = arrival_window(theta, sweep=sweep)
-    expected = sdk_glue.board_to_angle(theta, 90.0)
-    for window in (full[: int(0.065 * FS)], full):          # early part (before echoes) / whole beep
-        angle, _ = hooks.bearing(window)                     # default band from config
-        assert abs((angle - expected + 180) % 360 - 180) <= 5
+    got = errs = 0
+    total = 0
+    worst = 0.0
+    for role, p in DEFAULT_PATTERNS.items():
+        for theta in range(0, 360, 30):
+            burst = stepped_sweep(*p.emit_args())
+            x = plane_wave(np.concatenate([np.zeros(int(0.005 * FS)), burst]), theta, noise=200)[: int(0.040 * FS)]
+            r = hooks.bearing(x, p.band_hz)
+            total += 1
+            if r is not None:
+                got += 1
+                worst = max(worst, abs((r[0] - sdk_glue.board_to_angle(theta, 90.0) + 180) % 360 - 180))
+    assert got / total >= 0.85 and worst <= 15
 
 
 def test_bearing_none_for_noise_and_bad_input():
@@ -188,3 +206,53 @@ def test_server_ok_from_sdk_status():
     assert not sdk_glue.server_ok({"last_checkin_ok": None, "key_rejected": False}, now)      # never
     assert not sdk_glue.server_ok({"last_checkin_ok": now, "key_rejected": True}, now)        # bad key
     assert not sdk_glue.server_ok(None, now)                                                  # no SDK
+
+
+def test_sdk_sensor_accepts_our_hooks(tmp_path):
+    """The real SDK Sensor takes the hooks and reports that this node can calibrate."""
+    from forestpulse_sensor import Sensor
+    hooks, *_ = make()
+    s = Sensor("http://127.0.0.1:9", "key", "fp-test", state_dir=str(tmp_path), calibration=hooks)
+    assert s.status["calibration_capable"] is True and s.status["calibrating"] is False
+
+
+def test_config_local_overrides(tmp_path, monkeypatch):
+    import json as _json
+    import config as cfgmod
+    local = tmp_path / "config.local.json"
+    local.write_text(_json.dumps({"calibration": {"test_fake_bearing_deg": 0, "test_mono_mic": 2}}))
+    monkeypatch.setenv("ATECH_CONFIG_LOCAL", str(local))
+    c = cfgmod.load()
+    assert c["calibration"]["test_fake_bearing_deg"] == 0 and c["calibration"]["test_mono_mic"] == 2
+    assert c["calibration"]["emitter_offset_cm"] == 3.0          # the rest still from config.json
+    monkeypatch.setenv("ATECH_CONFIG_LOCAL", str(tmp_path / "missing.json"))
+    assert cfgmod.load()["calibration"]["test_fake_bearing_deg"] is None
+
+
+def test_fake_bearing():
+    cfg = config.load()
+    cfg["calibration"]["test_fake_bearing_deg"] = 0
+    hooks = sdk_glue.CalibrationHooks(cfg, Climate(), send_command=lambda c: True, notify=lambda *a: None,
+                                      log=lambda s: None)
+    noise = (np.random.default_rng(3).standard_normal((1920, 3)) * 500).astype(np.int16)
+    assert hooks.bearing(noise, (1500, 3500)) == (0.0, 1.0)
+
+
+def test_mono_mic_feeds_one_mic_only_while_calibrating():
+    hooks, tee, q, f = make()
+
+    class S:
+        fed = []
+
+        def feed(self, pcm, break_before=False):
+            self.fed.append(pcm.copy())
+
+        def end_of_audio(self):
+            pass
+    tee.sensor = s = S()
+    tee.mono_mic = 1                                  # mic2
+    pcm = np.tile(np.array([[1, 2, 3]], np.int16), (4, 1))
+    tee.put(AudioBlock(pcm, 0, True, False))          # normal event: all 3 mics
+    hooks.start_stream()
+    tee.put(AudioBlock(pcm, 4, True, False))          # calibration: mic2 in every column
+    assert s.fed[0].tolist()[0] == [1, 2, 3] and s.fed[1].tolist()[0] == [2, 2, 2]
