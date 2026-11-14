@@ -173,14 +173,22 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(card(page, c).getByText("Updating", { exact: true })).toBeHidden();
     await expect(marker(page, "Sensor 3")).toHaveAccessibleName("Move Sensor 3, outdated sound list");
 
-    // a checks in again reporting the old list without fetching the new one: updating after one such check-in,
-    // outdated after three, though it is online.
-    const behind = { call: "checkin" as const, fields: { sound_list_version: old } };
-    await asSensor(a, [behind], undefined, service.url);
+    // a checks in with the current list, then three times reporting the old list without fetching the new one:
+    // updating after the first and second such check-in, outdated after the third, though it is online.
+    const current: number = (await (await page.request.get("/dashboard/api/sounds")).json()).version;
+    expect(current).toBe(old + 1);
+    await asSensor(a, [{ call: "checkin", fields: { sound_list_version: current } }], undefined, service.url);
     await expect(cardA.getByText("Online", { exact: true })).toBeVisible({ timeout: 3000 });
-    await expect(cardA.getByText("Updating", { exact: true })).toBeVisible();
-    await expect(marker(page, "Sensor 1")).toHaveAccessibleName("Move Sensor 1");
-    await asSensor(a, [behind, behind], undefined, service.url);
+    await expect(cardA.getByText("Updating", { exact: true })).toBeHidden();
+    await expect(cardA.getByText("Outdated sound list")).toBeHidden();
+    const behind = { call: "checkin" as const, fields: { sound_list_version: old } };
+    for (const nth of ["first", "second"]) {
+      await asSensor(a, [behind], undefined, service.url);
+      await expect(cardA.getByText("Updating", { exact: true }), `after the ${nth} behind check-in`)
+        .toBeVisible({ timeout: 3000 });
+      await expect(marker(page, "Sensor 1")).toHaveAccessibleName("Move Sensor 1");
+    }
+    await asSensor(a, [behind], undefined, service.url);
     await expect(cardA.getByText("Outdated sound list")).toBeVisible({ timeout: 3000 });
     await expect(cardA.getByText("Online", { exact: true })).toBeVisible();
     await expect(marker(page, "Sensor 1")).toHaveAccessibleName("Move Sensor 1, outdated sound list");

@@ -116,6 +116,8 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
     // reports it at its first check-in (a run can stop before a second one).
     const sensorCard = log.getByRole("list", { name: "Sensors" }).getByRole("listitem")
       .filter({ has: log.getByText(sensorId, { exact: true }) });
+    // The sensor has just checked in with the list it holds, so it is online when the switch lands.
+    await asSensor(sensorId, [{ call: "checkin", fields: { sound_list_version: start } }], undefined, origin);
     await soundSwitch(page, "Chainsaw").click();
     await expect(soundSwitch(page, "Chainsaw")).not.toBeChecked();
     await expect(soundSwitch(page, "Chainsaw")).toBeEnabled();
