@@ -86,11 +86,14 @@ async function otherSounds(env: Env): Promise<Float32Array> {
 }
 
 // The sound with this name ignoring case, any letters (the unique index on the table folds only A to Z and guards
-// the race between this check and the insert), or null.
-export async function soundNamed(db: D1Database, name: string): Promise<{ id: string; name: string } | null> {
+// the race between this check and the insert), or null. `taught` tells a taught sound from a seeded one.
+export async function soundNamed(db: D1Database, name: string):
+  Promise<{ id: string; name: string; taught: boolean } | null> {
   const wanted = name.toLowerCase();
-  const { results } = await db.prepare("SELECT id, name FROM sounds").all<{ id: string; name: string }>();
-  return results.find((s) => s.name.toLowerCase() === wanted) ?? null;
+  const { results } = await db.prepare("SELECT id, name, taught_at FROM sounds")
+    .all<{ id: string; name: string; taught_at: number | null }>();
+  const found = results.find((s) => s.name.toLowerCase() === wanted);
+  return found ? { id: found.id, name: found.name, taught: found.taught_at !== null } : null;
 }
 
 // A readable, unique id: the name as a slug plus a random suffix, so events stay legible and ids never repeat.
@@ -101,8 +104,10 @@ function soundId(name: string): string {
   return `${slug}-${suffix}`;
 }
 
-// POST /dashboard/api/teach -> 201 {sound: {id, name, category, kind, enabled}, version}; 400 {error} for a bad or too
-// small request; 409 {error} when the name is taken; 500 {error} when teaching failed. Nothing is saved unless 201.
+// POST /dashboard/api/teach -> 201 {sound: {id, name, category, kind, enabled}, version} for a new sound; 200 with the
+// same reply when the name is a taught sound's, whose detector (weights, bias, taught time) is replaced in place, so
+// its id, name, category and switch stay and past events stay linked; 400 {error} for a bad or too small request;
+// 409 {error} when the name is a seeded sound's; 500 {error} when teaching failed. Nothing is saved on an error.
 export async function teachSound(request: Request, { env }: RouteContext): Promise<Response> {
   const declared = Number(request.headers.get("Content-Length") ?? "0");
   if (declared > MAX_BODY) return json({ error: "request too large" }, 413);
@@ -122,7 +127,8 @@ export async function teachSound(request: Request, { env }: RouteContext): Promi
   logLine("teach_received", { name, category, clips: clips.length, summaries: rows.length / DIM });
 
   try {
-    if (await soundNamed(env.DB, name)) {
+    const existing = await soundNamed(env.DB, name);
+    if (existing && !existing.taught) {
       logLine("teach_failed", { name, reason: "name taken" });
       return json({ error: NAME_TAKEN }, 409);
     }
@@ -134,6 +140,25 @@ export async function teachSound(request: Request, { env }: RouteContext): Promi
       name, positives: rows.length / DIM, negatives: negatives.length / DIM, iterations: detector.iterations,
       ms: Date.now() - started,
     });
+
+    if (existing) {
+      const replaced = await changeSoundList(env.DB, [
+        env.DB.prepare(
+          "UPDATE sounds SET weights = ?, bias = ?, taught_at = ? WHERE id = ? AND taught_at IS NOT NULL " +
+          "RETURNING id, name, category, kind, enabled",
+        ).bind(JSON.stringify(detector.weights), detector.bias, Date.now(), existing.id),
+      ]);
+      const row = (replaced.results[0].results as { id: string; name: string; category: string; kind: string;
+        enabled: number }[])[0];
+      if (row) {
+        logLine("teach_replaced", { name: row.name, sound: row.id, version: replaced.version });
+        return json({
+          sound: { id: row.id, name: row.name, category: row.category, kind: row.kind, enabled: row.enabled === 1 },
+          version: replaced.version,
+        }, 200);
+      }
+      // Deleted since the check above: taught as a new sound below.
+    }
 
     const id = soundId(name);
     let saved;
