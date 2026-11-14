@@ -66,6 +66,7 @@
 
 .activity-body {
   display: grid;
+  flex: 1;
   gap: 2px;
   min-width: 0;
 }
