@@ -13,3 +13,6 @@
 - **Angle**: the direction of a sound relative to its sensor's board, degrees clockwise from the board's marked forward (0 to 360). Sent by the sensor.
 - **Facing**: which way a sensor's forward points on the plan. Entered on the dashboard; plan direction = facing + angle.
 - **Hall background**: a recording of the demo venue that training mixes under every taught sound and uses as an example of what to ignore.
+- **Calibration run**: pressing Calibrate: 2 or 3 calibration-capable sensors beep their own sweep in scheduled slots over several rounds; the service turns what each heard into distances, facings and a relative layout.
+- **Calibration-capable sensor**: a sensor with a 3-mic array, a buzzer and a sensor library new enough to take part. A single-mic sensor or one without a buzzer is not.
+- **Measured layout**: a plan set by a calibration run, relative to the sensors (first sensor at the origin, second to its right). A manual layout is one set by dragging and typing facings.

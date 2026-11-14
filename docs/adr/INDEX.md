@@ -8,6 +8,7 @@ One line per ADR, grouped by the code area it mainly governs. Per-folder AGENTS.
 - 20261114110501527 - Server and dashboard on Cloudflare; teaching computes embeddings in the browser
 - 20261114112557541 - Sensors send a label and a direction angle, never audio
 - 20261114163418130 - Every stored record stays in the EU jurisdiction
+- 20261114171057932 - Sensor layout is measured acoustically and is relative to the sensors
 
 ## Service (web/src)
 
