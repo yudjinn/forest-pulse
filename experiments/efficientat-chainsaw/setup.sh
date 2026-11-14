@@ -8,3 +8,5 @@ if [ ! -d vendor/EfficientAT ]; then
   git -C vendor/EfficientAT checkout -q a425fdce92572e602a1d5634799bd9f1f2efa806
 fi
 ./fetch_samples.sh
+./make_babble.sh
+if [ -n "${XC_KEY:-}" ]; then uv run python fetch_owls.py; else echo "skipping owls: set XC_KEY (free xeno-canto API key)"; fi

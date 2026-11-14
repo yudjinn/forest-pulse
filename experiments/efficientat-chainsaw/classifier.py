@@ -44,15 +44,35 @@ class Tagger:
         self.mel.eval()
         self.name = model_name
 
-    @torch.no_grad()
     def __call__(self, wav: np.ndarray) -> np.ndarray:
         """wav: float32 mono at 32 kHz. Returns 527 sigmoid scores."""
+        return self.analyse(wav)[0]
+
+    @torch.no_grad()
+    def analyse(self, wav: np.ndarray):
+        """Returns (527 sigmoid scores, embedding). The embedding is what a custom sound classifier trains on."""
         wav = np.asarray(wav, dtype=np.float32)
         if len(wav) < TRAIN_LEN:
             wav = np.tile(wav, -(-TRAIN_LEN // len(wav)))[:TRAIN_LEN]
         x = torch.from_numpy(np.ascontiguousarray(wav))[None, :]
-        logits, _ = self.model(self.mel(x).unsqueeze(0))
-        return torch.sigmoid(logits.float()).squeeze(0).numpy()
+        logits, emb = self.model(self.mel(x).unsqueeze(0))
+        return torch.sigmoid(logits.float()).squeeze(0).numpy(), emb.squeeze(0).numpy()
+
+    @torch.no_grad()
+    def analyse_batch(self, wavs, batch: int = 32):
+        """Same as analyse() for a list of equal-length windows. Returns (N x 527 scores, N x D embeddings)."""
+        S, E = [], []
+        for i in range(0, len(wavs), batch):
+            chunk = []
+            for w in wavs[i:i + batch]:
+                w = np.asarray(w, dtype=np.float32)
+                if len(w) < TRAIN_LEN:
+                    w = np.tile(w, -(-TRAIN_LEN // len(w)))[:TRAIN_LEN]
+                chunk.append(w)
+            x = torch.from_numpy(np.stack(chunk))
+            logits, emb = self.model(self.mel(x).unsqueeze(1))
+            S.append(torch.sigmoid(logits.float()).numpy()); E.append(emb.numpy())
+        return np.concatenate(S), np.concatenate(E)
 
     @staticmethod
     def top(scores: np.ndarray, k: int = 5):

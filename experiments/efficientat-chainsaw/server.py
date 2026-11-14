@@ -23,6 +23,15 @@ WINDOW_S = 5.0
 HOP_S = 0.5
 
 taggers = {name: Tagger(name) for name in MODELS}
+# trained detectors from train_heads.py: {model: [(name, weights, bias)]}
+heads = {}
+for p in sorted(glob.glob(os.path.join(HERE, "heads", "*.json"))):
+    h = json.load(open(p))
+    if "weights" in h:
+        heads.setdefault(h["model"], []).append((h["name"], np.array(h["weights"], np.float32), h["bias"]))
+SPECIES = {"Aegolius_funereus": "boreal owl", "Glaucidium_passerinum": "pygmy owl", "Strix_aluco": "tawny owl",
+           "Strix_uralensis": "Ural owl", "Asio_otus": "long-eared owl", "Bubo_bubo": "eagle owl", "Cuculus_canorus": "cuckoo"}
+stats = {"connections": 0, "samples_received": 0, "last_rms_dbfs": None, "last_top": None}
 app = FastAPI()
 app.mount("/samples", StaticFiles(directory=os.path.join(HERE, "samples")), name="samples")
 
@@ -43,12 +52,22 @@ def clips():
         name = os.path.basename(p)
         out.append({"url": "/samples/" + os.path.relpath(p, os.path.join(HERE, "samples")),
                     "name": name, "category": cats.get(name, "?")})
+    holdout = os.path.join(HERE, "heads", "owl_holdout.json")
+    if os.path.exists(holdout):
+        for c in json.load(open(holdout)):
+            out.append({"url": c["url"], "name": os.path.basename(c["url"]), "category": SPECIES.get(c["kind"], c["kind"])})
     return JSONResponse({"clips": out, "models": MODELS})
+
+
+@app.get("/api/stats")
+def get_stats():
+    return JSONResponse(stats)
 
 
 @app.websocket("/ws")
 async def ws(sock: WebSocket):
     await sock.accept()
+    stats["connections"] += 1
     win = int(WINDOW_S * SAMPLE_RATE)
     hop = int(HOP_S * SAMPLE_RATE)
     buf = np.zeros(0, np.float32)
@@ -67,15 +86,19 @@ async def ws(sock: WebSocket):
             chunk = np.frombuffer(msg["bytes"], np.float32)
             buf = np.concatenate([buf, chunk])[-win:]
             pending += len(chunk)
+            stats["samples_received"] += len(chunk)
             if pending < hop or len(buf) < SAMPLE_RATE:
                 continue
             pending = 0
-            scores = await asyncio.to_thread(taggers[model], buf)
+            scores, emb = await asyncio.to_thread(taggers[model].analyse, buf)
             rms = float(np.sqrt(np.mean(buf[-hop:] ** 2)))
+            stats["last_rms_dbfs"] = round(20 * np.log10(rms + 1e-9), 1)
+            stats["last_top"] = Tagger.top(scores, 3)
             await sock.send_text(json.dumps({
                 "model": model,
                 "chainsaw": float(scores[CHAINSAW]),
                 "machinery": float(scores[MACHINERY].max()),
+                "heads": {n: float(1 / (1 + np.exp(-(w @ emb + b)))) for n, w, b in heads.get(model, [])},
                 "top": Tagger.top(scores, 6),
                 "rms": rms,
             }))

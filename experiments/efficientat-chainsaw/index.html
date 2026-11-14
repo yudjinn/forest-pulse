@@ -43,10 +43,14 @@
       <div class="controls">
         <button id="start" class="primary">Start listening</button>
         <label>Model <select id="model"></select></label>
-        <label>Threshold <input id="thresh" type="range" min="0.05" max="0.8" step="0.05" value="0.2"><span id="threshv">0.20</span></label>
+        <label>Threshold <input id="thresh" type="range" min="0.05" max="0.95" step="0.05" value="0.5"><span id="threshv">0.50</span></label>
       </div>
       <div id="status">Not listening<small>&nbsp;</small></div>
       <canvas id="chart" width="1200" height="240"></canvas>
+    </section>
+    <section>
+      <h2>Detectors</h2>
+      <div id="heads"></div>
     </section>
     <section>
       <h2>Heard now</h2>
@@ -63,16 +67,23 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const player = $("player");
-let sock = null, history = [];
+let sock = null, history = [], streak = {};
+const COLORS = ["#ff5a4f", "#f0b429", "#62b0e8"];
 
 const thresh = () => parseFloat($("thresh").value);
 $("thresh").oninput = () => { $("threshv").textContent = thresh().toFixed(2); draw(); };
 
 fetch("/api/clips").then(r => r.json()).then(({ clips, models }) => {
   $("model").innerHTML = models.map(m => `<option>${m}</option>`).join("");
-  const groups = { chainsaw: clips.filter(c => c.category === "chainsaw"), other: clips.filter(c => c.category !== "chainsaw") };
-  $("clips").innerHTML = Object.entries(groups).map(([g, list]) =>
-    `<div class="group">${g === "chainsaw" ? "Chainsaw" : "Not chainsaw"}</div>` +
+  const owl = (c) => c.category.endsWith(" owl") || c.category === "cuckoo";
+  const groups = {
+    "Chainsaw": clips.filter(c => c.category === "chainsaw"),
+    "Boreal owl, unseen": clips.filter(c => c.category === "boreal owl"),
+    "Other owls, unseen": clips.filter(c => owl(c) && c.category !== "boreal owl"),
+    "Other sounds": clips.filter(c => c.category !== "chainsaw" && !owl(c)),
+  };
+  $("clips").innerHTML = Object.entries(groups).filter(([, list]) => list.length).map(([g, list]) =>
+    `<div class="group">${g}</div>` +
     list.map(c => `<div class="clip" data-url="${c.url}"><span>${c.name}<br><span class="cat">${c.category.replace("_", " ")}</span></span><button>Play</button></div>`).join("")
   ).join("");
   document.querySelectorAll(".clip button").forEach(b => b.onclick = () => {
@@ -122,13 +133,21 @@ $("start").onclick = async () => {
   }
 };
 
+const detectors = (r) => Object.keys(r.heads).length ? r.heads : { "Chainsaw (stock label)": r.chainsaw };
+
 function render(r) {
+  r.det = detectors(r);
   history.push(r); if (history.length > 120) history.shift();
-  const hit = r.chainsaw >= thresh();
-  $("status").className = hit ? "alert" : "";
-  $("status").innerHTML = hit
-    ? `CHAINSAW DETECTED<small>score ${r.chainsaw.toFixed(2)} · ${r.model}</small>`
-    : `Listening<small>chainsaw ${r.chainsaw.toFixed(2)} · machinery ${r.machinery.toFixed(2)} · ${r.model}</small>`;
+  // a detection needs two updates in a row over the threshold, so one noisy window does not flash an alert
+  for (const [n, p] of Object.entries(r.det)) streak[n] = p >= thresh() ? (streak[n] || 0) + 1 : 0;
+  const hits = Object.entries(r.det).filter(([n]) => streak[n] >= 2).sort((a, b) => b[1] - a[1]);
+  const level = `mic ${(20 * Math.log10(r.rms + 1e-9)).toFixed(0)} dB`;
+  $("status").className = hits.length ? "alert" : "";
+  $("status").innerHTML = hits.length
+    ? `${hits[0][0].toUpperCase()} DETECTED<small>score ${hits[0][1].toFixed(2)} · ${level} · ${r.model}</small>`
+    : `Listening<small>${level} · ${r.model}</small>`;
+  $("heads").innerHTML = Object.entries(r.det).map(([n, p], i) =>
+    `<div class="row"><div class="bar"><i style="width:${(p * 100).toFixed(1)}%;background:${COLORS[i % 3]}"></i><span>${n}</span></div><div class="num">${p.toFixed(2)}</div></div>`).join("");
   $("top").innerHTML = r.top.map(([name, p]) =>
     `<div class="row"><div class="bar"><i style="width:${(p * 100).toFixed(1)}%;${name === "Chainsaw" ? "background:var(--alert)" : ""}"></i><span>${name}</span></div><div class="num">${p.toFixed(2)}</div></div>`).join("");
   draw();
@@ -142,11 +161,11 @@ function draw() {
   g.beginPath(); g.moveTo(0, y(thresh())); g.lineTo(W, y(thresh())); g.stroke(); g.setLineDash([]);
   const line = (key, color) => {
     g.strokeStyle = color; g.lineWidth = 4; g.beginPath();
-    history.forEach((r, i) => { const x = W - (history.length - 1 - i) * (W / 119); i ? g.lineTo(x, y(r[key])) : g.moveTo(x, y(r[key])); });
+    history.forEach((r, i) => { const v = r.det[key] ?? 0, x = W - (history.length - 1 - i) * (W / 119); i ? g.lineTo(x, y(v)) : g.moveTo(x, y(v)); });
     g.stroke();
   };
-  line("machinery", "#5c7a6a");
-  line("chainsaw", "#ff5a4f");
+  const names = history.length ? Object.keys(history[history.length - 1].det) : [];
+  names.forEach((n, i) => line(n, COLORS[i % 3]));
 }
 </script>
 </body>

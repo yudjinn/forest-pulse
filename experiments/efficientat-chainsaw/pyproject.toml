@@ -8,8 +8,12 @@ dependencies = [
   "torchvision==0.20.1",
   "librosa>=0.10",
   "numpy<2.1",
+  "scikit-learn",
   "fastapi",
   "uvicorn[standard]",
+  "onnx>=1.23.2",
+  "onnxruntime>=1.32.0",
+  "onnxscript>=0.7.2",
 ]
 
 [tool.uv]
