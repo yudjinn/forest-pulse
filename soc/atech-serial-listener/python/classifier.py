@@ -1,7 +1,8 @@
-# NOT USED: classification is done by the server SDK; the node only sends the
-# audio file and the bearing. Kept (with models/ and the validation in
+# NOT USED: classification is done by the sensor SDK; the node only sends the
+# audio and the bearing. Kept (with the validation in
 # experiments/efficientat-chainsaw/export_onnx.py) in case on-device
-# classification is needed again: re-enable in main.py and requirements.txt.
+# classification is needed again: regenerate models/ with export_onnx.py
+# (not committed: 19.5 MB), then re-enable in main.py and requirements.txt.
 #
 """Chainsaw / machinery classifier: EfficientAT mn10_as (AudioSet) on ONNX Runtime.
 

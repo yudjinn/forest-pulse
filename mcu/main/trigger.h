@@ -34,4 +34,25 @@ void trigger_request_force(void);            // start an event now
 void trigger_request_continuous(bool start);  // start/stop an uncapped event
 
 void trigger_get_stats(trig_stats_t *out);
+
+// Runtime trigger thresholds. Boot defaults come from menuconfig
+// (CONFIG_FE_TRIG_SNR_DB / _BAND_RATIO_DB / _COHERENCE_PCT); the host can
+// change them at any time (stream command 'G'). They are not stored: the host
+// re-sends them after every reset.
+typedef struct {
+    float snr_db;         // level gate: block RMS above the noise floor by more than this (dB)
+    float ratio_db;       // spectral gate: band energy over wind energy above this (dB)
+    float coherence_min;  // coherence gate: inter-mic MSC (1-3 kHz) above this; 0 = gate off
+} trig_params_t;
+
+#define TRIG_PARAM_SNR 'S'
+#define TRIG_PARAM_RATIO 'R'
+#define TRIG_PARAM_COHERENCE 'C'
+
+// Sets one threshold (id = TRIG_PARAM_*). False (unchanged) if the id is
+// unknown or the value is out of range: snr 0..40 dB, ratio -30..30 dB,
+// coherence 0..0.99.
+bool trigger_set_param(char id, float value);
+void trigger_get_params(trig_params_t *out);
+void trigger_get_default_params(trig_params_t *out);  // the menuconfig boot values
 const char *trigger_state_name(trig_state_t s);

@@ -18,6 +18,7 @@ Bridge "send_to_board".
 
 import logging
 import os
+import re
 import socket
 import threading
 import time
@@ -35,10 +36,12 @@ import config
 # from classifier import Classifier
 # from uplink import StubUplink
 from climate import Climate
+from matrix_display import MatrixDisplay
 from pipeline import Pipeline
 from receiver import Receiver
-from sdk_glue import CalibrationHooks, DetectionBearing, SensorTee
+from sdk_glue import CalibrationHooks, DetectionBearing, SensorTee, server_ok
 from storage import EventStore
+from trigger_settings import TriggerSettings
 
 SENSOR_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "forestpulse.toml")
 
@@ -48,6 +51,7 @@ RETRY_SECONDS = 2
 RECV_BYTES = 65536          # the protocol asks for reads of 64 KB or more
 INFO_RETRY_SECONDS = 1.0    # after connecting, send I until an INFO line arrives
 INFO_MAX_TRIES = 15
+INFO_LOG_EVERY_S = 60.0     # INFO is polled for the sound meter; log it only now and then
 
 
 def log(s: str) -> None:
@@ -121,6 +125,22 @@ def on_record(r: dict) -> None:
                            f"bearing {brg['deg']} conf {brg['confidence']}")
 
 
+# ------------------------------------------------------------------ LED matrix
+# Arrow (pipeline) > "CAL" (calibration) > ticker: temperature, humidity, server
+# icon, then the live sound meter (matrix_display.py). INFO polled for the meter.
+_level = {"db": None, "at": 0.0}  # sound level above the ESP32's noise floor, from INFO
+
+
+def matrix_status() -> dict:
+    c = climate.current()
+    fresh = _esp_ok and time.monotonic() - _level["at"] < 2.0
+    return {"temp_c": c["temp_c"], "rh": c["rh"],
+            "server_ok": server_ok(sensor.status if sensor else None, time.time()),
+            "level_db": _level["db"] if fresh else None}
+
+
+matrix = MatrixDisplay(lambda frame: notify("led_frame", frame), matrix_status, cfg["matrix"], log=log)
+
 pipeline = Pipeline(
     cfg,
     store=EventStore(cfg["data_dir"], cfg["keep_events"]),  # local WAV + record per event (debug/calibration)
@@ -129,7 +149,7 @@ pipeline = Pipeline(
     classifier=None,  # the SDK classifies
     # classifier=Classifier.load(cfg["classifier"]["model"], log=log),
     climate=climate,
-    display=lambda frame: notify("led_frame", frame),
+    display=matrix.set_arrow,  # arrow frames / "" (clear); the ticker fills the gaps
     log=log,
     on_record=on_record,
 )
@@ -142,7 +162,11 @@ logging.basicConfig(level=logging.INFO, format="[sdk] %(message)s")  # SDK logs:
 tee = SensorTee(pipeline.queue, None, log=log)
 # Location calibration (LocationCalibrationIntegrationSpec.md): the SDK runs it
 # and calls these hooks for the stream (ESP32 C/X), buzzer, speed of sound and bearing.
-calibration = CalibrationHooks(cfg, climate, send_command=lambda c: send_command(c), notify=notify, tee=tee, log=log)
+calibration = CalibrationHooks(cfg, climate, send_command=lambda c: send_command(c), notify=notify, tee=tee, log=log,
+                               on_calibrating=matrix.set_calibrating)
+# ESP32 trigger thresholds: config.json "trigger" first, then whatever the server
+# sends in check-in replies (through the SDK); re-applied after every ESP32 reset.
+trigger = TriggerSettings(lambda b: send_command(b), cfg["trigger"], log=log)
 sensor = None
 if os.path.exists(SENSOR_CONFIG):
     try:
@@ -152,10 +176,15 @@ if os.path.exists(SENSOR_CONFIG):
 
         angle_fn = DetectionBearing(cfg, climate, on_bearing=pipeline.show_detection, log=log)
         extra = {}
-        if "calibration" in inspect.signature(Sensor.__init__).parameters:
+        sdk_params = inspect.signature(Sensor.__init__).parameters
+        if "calibration" in sdk_params:
             extra["calibration"] = calibration
         else:
             log("[calib] this SDK has no location calibration yet; hooks not registered")
+        if "trigger_settings" in sdk_params:
+            extra["trigger_settings"] = trigger  # check-in: reports .current(), applies reply via .update()
+        else:
+            log("[trigger] this SDK can't relay trigger settings yet; using config.json only")
         sensor = Sensor.from_file(SENSOR_CONFIG, angle_fn=angle_fn, **extra).start()
         tee.sensor = sensor
     except Exception as e:  # missing package, bad config: keep capturing, log why
@@ -168,39 +197,54 @@ else:
 
 _sock = None
 _sock_lock = threading.Lock()
+_esp_ok = False  # connected to the bridge and the ESP32 answered INFO since
+_rx = None       # the current Receiver (its in_event drives the blue LED)
 
 
-def send_command(cmd: str) -> bool:
-    """Send a single-byte command (I, T, C, X) to the ESP32. False if not connected."""
+def send_command(cmd: str | bytes) -> bool:
+    """Send a command to the ESP32: one letter (I, T, C, X) or a command with its argument
+    bytes (b"G..." trigger setting). False if not connected."""
     with _sock_lock:
         if _sock is None:
             return False
         try:
-            _sock.sendall(cmd.encode("ascii"))
+            _sock.sendall(cmd.encode("ascii") if isinstance(cmd, str) else cmd)
             return True
         except OSError:
             return False
 
 
 def _reader() -> None:
-    global _sock
+    global _sock, _esp_ok, _rx
     while True:
         try:
             s = socket.create_connection((BRIDGE_HOST, BRIDGE_PORT), timeout=5)
-            s.settimeout(INFO_RETRY_SECONDS)
+            poll_s = float(cfg["matrix"]["level_poll_s"]) if cfg["matrix"]["ticker"] else 0.0
+            s.settimeout(min(INFO_RETRY_SECONDS, poll_s) if poll_s > 0 else INFO_RETRY_SECONDS)
             s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             with _sock_lock:
                 _sock = s
             log(f"[serial] connected to {BRIDGE_HOST}:{BRIDGE_PORT}")
 
-            state = {"info": False}
+            state = {"info": False, "info_logged": 0.0}
 
             def on_text(line: str) -> None:
-                log(f"[atech] {line}")
+                global _esp_ok
                 if line.startswith("INFO"):
+                    now = time.monotonic()
+                    if not state["info"] or now - state["info_logged"] >= INFO_LOG_EVERY_S:
+                        log(f"[atech] {line}")  # polled ~4x/s for the meter: log the first and then 1/min
+                        state["info_logged"] = now
                     state["info"] = True
+                    _esp_ok = True
+                    kv = dict(re.findall(r"(\w+)=(-?[\d.]+)", line))
+                    if "rms_dbfs" in kv and "floor_dbfs" in kv:
+                        _level["db"], _level["at"] = float(kv["rms_dbfs"]) - float(kv["floor_dbfs"]), now
+                else:
+                    log(f"[atech] {line}")
+                trigger.on_text(line)  # INFO / SET: track thresholds, re-apply after an ESP32 reset
 
-            rx = Receiver(tee, on_text=on_text, log=log,
+            rx = _rx = Receiver(tee, on_text=on_text, log=log,
                           trigger_rise=take_trigger_rise)
             tries, last = 0, 0.0
             while True:
@@ -210,6 +254,9 @@ def _reader() -> None:
                     tries, last = tries + 1, now
                     if tries == INFO_MAX_TRIES:
                         log("[serial] no INFO reply from the ESP32 yet; still listening")
+                elif state["info"] and poll_s > 0 and now - last >= poll_s:
+                    send_command("I")  # sound level for the matrix meter
+                    last = now
                 try:
                     chunk = s.recv(RECV_BYTES)
                 except TimeoutError:
@@ -220,6 +267,7 @@ def _reader() -> None:
         except OSError as e:
             log(f"[serial] {e}; retrying in {RETRY_SECONDS}s")
         finally:
+            _esp_ok = False
             with _sock_lock:
                 if _sock is not None:
                     try:
@@ -250,6 +298,28 @@ Bridge.provide("modulino_status", on_modulino_status)
 Bridge.provide("emit_done", lambda ok: log("[calib] sketch played the sweep" if int(ok)
                                            else "[calib] sketch: no Modulino Buzzer, sweep NOT played"))
 
+STATUS_EVERY_S = 2.0   # resend at least this often (the sketch shows red after 10 s of silence)
+STATUS_POLL_S = 0.25   # changes (event start/end) go out within this
+
+
+def _status_loop() -> None:
+    """Status LED (sketch LED3): ESP32 connected, server reachable, event being recorded
+    (from the packet stream, not the D7 wire)."""
+    last, last_log, sent_at = None, None, 0.0
+    while True:
+        rx = _rx
+        cur = (_esp_ok, server_ok(sensor.status if sensor else None, time.time()),
+               bool(_esp_ok and rx is not None and rx.in_event))
+        if cur != last or time.monotonic() - sent_at >= STATUS_EVERY_S:
+            notify("node_status", *(int(v) for v in cur))
+            last, sent_at = cur, time.monotonic()
+        if cur[:2] != last_log:
+            log(f"[status] ESP32 {'OK' if cur[0] else 'NOT CONNECTED'}, "
+                f"server {'OK' if cur[1] else 'UNREACHABLE'}")
+            last_log = cur[:2]
+        time.sleep(STATUS_POLL_S)
+
+
 def _test_beep_loop(every_s: float, sweep) -> None:
     """TEST: play the calibration sweep every `every_s` seconds (config calibration.test_beep_every_s)."""
     while True:
@@ -268,5 +338,7 @@ if cfg["calibration"].get("test_beep_every_s"):
 log(f"[app] node {cfg['node_id']}, data in {os.path.abspath(cfg['data_dir'])}, "
     f"sensor SDK {'on: ' + sensor.sensor_id if sensor else 'OFF'}")
 pipeline.start()
+matrix.start()
 threading.Thread(target=_reader, name="serial-reader", daemon=True).start()
+threading.Thread(target=_status_loop, name="status-led", daemon=True).start()
 App.run()

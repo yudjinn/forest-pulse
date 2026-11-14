@@ -37,7 +37,7 @@ def encode_event(audio: np.ndarray, seq0: int = 0) -> bytes:
     return bytes(out)
 
 
-def make_pipeline(data_dir: str, cfg_over: dict | None = None, classifier: bool = True,
+def make_pipeline(data_dir: str, cfg_over: dict | None = None, classifier: bool = False,
                   display=None, log=print, climate: Climate | None = None) -> Pipeline:
     cfg = config.load()
     cfg["data_dir"] = data_dir

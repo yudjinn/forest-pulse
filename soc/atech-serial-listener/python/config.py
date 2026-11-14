@@ -23,6 +23,12 @@ DEFAULTS = {
                 "max_closure_samples": 1.0, "band_hz": [200, 8000]},
     "classifier": {"model": "models/mn10_as.onnx", "chainsaw_threshold": 0.2, "live_every_s": 2.0},
     "led": {"source": "detections", "rotation_deg": 0, "hold_s": 10.0, "min_change_deg": 5.0, "require_chainsaw": False},
+    # LED matrix when no arrow shows (matrix_display.py): scroll temperature, humidity and the
+    # server icon, then the live sound meter (ESP32 INFO polled every level_poll_s).
+    "matrix": {"ticker": True, "scroll_ms": 120, "meter_s": 6.0, "level_poll_s": 0.25},
+    # ESP32 trigger thresholds (trigger_settings.py); null = firmware default (menuconfig).
+    # The server can change them through the check-in reply. Lower = more sensitive.
+    "trigger": {"snr_db": None, "ratio_db": None, "coherence": None},
     # Location calibration (LocationCalibrationIntegrationSpec.md): the SDK runs it, we provide the hooks.
     "calibration": {"emitter_offset_cm": 3.0,       # s_i: buzzer to array centre (ruler)
                     "band_hz": [1000, 4000],        # default bearing band when the SDK gives none

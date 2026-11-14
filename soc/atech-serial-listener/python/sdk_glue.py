@@ -33,6 +33,15 @@ def board_to_angle(bearing_ccw_deg: float, forward_ccw_deg: float = 90.0) -> flo
     return (forward_ccw_deg - bearing_ccw_deg) % 360.0
 
 
+def server_ok(status: dict | None, now: float, max_age_s: float = 30.0) -> bool:
+    """Is the server reachable, from Sensor.status? A check-in succeeded within max_age_s
+    (3 check-in intervals) and the key isn't rejected. No SDK (status None) = no server."""
+    if not status or status.get("key_rejected"):
+        return False
+    last = status.get("last_checkin_ok")
+    return last is not None and now - last <= max_age_s
+
+
 class SensorTee:
     """Receiver sink: everything goes to the pipeline queue; audio also feeds the SDK.
     sensor.feed() only queues, so the serial reader is never blocked.
@@ -143,7 +152,8 @@ class CalibrationHooks:
     tee is the SensorTee (bypasses our own pipeline while calibrating)."""
 
     def __init__(self, cfg: dict, climate: Climate, send_command: Callable[[str], bool],
-                 notify: Callable[..., None], tee: SensorTee | None = None, log=print):
+                 notify: Callable[..., None], tee: SensorTee | None = None, log=print,
+                 on_calibrating: Callable[[bool], None] | None = None):
         c = cfg["calibration"]
         self.c = c
         self.fs = FS
@@ -156,6 +166,7 @@ class CalibrationHooks:
         self.notify = notify
         self.tee = tee
         self.log = log
+        self.on_calibrating = on_calibrating or (lambda on: None)
         self._est: dict = {}  # (lo, hi) -> BearingEstimator
         self._lock = threading.Lock()
 
@@ -168,12 +179,14 @@ class CalibrationHooks:
         self.log(f"[calib] continuous stream {'started' if ok else 'NOT started (ESP32 not connected)'}")
         if not ok and self.tee is not None:
             self.tee.set_calibrating(False)
+        self.on_calibrating(ok)
         return ok
 
     def stop_stream(self) -> None:
         self.send_command("X")
         if self.tee is not None:
             self.tee.set_calibrating(False)
+        self.on_calibrating(False)
         self.log("[calib] continuous stream stopped")
 
     # ---- emitter ---------------------------------------------------------------

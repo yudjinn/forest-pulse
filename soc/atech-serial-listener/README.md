@@ -1,7 +1,7 @@
 # Atech Serial Listener (Arduino UNO Q)
 
 The node app for the Uno Q. The atech board (ESP32, 3 mics) streams binary audio packets over USB to the Uno Q's Linux side. For each event the app:
-- leaves **classification to the server SDK**. The on-device EfficientAT/ONNX classifier (`classifier.py`, `models/`) is kept but commented out in `main.py` and `requirements.txt`;
+- leaves **classification to the server SDK**. The on-device EfficientAT/ONNX classifier (`classifier.py`) is kept but commented out in `main.py` and `requirements.txt`, and its model files are no longer shipped (regenerate them with `experiments/efficientat-chainsaw/export_onnx.py` if it's ever re-enabled);
 - estimates the **bearing** (GCC-PHAT / SRP-PHAT), using the speed of sound from a Modulino Thermo;
 - **stores** the event (WAV + JSON);
 - hands the record to the **uplink**, a stub until the server API exists;
@@ -40,7 +40,6 @@ atech ESP32 --USB CDC--> /dev/ttyACM0 (Linux host)
 | `pipeline.py` | worker: live + final bearing, classification, record, storage, uplink, LED |
 | `bearing.py` | GCC-PHAT pair delays + SRP-PHAT 1° grid; quality gate; circular mean |
 | `classifier.py` | numpy mel frontend + ONNX Runtime; mono mix, 48 → 32 kHz, 10 s tiling |
-| `models/` | exported by `experiments/efficientat-chainsaw/export_onnx.py` (model ≈ 19.5 MB) |
 | `climate.py` | Modulino readings → speed of sound, with fallback |
 | `sdk_glue.py` | sensor SDK glue: `SensorTee` (audio → SDK + pipeline), `DetectionBearing` (`angle_fn`), `CalibrationHooks` (location calibration) |
 | `led_arrow.py` | renders the 8×13 arrow (the sketch only displays it) |
@@ -66,6 +65,26 @@ atech ESP32 --USB CDC--> /dev/ttyACM0 (Linux host)
 
   On 2 min of hall background this yields no bearing. On the phone-clip test event it gives 276.7° ± 0.9°.
 
+## LED matrix
+Rendered in Python (`matrix_display.py`, `led_arrow.py`); the sketch only draws the frames. Highest priority first:
+1. **Direction arrow**, for 10 s after the SDK detects a sound with a reliable bearing.
+2. **"CAL"** while a location calibration runs.
+3. **Ticker**: one scroll of temperature, humidity and a server icon (a cloud with a check mark when connected, with an X when not), then the **live sound meter** for 6 s (a rolling bar graph of the level above the ESP32's noise floor; 8 rows = 24 dB), then repeat. Temperature and humidity are left out without a Modulino Thermo.
+
+`config.json` `matrix`: `ticker` (false = arrow only), `scroll_ms` (120), `meter_s` (6), `level_poll_s` (0.25: how often the ESP32's INFO is polled for the meter; INFO is logged only once per connection and then once a minute). Preview on a laptop: `python python/matrix_display.py`.
+
+## Status LED (LED3, the RGB LED next to the matrix)
+Highest priority first:
+
+| LED | Meaning |
+|---|---|
+| red, solid | the ESP32 isn't connected or hasn't answered `INFO`, or the Python app stopped reporting (no `node_status` for 10 s), e.g. while the app restarts |
+| blue, solid | an event is being recorded (from the packet stream; the D7 wire isn't needed) |
+| yellow, slow blink (1 s on / 1 s off) | no server connection: no successful SDK check-in for 30 s, the key was rejected, or no `forestpulse.toml` |
+| green, solid | all good |
+
+Python sends `node_status(esp_ok, server_ok, recording)` on every change (within 0.25 s) and at least every 2 s, and logs ESP32/server changes as `[status] ESP32 OK, server OK`. The LED is active-low (common anode): the sketch writes `LOW` to light a colour.
+
 ## Location calibration
 Contract and method: [`LocationCalibrationIntegrationSpec.md`](../../LocationCalibrationIntegrationSpec.md). The sensor SDK runs the calibration; this app only provides `CalibrationHooks` (`sdk_glue.py`):
 - `start_stream()` / `stop_stream()` send `C` / `X` to the ESP32 (continuous stream). While calibrating, every block still goes to the SDK, but our own pipeline is bypassed: no event bearing, WAV or LED.
@@ -84,10 +103,11 @@ The hooks are registered only if the installed SDK's `Sensor` takes a `calibrati
 2. In `bricks/serial_bridge/brick_compose.yaml`, set the host device path.
    - The ESP32's by-id name contains `:`, which Compose's short `devices:` syntax can't take, so this uses `/dev/ttyACM0`.
    - The baud rate is ignored by USB CDC.
-3. **Model files:** `python/models/` must contain `mn10_as.onnx`, `mel_basis.npy`, `labels.json` and `classes.json`. Regenerate them with `experiments/efficientat-chainsaw/export_onnx.py`. Without them the app runs, logs `classifier disabled`, and never lights the arrow (`led.require_chainsaw`).
+3. **Model files:** none needed; the sensor SDK brings its own model. (Only the disabled on-device classifier used `python/models/`.)
 4. **`config.json`:**
    - `led.rotation_deg`: the angle of the ATech board's +x axis (mic1 → mic2) as seen on the Uno Q's matrix, so the arrow points the right way in the room.
    - `mic_positions_cm`: replace with measured sound-port positions when you have them.
+   - `trigger`: ESP32 trigger thresholds (`snr_db`, `ratio_db`, `coherence`); `null` = firmware default (4 dB, 0 dB, 0.60). Lower = more sensitive. The server can override them through the check-in once the SDK relays them ([`TriggerSettingsSpec.md`](../../TriggerSettingsSpec.md)). The app re-sends them after every ESP32 reset; the log shows `[trigger] ESP32 thresholds now …`.
 5. Copy this folder to `~/ArduinoApps/` on the board and start it: `arduino-app-cli app start user:atech-serial-listener` (or press Run in App Lab). `sketch/sketch.yaml` is required by App CLI 0.14+.
 6. **The Python console should show:**
    - `[app] … classifier on` and `[serial] connected to serial-bridge:5000`;

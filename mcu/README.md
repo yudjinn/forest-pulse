@@ -243,7 +243,7 @@ Watch them live with `uv run tools/receiver.py` (status + event capture).
 before `open()`). The state DTR=0 & RTS=1 resets the ESP32-S3. Right after a
 flash, the first command can land while the chip reboots, so retry.
 
-**Commands** (single bytes; replies are ASCII lines):
+**Commands** (single bytes, some with argument bytes; replies are ASCII lines):
 
 | Byte | Action |
 |---|---|
@@ -253,6 +253,7 @@ flash, the first command can land while the chip reboots, so retry.
 | `R` | `RAW <hex>`: 256 raw LCD_CAM bytes, for bring-up |
 | `S` / `s` | synthetic chainsaw on/off (synthetic source only) |
 | `B` + u32 | throughput benchmark (idle only) |
+| `G` + id + i16 | set a trigger threshold at runtime (value × 100, little-endian): id `S` level margin dB (0..40), `R` band ratio dB (−30..30), `C` coherence (0..0.99, 0 = gate off). Replies `SET ok\|err …` with all three. Not stored: back to the menuconfig values after a reset (the Uno Q re-sends them). INFO shows `trig_*` (current) and `trig_default_*`. |
 
 ## Build, flash, test
 

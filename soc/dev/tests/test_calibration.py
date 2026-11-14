@@ -179,3 +179,12 @@ def test_bearing_none_for_noise_and_bad_input():
     assert hooks.bearing(noise) is None
     assert hooks.bearing(np.zeros((10, 3), np.int16)) is None
     assert hooks.bearing(np.zeros((2880, 2), np.int16)) is None
+
+
+def test_server_ok_from_sdk_status():
+    now = 1000.0
+    assert sdk_glue.server_ok({"last_checkin_ok": now - 5, "key_rejected": False}, now)
+    assert not sdk_glue.server_ok({"last_checkin_ok": now - 31, "key_rejected": False}, now)  # stale
+    assert not sdk_glue.server_ok({"last_checkin_ok": None, "key_rejected": False}, now)      # never
+    assert not sdk_glue.server_ok({"last_checkin_ok": now, "key_rejected": True}, now)        # bad key
+    assert not sdk_glue.server_ok(None, now)                                                  # no SDK

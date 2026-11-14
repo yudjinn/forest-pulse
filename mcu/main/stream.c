@@ -164,7 +164,10 @@ static void send_info(void)
     trigger_get_stats(&t);
     capture_diag_t c;
     capture_get_diag(&c);
-    char line[640];
+    trig_params_t p, d;
+    trigger_get_params(&p);
+    trigger_get_default_params(&d);
+    char line[800];
     const int n = snprintf(
         line, sizeof line,
         "INFO idf=%s cpu_mhz=%d psram=%u rate=%" PRIu32 " ring_frames=%" PRIu32 " pre_frames=%" PRIu32
@@ -173,14 +176,16 @@ static void send_info(void)
         " max_block_us=%" PRIu32 " internal_free=%u crc_ok=%d core0_load_pct=%.1f src=%s cam_no_data=%d locked=%d"
         " eofs=%" PRIu32 " sync_losses=%" PRIu32 " dma_overruns=%" PRIu32 " short_desc=%" PRIu32
         " stalls=%" PRIu32 " m1_dbfs=%.1f m2_dbfs=%.1f m3_dbfs=%.1f tog_bclk=%" PRIu32 " tog_ws=%" PRIu32 " tog_sd1=%" PRIu32 " tog_sd2=%" PRIu32 " tog_sd3=%" PRIu32
-        " desc0_len=%" PRIu32 " buf_nonzero=%" PRIu32 "\n",
+        " desc0_len=%" PRIu32 " buf_nonzero=%" PRIu32 " trig_snr_db=%.2f trig_ratio_db=%.2f trig_coherence=%.2f"
+        " trig_default_snr_db=%.2f trig_default_ratio_db=%.2f trig_default_coherence=%.2f\n",
         esp_get_idf_version(), esp_clk_cpu_freq() / 1000000, (unsigned)esp_psram_get_size(), FE_SAMPLE_RATE,
         FE_RING_FRAMES, FE_PRE_FRAMES, (uint64_t)(esp_timer_get_time() / 1000), ring_write_idx(),
         trigger_state_name(t.state), t.rms_dbfs, t.floor_dbfs, t.ratio_db, t.coherence, t.tone_db, t.events, s_packets, s_overruns,
         s_ev.active, c.avg_block_us, c.max_block_us, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
         pkt_crc_self_test(), c.load_permille / 10.0f, c.mics ? "mics" : "synth", c.no_data, c.locked, c.eofs, c.sync_losses,
         c.dma_overruns, c.short_desc, c.stalls, c.ch_dbfs[0], c.ch_dbfs[1], c.ch_dbfs[2], c.toggles_bclk,
-        c.toggles_ws, c.toggles_sd1, c.toggles_sd2, c.toggles_sd3, c.desc0_len, c.buf_nonzero);
+        c.toggles_ws, c.toggles_sd1, c.toggles_sd2, c.toggles_sd3, c.desc0_len, c.buf_nonzero, p.snr_db, p.ratio_db,
+        p.coherence_min, d.snr_db, d.ratio_db, d.coherence_min);
     usb_link_write(line, (size_t)n, pdMS_TO_TICKS(500));
 }
 
@@ -223,6 +228,40 @@ static void run_bench(uint32_t total)
     }
 }
 
+// Reads exactly n argument bytes following a command byte; false on timeout.
+static bool read_args(uint8_t *b, size_t n)
+{
+    size_t got = 0;
+    while (got < n) {
+        const size_t r = usb_link_read(b + got, n - got, pdMS_TO_TICKS(500));
+        if (r == 0) {
+            return false;
+        }
+        got += r;
+    }
+    return true;
+}
+
+// 'G' <id> <int16 LE value x100>: set a trigger threshold (trigger.h
+// TRIG_PARAM_*: 'S' snr dB, 'R' band ratio dB, 'C' coherence 0..0.99).
+// Replies "SET ok|err id=<id> snr_db=.. ratio_db=.. coherence=..".
+static void set_param(void)
+{
+    uint8_t b[3];
+    if (!read_args(b, sizeof b)) {
+        return;
+    }
+    const float value = (float)(int16_t)((uint16_t)b[1] | (uint16_t)b[2] << 8) / 100.0f;
+    const bool ok = trigger_set_param((char)b[0], value);
+    trig_params_t p;
+    trigger_get_params(&p);
+    char line[128];
+    const int n = snprintf(line, sizeof line, "SET %s id=%c value=%.2f snr_db=%.2f ratio_db=%.2f coherence=%.2f\n",
+                           ok ? "ok" : "err", (b[0] >= 32 && b[0] < 127) ? b[0] : '?', value, p.snr_db, p.ratio_db,
+                           p.coherence_min);
+    usb_link_write(line, (size_t)n, pdMS_TO_TICKS(500));
+}
+
 static void handle_command(uint8_t cmd)
 {
     switch (cmd) {
@@ -241,6 +280,9 @@ static void handle_command(uint8_t cmd)
     case 'R':
         send_raw();
         break;
+    case 'G':
+        set_param();
+        break;
 #if CONFIG_FE_SOURCE_SYNTH
     case 'S':
         synth_set_sound(true);
@@ -251,13 +293,8 @@ static void handle_command(uint8_t cmd)
 #endif
     case 'B': {
         uint8_t b[4];
-        size_t got = 0;
-        while (got < 4) {
-            const size_t n = usb_link_read(b + got, 4 - got, pdMS_TO_TICKS(500));
-            if (n == 0) {
-                return;
-            }
-            got += n;
+        if (!read_args(b, sizeof b)) {
+            return;
         }
         if (!s_ev.active) {  // never interleave bench data with packets
             run_bench((uint32_t)b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24);

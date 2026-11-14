@@ -7,7 +7,14 @@
 // 3. Reads the Modulino Thermo (Qwiic) every 5 s and reports
 //    Bridge.notify("climate", temp_c, rh_percent) for the speed of sound.
 //    Without a Modulino, Python falls back to 343 m/s.
-// 4. Receives one-line event summaries (Bridge "serial_event") and blinks the LED.
+// 4. Receives one-line event summaries (Bridge "serial_event", Monitor only).
+// 6. Status LED (LED3, RGB, active-low), highest priority first:
+//      red solid          ESP32 not connected/answering, or Python silent > 10 s
+//      blue solid         event being recorded (from Python: the packet stream, not D7)
+//      yellow slow blink  no server connection (1 s on / 1 s off)
+//      green solid        all good
+//    Python reports Bridge.notify("node_status", esp_ok, server_ok, recording) on every
+//    change and at least every 2 s.
 // 5. Location calibration: Bridge "emit"(f_start, f_mid, f_end, duration_ms)
 //    plays a stepped sweep on the Modulino Buzzer (f_start -> f_mid -> f_end,
 //    1 ms steps) and answers Bridge.notify("emit_done", 1/0). The start time
@@ -23,7 +30,8 @@
 
 const int TRIGGER_PIN = 7;
 const unsigned long DEBOUNCE_MS = 2;
-const unsigned long LED_FLASH_MS = 50;
+const unsigned long STATUS_STALE_MS = 10000;  // no node_status for this long -> Python is down -> red
+const unsigned long BLINK_HALF_MS = 1000;      // yellow slow blink: 1 s on, 1 s off
 const unsigned long TRIGGER_RESEND_MS = 1000;  // Python may start after us
 const unsigned long CLIMATE_PERIOD_MS = 5000;
 const int MATRIX_PIXELS = 8 * 13;
@@ -116,13 +124,48 @@ uint8_t frame[MATRIX_PIXELS];
 int triggerState = -1;  // -1 = not reported yet
 int triggerCandidate = LOW;
 unsigned long triggerChangedAt = 0;
-unsigned long ledOffAt = 0;
+volatile bool espOk = false, serverOk = false, recording = false;
+volatile unsigned long statusAt = 0;  // millis() of the last node_status (0 = never)
+bool statusSeen = false;
+int ledColor = -1;  // last colour written (bits: 1 red, 2 green, 4 blue), -1 = none yet
 unsigned long triggerSentAt = 0;
 unsigned long climateAt = 0;
 
 void serial_event(String line) {
   lastLine = line;
   hasEvent = true;
+}
+
+void node_status(int esp, int server, int rec) {
+  espOk = esp != 0;
+  serverOk = server != 0;
+  recording = rec != 0;
+  statusAt = millis();
+  statusSeen = true;
+}
+
+// LED3 is common-anode: LOW lights a colour.
+void setLed(int color) {
+  if (color == ledColor) return;
+  ledColor = color;
+  digitalWrite(LED3_R, (color & 1) ? LOW : HIGH);
+  digitalWrite(LED3_G, (color & 2) ? LOW : HIGH);
+  digitalWrite(LED3_B, (color & 4) ? LOW : HIGH);
+}
+
+void updateStatusLed(unsigned long now) {
+  const int RED = 1, GREEN = 2, BLUE = 4, YELLOW = RED | GREEN, OFF = 0;
+  // signed: a callback can land just after `now` was read
+  bool pythonAlive = statusSeen && (long)(now - statusAt) < (long)STATUS_STALE_MS;
+  if (!pythonAlive || !espOk) {
+    setLed(RED);
+  } else if (recording) {
+    setLed(BLUE);
+  } else if (!serverOk) {
+    setLed((now / BLINK_HALF_MS) % 2 ? YELLOW : OFF);
+  } else {
+    setLed(GREEN);
+  }
 }
 
 void led_frame(String bits) {
@@ -157,7 +200,10 @@ void playSweep(int fStart, int fMid, int fEnd, int durationMs) {
 }
 
 void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED3_R, OUTPUT);
+  pinMode(LED3_G, OUTPUT);
+  pinMode(LED3_B, OUTPUT);
+  setLed(1);  // red until Python reports the ESP32 and server
   // Driven by the ESP32 (3.3 V push-pull). The pull-down keeps the pin LOW
   // when the ESP32 isn't wired up - a floating input toggled every ~30 ms.
   pinMode(TRIGGER_PIN, INPUT_PULLDOWN);
@@ -165,6 +211,7 @@ void setup() {
   Monitor.begin();
   Bridge.provide("serial_event", serial_event);
   Bridge.provide("led_frame", led_frame);
+  Bridge.provide("node_status", node_status);
   Bridge.provide("emit", emit);
 
   matrix.begin();
@@ -250,11 +297,7 @@ void loop() {
     hasEvent = false;
     Monitor.print("SoC: ");
     Monitor.println(lastLine);
-    digitalWrite(LED_BUILTIN, HIGH);  // flash on every event summary (non-blocking)
-    ledOffAt = now + LED_FLASH_MS;
   }
-  if (ledOffAt && (long)(now - ledOffAt) >= 0) {
-    digitalWrite(LED_BUILTIN, LOW);
-    ledOffAt = 0;
-  }
+
+  updateStatusLed(now);
 }

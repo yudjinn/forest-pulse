@@ -32,6 +32,19 @@
     "require_chainsaw": false
   },
 
+  "matrix": {
+    "ticker": true,
+    "scroll_ms": 120,
+    "meter_s": 6.0,
+    "level_poll_s": 0.25
+  },
+
+  "trigger": {
+    "snr_db": null,
+    "ratio_db": null,
+    "coherence": null
+  },
+
   "calibration": {
     "emitter_offset_cm": 3.0,
     "band_hz": [1000, 4000],

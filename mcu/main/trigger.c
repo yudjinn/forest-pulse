@@ -59,8 +59,9 @@ static void goertzel_cplx(const float *x, uint32_t n, float coeff, float cw, flo
 }
 
 // ---- Tunables (menuconfig) --------------------------------------------------
-#define SNR_DB ((float)CONFIG_FE_TRIG_SNR_DB)
-#define RATIO_DB ((float)CONFIG_FE_TRIG_BAND_RATIO_DB)
+// Boot defaults of the runtime thresholds (trigger_set_param).
+#define SNR_DB_DEFAULT ((float)CONFIG_FE_TRIG_SNR_DB)
+#define RATIO_DB_DEFAULT ((float)CONFIG_FE_TRIG_BAND_RATIO_DB)
 #define ARM_BLOCKS CONFIG_FE_TRIG_ARM_BLOCKS
 #define COOLDOWN_BLOCKS (CONFIG_FE_TRIG_COOLDOWN_MS / FE_BLOCK_MS)
 #define MAX_POST_FRAMES FE_MS_TO_FRAMES(CONFIG_FE_EVENT_MAX_POST_MS)
@@ -75,13 +76,20 @@ static void goertzel_cplx(const float *x, uint32_t n, float coeff, float cw, flo
 // array (MSC -> 1, independent of arrival delay); wind turbulence, rain drops
 // and a diffuse hall background are not. A single block's MSC is always 1, so
 // cross- and auto-spectra are averaged over ~COHERENCE_TAU_MS first.
-#define COHERENCE_MIN ((float)CONFIG_FE_TRIG_COHERENCE_PCT / 100.0f)
+#define COHERENCE_MIN_DEFAULT ((float)CONFIG_FE_TRIG_COHERENCE_PCT / 100.0f)
 #define COHERENCE_TAU_MS ((float)CONFIG_FE_TRIG_COHERENCE_TAU_MS)
 #if CONFIG_FE_SOURCE_SYNTH
 #define COHERENCE_GATE 0  // synthetic ch2/ch3 carry frame counters, not audio
 #else
-#define COHERENCE_GATE (CONFIG_FE_TRIG_COHERENCE_PCT > 0)
+#define COHERENCE_GATE (s_coherence_min > 0.0f)
 #endif
+
+// Runtime thresholds: written by the stream task (core 1), read by the
+// capture task (core 0). Aligned 32-bit float stores/loads are atomic on the
+// S3, and a block evaluated with one old and one new value is harmless.
+static volatile float s_snr_db = SNR_DB_DEFAULT;
+static volatile float s_ratio_db = RATIO_DB_DEFAULT;
+static volatile float s_coherence_min = COHERENCE_MIN_DEFAULT;
 
 // ---- State --------------------------------------------------------------------
 static trig_state_t s_state = TRIG_WARMUP;
@@ -251,9 +259,9 @@ static bool evaluate(const int16_t *block, uint32_t n)
         s_floor_rms += (rms - s_floor_rms) / (float)(s_warmup_blocks + 1);
         return false;
     }
-    const bool gate = to_db(level) > to_db(s_floor_rms) + SNR_DB;
-    const bool spectral = ratio_db > RATIO_DB;
-    const bool coherent = !COHERENCE_GATE || coherence > COHERENCE_MIN;
+    const bool gate = to_db(level) > to_db(s_floor_rms) + s_snr_db;
+    const bool spectral = ratio_db > s_ratio_db;
+    const bool coherent = !COHERENCE_GATE || coherence > s_coherence_min;
     bool positive = gate && spectral && coherent;
 #if TEST_TONE_HZ > 0
     {
@@ -390,6 +398,43 @@ void trigger_get_stats(trig_stats_t *out)
     out->coherence = s_last_coherence;
     out->tone_db = s_last_tone_db;
     out->events = s_events;
+}
+
+bool trigger_set_param(char id, float value)
+{
+    if (!isfinite(value)) {
+        return false;
+    }
+    switch (id) {
+    case TRIG_PARAM_SNR:
+        if (value < 0.0f || value > 40.0f) return false;
+        s_snr_db = value;
+        return true;
+    case TRIG_PARAM_RATIO:
+        if (value < -30.0f || value > 30.0f) return false;
+        s_ratio_db = value;
+        return true;
+    case TRIG_PARAM_COHERENCE:
+        if (value < 0.0f || value > 0.99f) return false;
+        s_coherence_min = value;
+        return true;
+    default:
+        return false;
+    }
+}
+
+void trigger_get_params(trig_params_t *out)
+{
+    out->snr_db = s_snr_db;
+    out->ratio_db = s_ratio_db;
+    out->coherence_min = s_coherence_min;
+}
+
+void trigger_get_default_params(trig_params_t *out)
+{
+    out->snr_db = SNR_DB_DEFAULT;
+    out->ratio_db = RATIO_DB_DEFAULT;
+    out->coherence_min = COHERENCE_MIN_DEFAULT;
 }
 
 const char *trigger_state_name(trig_state_t s)

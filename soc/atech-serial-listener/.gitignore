@@ -5,3 +5,4 @@ __pycache__/
 data/
 python/forestpulse.toml
 python/forestpulse-state/
+python/models/
