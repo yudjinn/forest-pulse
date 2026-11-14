@@ -105,8 +105,10 @@ Against the live site, from `web/` after `npm run deploy` (the live password and
 FP_E2E_PORT_BASE=8800 FP_REHEARSAL_ORIGIN=https://forestpulse.paxid.com npx playwright test tests/e2e/rehearsal.spec.ts
 ```
 
-Clearing events removes every event on the live site, the real boards' included. The run prints what it clears from
-other sensors (count and time span per sensor); record that before running it if the team needs those events.
+Clearing events removes every event on the live site, the real boards' included, and the run clears as soon as it has
+printed what it clears from other sensors (count and time span per sensor). If the team needs the real boards' events,
+save them from the event log before starting the run. It also fails at its start if any taught sound is listed (one
+left by an interrupted rehearsal, or "Boreal owl" itself): delete it on the Sounds page and run it again.
 
 ## Presenter checklist
 

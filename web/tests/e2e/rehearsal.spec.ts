@@ -7,7 +7,7 @@
 // uses its own sensors and a fresh sound name, never the stage's, and leaves every other sensor where it was.
 // The pack is not in the repository (demo-kit/teaching_pack.py builds it on the presenting laptop); without it the
 // journey is skipped, unless FP_REQUIRE_TEACHING_PACK=1 or the run is live, when it fails.
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
@@ -22,6 +22,11 @@ import {
 // The name the presenter teaches on stage. The rehearsal never teaches it, and fails if it is already listed: the
 // stage teach would then replace that sound instead of teaching a new one.
 const STAGE_NAME = "Boreal owl";
+// The event log's reply holds at most this many events, newest first (the service's log limit).
+const LOG_LIMIT = 200;
+
+// A failed live run must not leave the live password or session in a trace.
+test.use({ trace: liveOrigin ? "off" : "retain-on-failure" });
 
 interface Sound { id: string; name: string; enabled: boolean; taught: boolean; kind: string }
 interface PlanSensor { id: string; x_m: number; y_m: number; facing_deg: number }
@@ -35,8 +40,9 @@ async function read<T>(request: APIRequestContext, origin: string, what: string)
 
 const sensorCard = (page: Page, id: string) => page.getByRole("list", { name: "Sensors" }).getByRole("listitem")
   .filter({ has: page.getByRole("heading", { name: id }) });
-const logging = (page: Page) => page.getByRole("list", { name: "Activities" }).getByRole("listitem")
-  .filter({ has: page.getByRole("heading", { name: "Logging", exact: true }) });
+// The Logging activity a rehearsal sensor is part of; the live log may hold others.
+const logging = (page: Page, sensorId: string) => page.getByRole("list", { name: "Activities" }).getByRole("listitem")
+  .filter({ has: page.getByRole("heading", { name: "Logging", exact: true }) }).filter({ hasText: sensorId });
 const logRows = (page: Page, sensorId: string, sound: string) =>
   page.getByRole("row").filter({ hasText: sensorId }).filter({ hasText: sound });
 
@@ -49,6 +55,11 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
     // Live polls and replays cross the internet; locally they do not.
     const seen = { timeout: liveOrigin ? 10_000 : 5000 };
 
+    // Every temporary file of the run (sensor configs holding the sensor key, sensor state) goes in one folder that
+    // is removed at the end.
+    const scratch = mkdtempSync(path.join(os.tmpdir(), "fp-rehearsal-run-"));
+    const tmpdir = process.env.TMPDIR;
+    process.env.TMPDIR = scratch;
     const service = liveOrigin ? null : new SecondService(rehearsalServicePorts);
     await service?.start();
     const origin = liveOrigin ?? service!.url;
@@ -65,12 +76,14 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
     try {
       await demoStep("sign in", "the dashboard after signing in", () => signInWith(page, origin, password));
 
+      // A taught sound already listed (one left by an interrupted rehearsal, or "Boreal owl" itself) would be known to
+      // the boards before the stage teach.
       const before = await demoStep("record the starting state",
-        `no sound named "${name}" or "${STAGE_NAME}" listed`, async () => {
+        `no taught sound listed, "${STAGE_NAME}" included`, async () => {
           const sounds = await read<{ sounds: Sound[]; version: number }>(request, origin, "sounds");
-          const listed = sounds.sounds.map((s) => s.name.toLowerCase());
-          expect(listed, "the rehearsal's own name is free").not.toContain(name.toLowerCase());
-          expect(listed, `"${STAGE_NAME}" is free for the stage teach`).not.toContain(STAGE_NAME.toLowerCase());
+          expect(sounds.sounds.filter((s) => s.taught).map((s) => s.name), "taught sounds").toEqual([]);
+          expect(sounds.sounds.map((s) => s.name.toLowerCase()), `"${STAGE_NAME}" is free for the stage teach`)
+            .not.toContain(STAGE_NAME.toLowerCase());
           const plan = (await read<{ sensors: PlanSensor[] }>(request, origin, "sensors")).sensors;
           console.log(`rehearsal start: sound list version ${sounds.version}, ${sounds.sounds.length} sounds; plan: ${
             plan.map((s) => `${s.id} at x ${s.x_m} m, y ${s.y_m} m facing ${s.facing_deg}`).join("; ") || "empty"}`);
@@ -115,8 +128,9 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
       await demoStep("a sensor hears a chainsaw", `a Logging activity from ${ids.a} and its direction on the plan`,
         async () => {
           await hearTogether(origin, key, [{ id: ids.a, angle: 315, stateDir: states.a }], chainsaw).release();
-          await expect(logging(page)).toContainText(ids.a, seen);
-          await expect(page.getByRole("img", { name: `Direction from ${ids.a}`, exact: true })).toBeVisible(seen);
+          await expect(logging(page, ids.a)).toBeVisible(seen);
+          // The sample can be heard more than once, each time with its own line.
+          await expect(page.getByRole("img", { name: `Direction from ${ids.a}`, exact: true }).first()).toBeVisible(seen);
         });
 
       await demoStep("two sensors hear the chainsaw at once",
@@ -125,9 +139,10 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
             { id: ids.a, angle: 315, stateDir: states.a },
             { id: ids.b, angle: 26.57, stateDir: states.b },
           ], chainsaw).release();
-          await expect(page.getByRole("img", { name: `Location, 1.4 m from ${ids.a}, 2.2 m from ${ids.b}` }))
+          // Both events of a pair can be located, so the same point can be drawn more than once.
+          await expect(page.getByRole("img", { name: `Location, 1.4 m from ${ids.a}, 2.2 m from ${ids.b}` }).first())
             .toBeVisible(seen);
-          await expect(logging(page)).toContainText(`1.4 m from ${ids.a}, 2.2 m from ${ids.b}`, seen);
+          await expect(logging(page, ids.a)).toContainText(`1.4 m from ${ids.a}, 2.2 m from ${ids.b}`, seen);
         });
 
       const taught = await demoStep(`teach "${name}" from the teaching pack on the Teach page`,
@@ -178,7 +193,7 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
 
       const cleared = await demoStep("clear events", "the event log cleared after its confirmation", async () => {
         const { events } = await read<{ events: LogEvent[] }>(request, origin, "events");
-        reportOthers(events.filter((e) => !mine.has(e.sensor_id)));
+        reportOthers(events.filter((e) => !mine.has(e.sensor_id)), events.length >= LOG_LIMIT);
         await page.getByRole("button", { name: "Clear events" }).click();
         await page.getByRole("dialog", { name: "Clear events?" }).getByRole("button", { name: "Clear events" }).click();
         await expect(page.getByRole("dialog", { name: "Clear events?" })).toBeHidden(seen);
@@ -186,10 +201,13 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
       });
 
       await demoStep("the site is as it was, ready for the stage",
-        "the sound list as at the start, no events from before clearing, other sensors untouched", async () => {
+        "the sound list as at the start with no taught sound, no events from before clearing, other sensors untouched",
+        async () => {
           const sounds = await read<{ sounds: Sound[] }>(request, origin, "sounds");
+          expect(sounds.sounds.filter((s) => s.taught).map((s) => s.name), "taught sounds").toEqual([]);
           const shape = (list: Sound[]) => list.map((s) => ({ id: s.id, name: s.name, enabled: s.enabled }));
           expect(shape(sounds.sounds), "the sound list").toEqual(shape(before.sounds.sounds));
+          // A real board may send events after the clear; those stay.
           const { events } = await read<{ events: LogEvent[] }>(request, origin, "events");
           expect(events.filter((e) => cleared.has(e.id) || mine.has(e.sensor_id)), "the event log").toEqual([]);
           const { activities } = await read<{ activities: { sensors: string[] }[] }>(request, origin, "activities");
@@ -202,18 +220,23 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
       await undoLeftovers(request, origin, name, mine);
       await context.close();
       await service?.stop();
+      if (tmpdir === undefined) delete process.env.TMPDIR;
+      else process.env.TMPDIR = tmpdir;
+      rmSync(scratch, { recursive: true, force: true });
     }
   });
 
 // What the rehearsal clears besides its own events: the event log from every other sensor, by sensor, with its time
-// span, so a run on the live site records what the real boards had sent.
-function reportOthers(events: LogEvent[]) {
+// span, so a run on the live site records what the real boards had sent. The log reply holds only the newest events,
+// so when it is full the counts are lower bounds.
+function reportOthers(events: LogEvent[], full: boolean) {
   const by = new Map<string, LogEvent[]>();
   for (const e of events) by.set(e.sensor_id, [...(by.get(e.sensor_id) ?? []), e]);
   if (by.size === 0) console.log("rehearsal clears no events from other sensors");
   for (const [sensor, list] of by) {
     const times = list.map((e) => e.occurred_at).sort();
-    console.log(`rehearsal clears ${list.length} event(s) from ${sensor}, ${times[0]} to ${times[times.length - 1]}`);
+    console.log(`rehearsal clears ${full ? "at least " : ""}${list.length} event(s) from ${sensor}, ${
+      full ? "the newest from " : ""}${times[0]} to ${times[times.length - 1]}`);
   }
 }
 
@@ -245,7 +268,7 @@ async function undoLeftovers(request: APIRequestContext, origin: string, name: s
   await attempt("the rehearsal's events", async () => {
     const { events } = await read<{ events: LogEvent[] }>(request, origin, "events");
     if (!events.some((e) => mine.has(e.sensor_id))) return false;
-    reportOthers(events.filter((e) => !mine.has(e.sensor_id)));
+    reportOthers(events.filter((e) => !mine.has(e.sensor_id)), events.length >= LOG_LIMIT);
     expect((await request.delete(`${origin}/dashboard/api/events`)).ok()).toBe(true);
     return true;
   });
