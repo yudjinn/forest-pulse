@@ -131,6 +131,51 @@ python -m forestpulse_sensor.mic --config laptop.toml
 
 Uses the laptop's microphone, so there is no angle.
 
+## Calibration hooks
+
+With these, the board takes part when a researcher presses Calibrate: it beeps at the other boards and the plan
+places them at the measured distances (the run itself is in [docs/device-api.md](../docs/device-api.md),
+"Calibration"; version 0.3.0 or later). Give the sensor one object with the hooks below:
+
+```python
+class CalibrationHooks:
+    fs = 48000                    # the stream's sample rate
+    emitter_offset_m = 0.05       # buzzer to the centre of the mic array, metres
+    forward_ccw_deg = 90.0        # the marked forward in the board frame (soc/README.md), as for board_to_angle()
+    mic_positions_m = ((-0.04, 0.0), (0.0, 0.0), (0.0, -0.06))   # optional: measured mic positions, board frame
+
+    def start_stream(self) -> bool: ...
+    def stop_stream(self) -> None: ...
+    def emit(self, f_start_hz, f_mid_hz, f_end_hz, duration_ms) -> None: ...
+    def speed_of_sound(self) -> float: ...
+    def bearing(self, window, band_hz): ...
+
+sensor = Sensor.from_file(Path(__file__).with_name("forestpulse.toml"), angle_fn=bearing,
+                          calibration=CalibrationHooks()).start()
+```
+
+- **`start_stream()`**: switch the front-end to continuous streaming. It must end any running recording first: the
+  firmware ignores the start command while a recording is active. Return False when there is no stream. The
+  streamed audio arrives through your usual `on_audio` callback and `sensor.feed_channels()`; mark the first packet
+  `break_before=True` and any later gap the same way.
+- **`stop_stream()`**: back to triggered recordings.
+- **`emit(f_start_hz, f_mid_hz, f_end_hz, duration_ms)`**: play one sweep on the buzzer now (the service sends the
+  values, whole numbers when they are whole). Raise or return False if it fails.
+- **`speed_of_sound()`**: metres per second from the board's thermometer. If it raises or answers outside 300 to
+  380 m/s the library assumes 343 and the result says so.
+- **`bearing(window, band_hz)`**: the direction of the one arrival in `window` (an (N, 3) int16 array at `fs`, a
+  few milliseconds before the beep to just after it), using only `band_hz` (low, high). Return
+  `(angle_deg, quality)` with degrees clockwise from the board's forward (as `angle_fn` does) and quality 0 to 1,
+  or None if unsure. Each call must take under 200 ms; a slower answer is not used.
+- **The self-check** runs when the sensor is created: every hook above must be there, and `fs`, `emitter_offset_m`
+  and `forward_ccw_deg` set to numbers (`mic_positions_m`, when given, must list 3 mics). If anything is missing the
+  log says what, and the board reports that it cannot calibrate; everything else works as before.
+- During a run the board checks in every second, records continuously (the library keeps the last 20 s), and
+  reports no sound events. It never sends audio.
+
+To build and test without the boards, `forestpulse_sensor.calibration.simulate` has simulated hooks over a
+simulated stage (positions, facings, clocks, buzzers, an echo and talk); `SimulatedHooks` has the same interface.
+
 ## Stage check (before the demo)
 
 Whether the stage and the buzzer are good enough to calibrate, from three recordings:
@@ -177,7 +222,7 @@ retuned, pass the one played: `--pattern 1500,2500,3500,120`.
 pip install "./sensor-sdk[dev]" && pytest sensor-sdk/tests
 ```
 
-Three journeys against the dev server with the real model: detection with angle and sound-list updates (including a
-broken list), surviving an outage, a wrong key and a restart, and the bring-your-own-model path. Two focused
-calibration tests: finding each role's sweep under hall noise, speech and a wall echo, and the stage check on
-simulated recordings.
+Four journeys against the dev server with the real model: detection with angle and sound-list updates (including a
+broken list), surviving an outage, a wrong key and a restart, the bring-your-own-model path, and a calibration run
+of two simulated boards whose reports range to the true distance. Two focused calibration tests: finding each
+role's sweep under hall noise, speech and a wall echo, and the stage check on simulated recordings.

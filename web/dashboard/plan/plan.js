@@ -4,6 +4,7 @@
 // Plan metres: x to the right, y up. Facing: degrees clockwise from the plan's up.
 //
 // Other capabilities draw on the plan through addLayer (see below); layers sit above the grid and below the sensors.
+// They put their controls beside the plan's title through addTool.
 import { clockTime, poll } from "/dashboard/shell.js";
 
 /**
@@ -37,6 +38,15 @@ const svg = /** @type {SVGSVGElement} */ (section.querySelector(".plan-map"));
 const list = /** @type {HTMLUListElement} */ (section.querySelector(".plan-sensors"));
 const empty = /** @type {HTMLElement} */ (section.querySelector(".plan-empty"));
 const error = /** @type {HTMLElement} */ (section.querySelector(".plan-error"));
+
+// The plan's title row: the title, and the tools other capabilities add beside it.
+const title = /** @type {HTMLElement} */ (section.querySelector("h2"));
+const head = document.createElement("div");
+head.className = "plan-head";
+const tools = document.createElement("div");
+tools.className = "plan-tools";
+title.replaceWith(head);
+head.append(title, tools);
 
 const grid = svgEl("g", { class: "plan-grid" });
 const layerRoot = svgEl("g", { class: "plan-layers" });
@@ -82,6 +92,14 @@ export function addLayer(layer) {
   layers.push({ layer, g });
   draw();
   return { redraw: draw };
+}
+
+/**
+ * Adds a control (a button, a status line) beside the plan's title, after any added before it.
+ * @param {HTMLElement} el
+ */
+export function addTool(el) {
+  tools.append(el);
 }
 
 /**

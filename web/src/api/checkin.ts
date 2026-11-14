@@ -1,7 +1,9 @@
 // Check-in and the sound list (docs/device-api.md).
 import type { RouteContext } from "../router.ts";
 import { json } from "../http.ts";
+import { logLine } from "../log.ts";
 import { MAX_SENSOR_ID, badRequest, readBody, registerSensor, soundListVersion } from "./intake.ts";
+import { calibrationCheckin } from "../calibration/calibration.ts";
 
 export const MODEL = "mn10_as";
 
@@ -18,7 +20,18 @@ export async function checkin(request: Request, { env, params, hooks }: RouteCon
     queued_events: int(body.queued_events),
     clock_offset_ms: offsetMs,
   }, now);
-  return json({ server_time: new Date(now).toISOString(), sound_list_version: await soundListVersion(env.DB) });
+  // While the sensor takes part in a calibration run, the reply carries the run (docs/device-api.md). A failure there
+  // is logged and the check-in still stands, like an intake hook's.
+  let calibration = null;
+  try {
+    calibration = await calibrationCheckin(env, params.sensor, body, now);
+  } catch (e) {
+    logLine("hook_failed", { hook: "calibrationCheckin", error: e instanceof Error ? e.message : String(e) });
+  }
+  return json({
+    server_time: new Date(now).toISOString(), sound_list_version: await soundListVersion(env.DB),
+    ...(calibration ? { calibration } : {}),
+  });
 }
 
 interface SoundRow {

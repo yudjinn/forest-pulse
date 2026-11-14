@@ -1,4 +1,24 @@
-/* The sensor plan panel: the drawing, and a card per sensor. */
+/* The sensor plan panel: the title row with its tools, the drawing, and a card per sensor. */
+.plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.plan-head h2 {
+  margin: 0;
+}
+
+.plan-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
 .plan-body {
   display: grid;
   gap: 16px;

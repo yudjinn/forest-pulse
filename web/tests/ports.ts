@@ -5,7 +5,8 @@
 // (inspector base + 7), the plan journey's own service = base + 8 (inspector base + 9).
 // A second block, base + 50 to base + 59, holds five more pairs for journeys that need their own fresh service:
 // the activities journey = base + 50 (inspector base + 51), the location journey = base + 52 (inspector base + 53),
-// the rehearsal journeys = base + 54 (inspector base + 55), base + 56 to base + 59 reserved.
+// the rehearsal journeys = base + 54 (inspector base + 55), the calibration journeys = base + 56 (inspector base + 57),
+// base + 58 and base + 59 reserved.
 // A journey that changes the sound list (teach, reteach, delete, switch) never runs on the shared service, whose list
 // other journeys compare against the seed: it starts its own service on its own pair.
 import { fileURLToPath } from "node:url";
@@ -35,6 +36,8 @@ export const activitiesServicePorts = { appPort: portBase + 50, inspectorPort: p
 export const locationServicePorts = { appPort: portBase + 52, inspectorPort: portBase + 53 };
 // The rehearsal journeys' own service: they teach the stage's sounds, which changes the sound list.
 export const rehearsalServicePorts = { appPort: portBase + 54, inspectorPort: portBase + 55 };
+// The calibration journeys' own service: each needs a plan of its own and starts it fresh, one journey at a time.
+export const calibrationServicePorts = { appPort: portBase + 56, inspectorPort: portBase + 57 };
 
 export const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Local D1 and R2 state for this server only; wiped when it starts. Keyed by the app port, which is the port base

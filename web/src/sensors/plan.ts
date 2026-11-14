@@ -7,6 +7,7 @@ import type { SensorCheckin } from "../api/intake.ts";
 import type { RouteContext } from "../router.ts";
 import { json } from "../http.ts";
 import { logLine } from "../log.ts";
+import { clearMeasuredMark } from "../calibration/layout.ts";
 
 // A sensor is offline once this long has passed without a check-in. The one place the rule lives.
 export const OFFLINE_AFTER_MS = 30_000;
@@ -112,11 +113,16 @@ export async function placeSensor(request: Request, { env, params }: RouteContex
   const x = hasPosition ? round(body.x_m as number, 3) : null;
   const y = hasPosition ? round(body.y_m as number, 3) : null;
   const facing = hasFacing ? normaliseFacing(body.facing_deg as number) : null;
-  const changed = await env.DB.prepare(
-    `UPDATE sensor_placements SET x_m = COALESCE(?2, x_m), y_m = COALESCE(?3, y_m),
-       facing_deg = COALESCE(?4, facing_deg)
-     WHERE sensor_id = ?1 AND removed = 0 RETURNING sensor_id`,
-  ).bind(params.sensor, x, y, facing).first();
+  // A manual edit of a sensor the measured layout placed makes the layout manual again, in the same batch.
+  const [update] = await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE sensor_placements SET x_m = COALESCE(?2, x_m), y_m = COALESCE(?3, y_m),
+         facing_deg = COALESCE(?4, facing_deg)
+       WHERE sensor_id = ?1 AND removed = 0 RETURNING sensor_id`,
+    ).bind(params.sensor, x, y, facing),
+    clearMeasuredMark(env.DB, params.sensor),
+  ]);
+  const changed = update.results[0];
   if (!changed) return json({ error: "no such sensor on the plan" }, 404);
   logLine("sensor_placed", { sensor: params.sensor, x_m: x, y_m: y, facing_deg: facing });
   const [sensor] = await readPlan(env.DB, Date.now(), [params.sensor]);
@@ -126,8 +132,11 @@ export async function placeSensor(request: Request, { env, params }: RouteContex
 
 // DELETE /dashboard/api/sensors/:sensor: takes the sensor off the plan until it checks in again.
 export async function removeSensor(_request: Request, { env, params }: RouteContext): Promise<Response> {
-  const removed = await env.DB.prepare("UPDATE sensor_placements SET removed = 1 WHERE sensor_id = ? RETURNING sensor_id")
-    .bind(params.sensor).first();
+  const [update] = await env.DB.batch([
+    env.DB.prepare("UPDATE sensor_placements SET removed = 1 WHERE sensor_id = ? RETURNING sensor_id").bind(params.sensor),
+    clearMeasuredMark(env.DB, params.sensor),
+  ]);
+  const removed = update.results[0];
   if (!removed) return json({ error: "no such sensor on the plan" }, 404);
   logLine("sensor_removed", { sensor: params.sensor });
   return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });

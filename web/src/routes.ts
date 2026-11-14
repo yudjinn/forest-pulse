@@ -14,6 +14,7 @@ import { listPlan, placeOnCheckin, placeSensor, removeSensor } from "./sensors/p
 import { clearEvents, listActivities } from "./activities/activities.ts";
 import { teachBackground, teachSound } from "./teach/teach.ts";
 import { listLocations, locateOnArrival } from "./location/location.ts";
+import { calibrationState, postReport, startCalibration } from "./calibration/calibration.ts";
 
 export const routes: Route[] = [
   { method: "GET", path: "/dashboard/signin", access: "public", handle: signInPage },
@@ -35,6 +36,9 @@ export const routes: Route[] = [
   { method: "POST", path: "/dashboard/api/teach", access: "researcher", handle: teachSound },
   { method: "GET", path: "/dashboard/api/teach/background", access: "researcher", handle: teachBackground },
   { method: "GET", path: "/dashboard/api/locations", access: "researcher", handle: listLocations },
+  { method: "GET", path: "/dashboard/api/calibration", access: "researcher", handle: calibrationState },
+  { method: "POST", path: "/dashboard/api/calibration", access: "researcher", handle: startCalibration },
+  { method: "POST", path: "/api/v1/sensors/:sensor/calibration", access: "sensor", handle: postReport },
 ];
 
 // Run after a check-in (or first contact) is stored, and after a request's accepted events are stored.
