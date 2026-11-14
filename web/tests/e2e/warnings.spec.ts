@@ -204,6 +204,8 @@ test("boards that heard the logging play the warning's alarm and the card report
       await asSensor(a, [{ call: "post_events", events: [chainsawAt("seed-2", seededAt + 2000)] }], key, origin);
       await expect(loggingCards(page)).toContainText("2 events", { timeout: 5000 });
       await page.waitForTimeout(2500); // a poll of each banner after the event
+      // Only meaningful while the activity would still alert had nobody dismissed it.
+      expect(Date.now()).toBeLessThan(seededAt + 2000 + 60_000);
       for (const p of [page, page2]) await expect(alertBanner(p)).toBeHidden();
 
       // Once 60 s have passed without logging, the boards hear a chainsaw now: a new activity, and the banner is
