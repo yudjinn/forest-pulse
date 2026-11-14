@@ -1,0 +1,2 @@
+source /home/jrodgers/Development/junctionhackathon2026/mcu/build/bootloader/gdbinit/symbols
+source /home/jrodgers/Development/junctionhackathon2026/mcu/build/bootloader/gdbinit/connect

@@ -1,0 +1,32 @@
+menu "Acoustic Front-End"
+
+    choice FE_APP_MODE
+        prompt "Firmware mode"
+        default FE_MODE_USB_BENCH
+        help
+            USB bench mode streams a counter pattern so the host can measure
+            sustained USB-Serial/JTAG throughput (milestone M1).
+
+        config FE_MODE_USB_BENCH
+            bool "USB throughput benchmark"
+        config FE_MODE_NORMAL
+            bool "Acoustic front-end (capture + trigger + stream)"
+    endchoice
+
+    config FE_SAMPLE_RATE_HZ
+        int "Sample rate (Hz)"
+        default 48000
+
+    config FE_RING_MS
+        int "PSRAM ring buffer length (ms)"
+        default 6000
+
+    config FE_PRE_TRIGGER_MS
+        int "Pre-trigger window sent on event (ms)"
+        default 4000
+
+    config FE_USB_TX_BUF_BYTES
+        int "USB-Serial/JTAG driver TX buffer (bytes)"
+        default 16384
+
+endmenu

@@ -1,0 +1,24 @@
+# --- Target / flash -------------------------------------------------------
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+
+# --- PSRAM: 2 MB embedded quad (AP_3v3) ----------------------------------
+# Only explicit heap_caps_malloc(MALLOC_CAP_SPIRAM) lands in PSRAM; plain
+# malloc stays in internal SRAM (deterministic latency for the capture path).
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_QUAD=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_CAPS_ALLOC=y
+
+# --- CPU / RTOS ------------------------------------------------------------
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_80=y
+CONFIG_FREERTOS_HZ=1000
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# --- Console: UART0 (GPIO43/44) only. USB-Serial/JTAG carries binary data --
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# --- Radios: never initialised, BT stack not built -------------------------
+CONFIG_BT_ENABLED=n
