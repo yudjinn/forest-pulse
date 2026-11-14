@@ -16,3 +16,8 @@
 - **Calibration run**: pressing Calibrate: 2 or 3 calibration-capable sensors beep their own sweep in scheduled slots over several rounds; the service turns what each heard into distances, facings and a relative layout.
 - **Calibration-capable sensor**: a sensor with a 3-mic array, a buzzer and a sensor library new enough to take part. A single-mic sensor or one without a buzzer is not.
 - **Measured layout**: a plan set by a calibration run, relative to the sensors (first sensor at the origin, second to its right). A manual layout is one set by dragging and typing facings.
+- **Sensor name**: "Sensor N" on the dashboard, N the lowest number not held by another sensor on the plan when it joins. The sensor's own id still identifies it to the service.
+- **Warning**: the operator's response to a logging activity: every board that heard it plays the alarm on its buzzer, standing in for a radio warning to the loggers that logging here is unauthorised.
+- **Alarm**: the warning's sound: a harsh hi-lo stutter (3.5 kHz and 2.5 kHz bursts, 120 ms each) for 10 s, unlike the smooth calibration sweeps.
+- **Sensitivity**: one confidence threshold, set on the Sounds page, that every sound of interest must reach before a sensor reports it.
+- **Trigger health**: what a sensor's front-end is doing: recordings per minute (counted by the library) and, when the board provides them, its trigger values and noise floor.
