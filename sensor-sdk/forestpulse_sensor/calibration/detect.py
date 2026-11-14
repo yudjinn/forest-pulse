@@ -3,7 +3,7 @@
 Per mic, the recording is matched against each role's sweep with a phase-weighted (PHAT-style) matched filter:
 the sweep's own magnitude spectrum is flattened, so only its phase is matched, over its band with a tapered edge.
 The output's envelope peaks where a copy of the sweep starts. Echoes come later than the direct sound, so the
-arrival is the first path: the earliest point within 15 ms before the main peak where the envelope reaches 0.3 of
+arrival is the first path: the earliest point within 3 ms before the main peak where the envelope reaches half
 the peak and stands 10 dB above the noise, timed to a fraction of a sample on the envelope's top. A beep's
 position is the mean of the mics' arrivals, in the caller's stream coordinates.
 
@@ -24,8 +24,11 @@ from .patterns import Pattern, parse_patterns, sweep
 BOARD_MICS_M = ((-0.04, 0.0), (0.0, 0.0), (0.0, -0.06))
 DEFAULT_SPEED_OF_SOUND = 343.0
 DEFAULT_MIN_SNR_DB = 12.0       # a mic counts a beep as found from this matched signal-to-noise
-FIRST_PATH_WINDOW_MS = 15.0     # how far before the main peak the first path is looked for
-FIRST_PATH_FRACTION = 0.3       # of the main peak
+FIRST_PATH_WINDOW_MS = 3.0      # how far before the main peak the first path is looked for
+FIRST_PATH_FRACTION = 0.5       # of the main peak
+# Wider or lower lets hall noise in: on real boards 15 ms and 0.3 took a noise lobe up to 15 ms early for the first
+# path (a whole metre off) in about one round in six at 1.9 m, and with the boards' clocks 30-85 ms apart over venue
+# Wi-Fi a beep near its window's start left no room for 15 ms of search plus the quiet before it, so it was dropped.
 FIRST_PATH_ABOVE_NOISE_DB = 10.0
 SPACING_SLACK_SAMPLES = 3.0     # mic-to-mic differences beyond the array's spacing by more than this are weak
 SMOOTH_HZ = 200.0               # spectral smoothing of the sweep's magnitude
