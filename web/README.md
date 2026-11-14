@@ -37,12 +37,35 @@ command and a config whose `server_url` is that address and `sensor_key` the
 local one. Use the project's pinned Wrangler
 (`npx wrangler`): an older global install cannot run this compatibility date.
 
-Deploy an update:
+## Deploy
+
+From this directory, with Wrangler signed in to the paxID account
+(`npx wrangler whoami`):
 
 ```sh
-python3 build.py
-npx wrangler deploy
+npm run deploy
 ```
+
+This is the only way to deploy, and it is safe to repeat. In order, it checks
+that the live Worker has the secrets it reads (names only), builds the site,
+creates the live D1 database on the first run (in the EU jurisdiction set in
+`wrangler.jsonc`), applies pending migrations to it, uploads the committed
+bucket data in `bucket/` to the live bucket, and deploys the Worker. If any step
+fails it stops before the Worker is deployed and says why, so the live site keeps
+its current version. A repeat run reports nothing to migrate. Plain
+`npx wrangler deploy` skips the migrations and the bucket data.
+
+Roll back to the previous version:
+
+```sh
+npx wrangler rollback --message "<why>"
+```
+
+A rollback restores the Worker's code and files only. Migrations and bucket
+uploads stay, so both must keep the previous version working: migrations add
+tables and columns and never drop or rename what it reads, and a bucket file
+whose format changes gets a new name instead of replacing the old one. `npx wrangler deployments list`
+shows what is live.
 
 The build copies brand assets from `../shared/assets/forest-pulse/`; generated
 files in `dist/` are not tracked. Edit the shared masters and run their generator
@@ -50,12 +73,15 @@ when changing the logo.
 
 ## Storage and location
 
-Records live in the D1 database `forest-pulse`, binding `DB`; wrangler.jsonc
-names it without an id, and Wrangler's automatic provisioning (on by default
-in the pinned Wrangler) sets up the live database on the first deploy.
+Records live in the D1 database `forest-pulse`, binding `DB`, created by the
+first `npm run deploy` in the EU jurisdiction. wrangler.jsonc names it without an
+id; Wrangler finds it by name.
 The private R2 bucket `forest-pulse` belongs to the same paxID account and uses
 the EU jurisdiction, with Cloudflare reporting location `EEUR`. Its binding is
 `STORAGE`. Public bucket access is not needed.
+
+The bucket's stored files are committed in `bucket/` and mirrored into it by
+relative path (`bucket/README.md`).
 
 R2 supports an EU storage jurisdiction but no selectable Finland-only location.
 The landing page is served through Cloudflare's global edge network.

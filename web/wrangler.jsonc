@@ -29,6 +29,8 @@
     {
       "binding": "DB",
       "database_name": "forest-pulse",
+      // Fixed when the live database is created, like the bucket's; it cannot be changed afterwards.
+      "jurisdiction": "eu",
       "migrations_dir": "migrations"
     }
   ],
