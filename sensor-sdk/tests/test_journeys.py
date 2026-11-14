@@ -138,7 +138,7 @@ def test_checks_in_every_3_s_unless_the_config_file_says_otherwise_and_reports_i
         assert sensor.checkin_interval == 1
         sensor.start()
         assert wait_for(lambda: "node-e" in state.sensors)
-        assert state.sensors["node-e"]["sdk_version"] == "0.5.0"
+        assert state.sensors["node-e"]["sdk_version"] == "0.6.0"
     finally:
         sensor.stop()
         server.shutdown()
