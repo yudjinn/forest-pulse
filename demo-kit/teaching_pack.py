@@ -21,9 +21,10 @@ recordist first, songs before calls, longer before shorter. The sizes are nested
 
 Writes demo-kit/teaching_pack.json (every size tried, with the detections, and the chosen pack's credits) and, only
 when a size works, the pack folder: the chosen clips and nothing else, so the presenter can drop the whole folder's
-contents. The builder never deletes a file: a rebuild writes the new clips over same-named ones, and refuses, before
-writing anything, a folder that holds any file that is not one of the new pack's clips (remove those by hand). If no
-size works it says which player samples were missed and makes no pack.
+contents. The builder never deletes or overwrites a file: a rebuild adds the new clips, leaves identical ones as they
+are, and refuses a folder holding anything else (another file, or a same-named clip with other contents) before it
+writes the report or the folder; remove those by hand. If no size works it says which player samples were missed and
+makes no pack.
 
 usage (from the repository root, after experiments/efficientat-chainsaw/setup.sh has fetched the recordings with
 XC_KEY; no other network is needed):
@@ -31,6 +32,7 @@ XC_KEY; no other network is needed):
 The pack folder defaults to $FP_TEACHING_PACK, else ~/Desktop/Boreal owl teaching pack.
 """
 import argparse
+import filecmp
 import json
 import os
 import re
@@ -110,10 +112,14 @@ def pack_folder(out):
     return out
 
 
-def leftovers(out, pack):
-    """Files in the pack folder that the new pack would not overwrite, so it would not be exactly the pack."""
+def blocking(out, pack, staging):
+    """Files already in the pack folder that a rebuild would have to delete or overwrite: any not in the new pack,
+    and any clip of the new pack whose contents differ from the one just built (an identical one is left as it is)."""
+    if not os.path.isdir(out):
+        return []
     keep = {c["file"] for c in pack}
-    return sorted(f for f in os.listdir(out) if not f.startswith(".") and f not in keep) if os.path.isdir(out) else []
+    return sorted(f for f in os.listdir(out) if not f.startswith(".") and (
+        f not in keep or not filecmp.cmp(os.path.join(out, f), os.path.join(staging, f), shallow=False)))
 
 
 def worst_boreal(runs):
@@ -222,6 +228,11 @@ def main():
             print(f"size {t['size']}: {'works' if t['passed'] else 'fails'}, lowest boreal owl score "
                   f"{t['worst_boreal_confidence']:.2f}{', chosen' if t['size'] == chosen else ''}", flush=True)
 
+        if chosen is not None:
+            stale = blocking(out, clips[:chosen], staging)
+            if stale:
+                sys.exit(f"{out} also holds {', '.join(stale)}, which the new pack of {chosen} would delete or "
+                         "overwrite; remove them by hand and run again (nothing was written)")
         report = {"species": "Boreal owl (Aegolius funereus)", "source": "xeno-canto", "first_seconds": FIRST_SECONDS,
                   "sizes_tried": list(SIZES), "chosen_size": chosen, "mix_seeds": list(SEEDS),
                   "how": "summaries with the sensor library's model, trained with web/src/teach/train.ts against "
@@ -236,13 +247,10 @@ def main():
                 print(f"  size {t['size']}: missed {', '.join(t['missed']) or 'none'}; "
                       f"false alarms {', '.join(t['false_alarms']) or 'none'}")
             sys.exit(1)
-        blocking = leftovers(out, clips[:chosen])
-        if blocking:
-            sys.exit(f"{out} also holds {', '.join(blocking)}, which the new pack of {chosen} does not include; "
-                     "remove them by hand and run again (nothing was written to the folder)")
         os.makedirs(out, exist_ok=True)
         for c in clips[:chosen]:
-            shutil.move(os.path.join(staging, c["file"]), os.path.join(out, c["file"]))
+            if not os.path.exists(os.path.join(out, c["file"])):  # an identical clip is already there
+                shutil.move(os.path.join(staging, c["file"]), os.path.join(out, c["file"]))
         print(f"pack of {chosen} -> {out}; report -> {os.path.relpath(REPORT, ROOT)}")
     finally:
         shutil.rmtree(work, ignore_errors=True)

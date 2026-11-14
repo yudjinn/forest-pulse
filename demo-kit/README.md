@@ -94,8 +94,8 @@ uv run --project experiments/efficientat-chainsaw python demo-kit/teaching_pack.
 ```
 
 If no size works it prints which player samples were missed or falsely heard, writes the report and makes no pack.
-The script never deletes a file: it writes the clips over same-named ones in the folder and refuses a folder that holds
-anything else, so a pack that changes to fewer or other clips needs the old ones removed by hand first.
+The script never deletes or overwrites a file: it adds the new clips, leaves identical ones as they are, and refuses a
+folder that holds anything else, so a pack that changes to fewer or other clips needs the old ones removed by hand.
 
 ## Rehearsal
 
