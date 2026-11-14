@@ -241,9 +241,9 @@ A researcher can send a warning about a logging activity to the boards that hear
 - The service gives up on a sensor that has not picked the alarm up within 15 s (it never plays late), or not
   confirmed it within 15 s of delivery.
 
-## Trigger health (planned: not stored yet)
+## Trigger health (not stored yet)
 
-Check-in request, added fields, each omitted when unknown:
+Library 0.5.0 and later. Check-in request, added fields, each omitted when unknown:
 
 ```json
 {
@@ -253,7 +253,15 @@ Check-in request, added fields, each omitted when unknown:
 }
 ```
 
-Read-only: the service shows them and never sends trigger settings back.
+- `recordings_per_min`: a whole number, 0 or more: the bursts whose first audio arrived in the last 60 s (fewer in the
+  sensor's first minute, which counts from its start). Missing when the sensor runs its own model: once it has
+  reported a detection itself and has never been fed audio.
+- `trigger`: numbers, from the board's trigger health hook; a key whose value is not a number is left out, and
+  `trigger` is missing when no key is left or the board has no hook.
+- `noise_floor_dbfs`: a number, from the same hook; missing when the hook does not give it.
+
+Read-only: the service shows them and never sends trigger settings back. Until the plan card stores them, the
+service ignores them.
 
 ## Errors
 
