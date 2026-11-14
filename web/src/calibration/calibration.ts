@@ -11,7 +11,9 @@ import { json } from "../http.ts";
 import { logLine } from "../log.ts";
 import { badRequest, readBody } from "../api/intake.ts";
 import { readPlan } from "../sensors/plan.ts";
-import { type Distance, FATAL_ERRORS, type Participant, type Report, parseReport, solve } from "./solve.ts";
+import {
+  type Distance, FATAL_ERRORS, type Participant, type Placement, type Report, type SolveFailure, parseReport, solve,
+} from "./solve.ts";
 
 export const MAX_PARTICIPANTS = 3;
 const ROLES = ["A", "B", "C"];
@@ -32,7 +34,7 @@ const KEEP_RUNS = 20;
 const ACTIVE = "('waiting', 'scheduled')";
 
 type Status = "waiting" | "scheduled" | "calibrated" | "failed";
-export type FailureReason = "not_ready" | "report_missing" | "not_repeatable" | (typeof FATAL_ERRORS)[number];
+export type FailureReason = "not_ready" | "report_missing" | SolveFailure | (typeof FATAL_ERRORS)[number];
 
 interface Schedule {
   slot_ms: number;
@@ -70,7 +72,7 @@ interface Run extends RunRow {
 
 interface Result {
   distances: Distance[];
-  positions: { sensor_id: string; x_m: number; y_m: number }[];
+  positions: Placement[];
   speed_of_sound_assumed: boolean;
 }
 
@@ -326,14 +328,15 @@ async function fail(db: D1Database, run: Run, sensors: string[], reason: Failure
   return (await loadRun(db, run.id))!;
 }
 
-// One batch: every placed sensor's position (facings stay), the measured layout, and the run as calibrated. Each
+// One batch: every placed sensor's position and facing, the measured layout, and the run as calibrated. Each
 // statement holds only while the run is still scheduled, so a second request applying it at once changes nothing.
 async function apply(db: D1Database, run: Run, solution: Result, now: number) {
   const still = "EXISTS (SELECT 1 FROM calibration_runs WHERE id = ?1 AND status = 'scheduled')";
   const replies = await db.batch([
     ...solution.positions.map((p) => db.prepare(
-      `UPDATE sensor_placements SET x_m = ?3, y_m = ?4 WHERE sensor_id = ?2 AND removed = 0 AND ${still}`,
-    ).bind(run.id, p.sensor_id, p.x_m, p.y_m)),
+      `UPDATE sensor_placements SET x_m = ?3, y_m = ?4, facing_deg = ?5 WHERE sensor_id = ?2 AND removed = 0
+         AND ${still}`,
+    ).bind(run.id, p.sensor_id, p.x_m, p.y_m, p.facing_deg)),
     db.prepare(`DELETE FROM measured_layout WHERE ${still}`).bind(run.id),
     ...solution.positions.map((p) => db.prepare(
       `INSERT INTO measured_layout (sensor_id, run_id) SELECT ?2, ?1 WHERE ${still}`,
@@ -344,6 +347,7 @@ async function apply(db: D1Database, run: Run, solution: Result, now: number) {
   ]);
   if (replies[replies.length - 1].meta.changes) {
     logLine("calibration_run", { run: run.id, status: "calibrated", distances: solution.distances,
+      facings: solution.positions.map((p) => ({ sensor: p.sensor_id, facing_deg: p.facing_deg })),
       speed_of_sound_assumed: solution.speed_of_sound_assumed });
   }
   return (await loadRun(db, run.id))!;

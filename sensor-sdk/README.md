@@ -163,8 +163,8 @@ sensor = Sensor.from_file(Path(__file__).with_name("forestpulse.toml"), angle_fn
   values, whole numbers when they are whole). Raise or return False if it fails.
 - **`speed_of_sound()`**: metres per second from the board's thermometer. If it raises or answers outside 300 to
   380 m/s the library assumes 343 and the result says so.
-- **`bearing(window, band_hz)`**: the direction of the one arrival in `window` (an (N, 3) int16 array at `fs`, a
-  few milliseconds before the beep to just after it), using only `band_hz` (low, high). Return
+- **`bearing(window, band_hz)`**: the direction of the one arrival in `window` (an (N, 3) int16 array at `fs`, 40 ms
+  from 5 ms before the beep's first path, so mostly the direct sound), using only `band_hz` (low, high). Return
   `(angle_deg, quality)` with degrees clockwise from the board's forward (as `angle_fn` does) and quality 0 to 1,
   or None if unsure. Each call must take under 200 ms; a slower answer is not used.
 - **The self-check** runs when the sensor is created: every hook above must be there, and `fs`, `emitter_offset_m`
@@ -172,6 +172,9 @@ sensor = Sensor.from_file(Path(__file__).with_name("forestpulse.toml"), angle_fn
   log says what, and the board reports that it cannot calibrate; everything else works as before.
 - During a run the board checks in every second, records continuously (the library keeps the last 20 s), and
   reports no sound events. It never sends audio.
+
+The service turns the two boards' bearings of each other into their facings on the plan, so a bearing that is
+wrong turns a board the wrong way; return None rather than guess.
 
 To build and test without the boards, `forestpulse_sensor.calibration.simulate` has simulated hooks over a
 simulated stage (positions, facings, clocks, buzzers, an echo and talk); `SimulatedHooks` has the same interface.

@@ -25,6 +25,11 @@ const REASONS = {
   report_missing: "report missing",
   not_repeatable: "distances not repeatable",
 };
+// Failures of a pair, said around the pair's names.
+/** @type {Record<string, (a: string, b: string) => string>} */
+const PAIR_REASONS = {
+  no_direction: (a, b) => `couldn't tell direction between ${a} and ${b}`,
+};
 
 const status = document.createElement("p");
 status.className = "calibrate-status";
@@ -69,7 +74,10 @@ function line(s) {
   if (run?.state === "beeping") return "Beeping";
   if (run?.state === "failed" && run.failure && run.finished_at !== null
     && s.now - run.finished_at < SHOW_FAILURE_MS) {
-    return `Calibration failed: ${run.failure.sensors.join(" and ")} ${REASONS[run.failure.reason] ?? run.failure.reason}`;
+    const { sensors, reason } = run.failure;
+    const pair = PAIR_REASONS[reason];
+    if (pair && sensors.length === 2) return `Calibration failed: ${pair(sensors[0], sensors[1])}`;
+    return `Calibration failed: ${sensors.join(" and ")} ${REASONS[reason] ?? reason}`;
   }
   if (s.layout) {
     return `Calibrated ${hhmm(s.layout.measured_at)}${s.layout.speed_of_sound_assumed ? ", speed of sound assumed" : ""}`;

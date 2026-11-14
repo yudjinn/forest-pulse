@@ -128,7 +128,7 @@ class Sensor:
                 break_before = True
                 self._drain_audio()
             self._backlog_frames += len(frames)
-        self._audio.put(("audio", frames, break_before, time.time()))
+        self._audio.put(("audio", frames, break_before, self.clock()))
 
     def feed_channels(self, channels, break_before: bool = False) -> None:
         """Same as feed() for separate per-mic sequences, e.g. the (mic1, mic2, mic3) array('h') of a packet."""
@@ -141,7 +141,7 @@ class Sensor:
 
     def report(self, scores, embedding, angle_deg=None, angle_confidence=None, detected_at: float | None = None) -> list:
         """For callers that run the model themselves: score one window and queue its events. Returns them."""
-        return self._report(np.asarray(scores), np.asarray(embedding), detected_at or time.time(),
+        return self._report(np.asarray(scores), np.asarray(embedding), detected_at or self.clock(),
                             lambda: (angle_deg, angle_confidence))
 
     @property

@@ -199,6 +199,17 @@ needs 2 or more valid rounds, at least one in each order, and the forward and re
 every check passes the plan becomes a measured layout: the first participant at the origin, the second straight to
 its right at that distance.
 
+### Facings
+
+Each sensor's facing comes from its bearings of the other's beep (`angle_deg` on the other's detections). The second
+sensor is straight to the right of the first, so the first faces 90 - its angle of the second, and the second faces
+270 - its angle of the first (degrees, 0 to 360), each the circular median over its valid rounds. Each way needs at
+least 2 bearings (from whole detections in valid rounds) with a circular standard deviation of at most 15 degrees;
+otherwise the run fails for that pair and nothing changes. Positions and facings are written together.
+
+The bearing hook gets a window of 40 ms from 5 ms before the detected first path, within the pattern's band, so the
+direct sound fills it before most echoes arrive.
+
 ## Errors
 
 | Response | Meaning | Sensor does |
