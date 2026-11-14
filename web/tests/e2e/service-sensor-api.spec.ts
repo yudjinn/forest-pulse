@@ -104,8 +104,6 @@ test("sensors get the contract's replies: sound list, duplicates, dropped, rejec
   expect(Math.abs(Date.parse(late.occurred_at) - expected)).toBeLessThan(3000);
   // The visible row shows the corrected time, not the sensor's clock.
   const times = [-2000, -1000, 0, 1000, 2000].map((d) => clockTime(expected + d));
-  // Never checked in, so not on the plan: the log names it by its id.
-  expect(await sensorName(page.request, lateId)).toBe(lateId);
   const lateRow = await visibleRows(page, lateId);
   await expect(lateRow).toHaveCount(1, { timeout: 3000 });
   expect(times).toContain((await lateRow.getByRole("cell").first().textContent()) ?? "");

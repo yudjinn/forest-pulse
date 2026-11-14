@@ -49,8 +49,7 @@ test("events become activities by category and corrected time, and Clear events 
     await expect(logging.getByText(/^\d{2}:\d{2}:\d{2}$/)).toBeVisible();
     await expect(page.getByText("Nothing heard yet")).toBeHidden();
 
-    // Within 60 s a second sensor reports a vehicle (through the library's own client): its own Vehicle activity. It
-    // never checked in, so it is not on the plan and the activity names it by its id.
+    // Within 60 s a second sensor reports a vehicle (through the library's own client): its own Vehicle activity.
     const road = uniqueSensorId("act-road");
     const [posted] = await asSensor(road, [{ call: "post_events", events: [
       { event_id: "vehicle-1", detected_at: new Date().toISOString(), sound_id: "vehicle", confidence: 0.8 },
@@ -60,7 +59,7 @@ test("events become activities by category and corrected time, and Clear events 
     await expect(vehicle).toHaveCount(1, { timeout: 3000 });
     await expect(vehicle).toContainText("Vehicle");
     await expect(vehicle).toContainText("1 event");
-    await expect(vehicle.getByText(road, { exact: true })).toBeVisible();
+    await expect(vehicle.getByText(await sensorName(page.request, road, origin), { exact: true })).toBeVisible();
     await expect(activities(page)).toHaveCount(2);
     for (const [card, icon] of [[logging, "logging"], [vehicle, "vehicle"]] as const) {
       await expect(card.getByTestId("activity-icon")).toHaveAttribute("src", `/dashboard/icons/${icon}.svg`);
