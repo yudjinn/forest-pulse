@@ -156,15 +156,16 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(cardA.getByText("Two devices share this id")).toBeHidden();
 
     // c's board has a trigger health hook: it checks in (through the library's own client, keeping what c last
-    // reported) with its trigger values, one of them missing, and its noise floor. A key the contract does not
-    // name is ignored. The card keeps the values in their places, "?" for the missing one.
+    // reported) with its trigger values and its noise floor. One value is not a number: the service drops it and
+    // the check-in still stands. A key the contract does not name is ignored. The card keeps the values in their
+    // places, "?" for the missing one.
     const cNow = (await (await page.request.get("/dashboard/api/sensors")).json()).sensors
       .find((s: { id: string }) => s.id === c);
     await asSensor(c, [{
       call: "checkin",
       fields: {
         sdk_version: cNow.sdk_version, model: cNow.model, sound_list_version: cNow.sound_list_version,
-        recordings_per_min: 12, trigger: { snr_db: 4, coherence: 0.6, gain_db: 6 }, noise_floor_dbfs: -52,
+        recordings_per_min: 12, trigger: { snr_db: 4, ratio_db: "high", coherence: 0.6, gain_db: 6 }, noise_floor_dbfs: -52,
       },
     }], undefined, service.url);
     const cHealth = "12 recordings/min · trigger 4 dB / ? / 0.60 · floor -52 dBFS";
