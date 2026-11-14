@@ -6,11 +6,15 @@
 // now, so activities stay derived on read. Outcomes advance lazily: a board not picked up 15 s after sending reads as
 // not delivered, and one delivered but not confirmed 15 s after delivery as no confirmation, on whatever request
 // reads them; nothing runs on a timer.
+//
+// The alert: while a logging activity goes on and nobody has sent a warning about it or dismissed it, the activities
+// reply marks it, and every dashboard page shows a banner for it. A dismissal is tied to its activity the same way a
+// warning is, and is for every researcher.
 import type { Env } from "../env.ts";
 import type { RouteContext } from "../router.ts";
 import { json } from "../http.ts";
 import { logLine } from "../log.ts";
-import { type Activity, type ActivityEvent, groupActivities } from "../activities/group.ts";
+import { type Activity, type ActivityEvent, MERGE_GAP_MS, groupActivities } from "../activities/group.ts";
 import { byName, isOnline, sensorNames } from "../sensors/plan.ts";
 
 // Send warning shows while a logging activity goes on and this long after its last event.
@@ -19,6 +23,8 @@ export const WARN_WINDOW_MS = 5 * 60_000;
 export const PICKUP_MS = 15_000;
 // ...and has this long from delivery to confirm. So every board has an outcome at most 30 s after sending.
 export const CONFIRM_MS = 15_000;
+// An activity alerts while it goes on: its last event is younger than the gap that would start a new one.
+export const ALERT_MS = MERGE_GAP_MS;
 const WARN_CATEGORY = "logging";
 const MAX_REQUEST_ID = 100;
 
@@ -96,25 +102,38 @@ function toReply(w: StoredWarning, name: (id: string) => string): WarningReply {
 
 // ---- activities ------------------------------------------------------------------------------------------------
 
-// The warnings part of each activity in the activities reply: its newest event (what a Send names), whether Send
-// warning shows now, and the warnings that belong to it, oldest first.
+// The warnings part of each activity in the activities reply: its newest event (what a Send or a Dismiss names),
+// whether Send warning shows now, the warnings that belong to it, oldest first, and whether it alerts: logging that
+// goes on, on the service's clock, with no warning and no dismissal belonging to it. The browser shows the alert as
+// it is told and never compares times itself.
 export async function activityWarnings(db: D1Database, now: number) {
-  const warnings = await readWarnings(db, now);
+  const [warnings, dismissed] = await Promise.all([
+    readWarnings(db, now),
+    db.prepare("SELECT event_id FROM alert_dismissals").all<{ event_id: number }>(),
+  ]);
+  const dismissedIds = dismissed.results.map((r) => r.event_id);
   return (a: Activity, name: (id: string) => string) => {
     const ids = new Set(a.events.map((e) => e.id));
+    const mine = warnings.filter((w) => ids.has(w.event_id));
     return {
       newest_event_id: a.events[a.events.length - 1].id,
       warnable: warnable(a, now),
-      warnings: warnings.filter((w) => ids.has(w.event_id)).map((w) => toReply(w, name)),
+      warnings: mine.map((w) => toReply(w, name)),
+      alert: a.category === WARN_CATEGORY && now - a.last_at < ALERT_MS && !mine.length
+        && !dismissedIds.some((id) => ids.has(id)),
     };
   };
 }
 
 const warnable = (a: Activity, now: number) => a.category === WARN_CATEGORY && now - a.last_at < WARN_WINDOW_MS;
 
-// Clear events deletes warnings with the events they belong to: these go in its batch.
+// Clear events deletes warnings and dismissals with the events they belong to: these go in its batch.
 export function clearWarnings(db: D1Database): D1PreparedStatement[] {
-  return [db.prepare("DELETE FROM warning_targets"), db.prepare("DELETE FROM warnings")];
+  return [
+    db.prepare("DELETE FROM warning_targets"),
+    db.prepare("DELETE FROM warnings"),
+    db.prepare("DELETE FROM alert_dismissals"),
+  ];
 }
 
 // ---- researchers -----------------------------------------------------------------------------------------------
@@ -126,27 +145,17 @@ export function clearWarnings(db: D1Database): D1PreparedStatement[] {
 export async function sendWarning(request: Request, { env }: RouteContext): Promise<Response> {
   const db = env.DB;
   const now = Date.now();
-  let body: Record<string, unknown> = {};
-  try {
-    const parsed: unknown = await request.json();
-    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
-  } catch {
-    // not JSON: refused below
-  }
+  const body = await jsonBody(request);
   const requestId = body.request_id;
   const eventId = body.event_id;
   if (typeof requestId !== "string" || !requestId || requestId.length > MAX_REQUEST_ID) {
     return refuse(400, "invalid", `request_id must be a string of 1 to ${MAX_REQUEST_ID} characters`);
   }
-  if (typeof eventId !== "number" || !Number.isSafeInteger(eventId)) {
-    return refuse(400, "invalid", "event_id must be an event's id");
-  }
+  if (!isEventId(eventId)) return refuse(400, "invalid", "event_id must be an event's id");
   const retried = await sentWith(db, requestId, now);
   if (retried) return json({ warning: retried });
 
-  const events = await db.prepare("SELECT id, sensor_id, sound_name, category, occurred_at FROM events")
-    .all<ActivityEvent>();
-  const activity = groupActivities(events.results, Infinity).find((a) => a.events.some((e) => e.id === eventId));
+  const activity = await activityHolding(db, eventId);
   if (!activity) return refuse(404, "gone", "No activity holds that event");
   if (!warnable(activity, now)) return refuse(409, "closed", "Warnings are for logging heard in the last 5 minutes");
 
@@ -175,6 +184,41 @@ export async function sendWarning(request: Request, { env }: RouteContext): Prom
   }
   logLine("warning_sent", { warning: id, event: newest, targets });
   return json({ warning: (await sentWith(db, requestId, now))! }, 201);
+}
+
+// POST /dashboard/api/dismissals with {"event_id"}: dismisses the alert for the activity holding that event, for
+// every researcher, by storing the activity's newest event now. 200 {dismissal: {event_id}}, also when it was already
+// dismissed; refusals are {error, reason}: 404 gone when no activity holds the event, 400 invalid.
+export async function dismissAlert(request: Request, { env }: RouteContext): Promise<Response> {
+  const db = env.DB;
+  const eventId = (await jsonBody(request)).event_id;
+  if (!isEventId(eventId)) return refuse(400, "invalid", "event_id must be an event's id");
+  const activity = await activityHolding(db, eventId);
+  if (!activity) return refuse(404, "gone", "No activity holds that event");
+  const newest = activity.events[activity.events.length - 1].id;
+  await db.prepare("INSERT INTO alert_dismissals (event_id, dismissed_at) VALUES (?1, ?2) ON CONFLICT DO NOTHING")
+    .bind(newest, Date.now()).run();
+  logLine("alert_dismissed", { event: newest });
+  return json({ dismissal: { event_id: newest } });
+}
+
+async function jsonBody(request: Request): Promise<Record<string, unknown>> {
+  try {
+    const parsed: unknown = await request.json();
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+  } catch {
+    // not JSON: refused by the caller
+  }
+  return {};
+}
+
+const isEventId = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v);
+
+// The activity holding the event now, grouped from every stored event (not only the newest activities).
+async function activityHolding(db: D1Database, eventId: number): Promise<Activity | undefined> {
+  const events = await db.prepare("SELECT id, sensor_id, sound_name, category, occurred_at FROM events")
+    .all<ActivityEvent>();
+  return groupActivities(events.results, Infinity).find((a) => a.events.some((e) => e.id === eventId));
 }
 
 function refuse(status: number, reason: "invalid" | "gone" | "closed" | "on_its_way", error: string) {
