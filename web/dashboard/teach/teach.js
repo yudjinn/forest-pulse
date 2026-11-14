@@ -1,0 +1,260 @@
+// The Teach page: a name, a category and 5 to 100 dropped recordings. Each recording is checked, decoded and summarised
+// here as soon as it is added (clean and mixed over the hall background), with its progress in its row; Teach sends
+// only the summaries. The service trains and saves the sound, and the page returns to the Sounds list where it appears.
+import { DIM, decode, loadModel, mixOver, summarise, toModelRate, windows } from "/dashboard/teach/summaries.js";
+
+const MIN_CLIPS = 5;
+const MAX_CLIPS = 100;
+const MAX_FILE = 50 * 1024 * 1024;
+const MAX_TOTAL = 200 * 1024 * 1024;
+const EXTENSIONS = [".wav", ".mp3", ".flac", ".ogg", ".m4a"];
+const TOO_FEW = "Needs at least 5 usable recordings";
+const FAILED = "Teaching failed, try again";
+// Refusals the service words for the researcher; anything else is a failure.
+const SERVICE_REFUSALS = new Set([TOO_FEW, "A sound with this name already exists"]);
+
+/**
+ * @typedef {{
+ *   file: File, item: HTMLLIElement, status: HTMLElement, progress: HTMLProgressElement,
+ *   state: "waiting" | "working" | "ready" | "skipped", removed: boolean,
+ *   clean: Float32Array[], mixed: Float32Array[],
+ * }} Clip
+ */
+
+const form = /** @type {HTMLFormElement} */ (document.querySelector(".teach-form"));
+const nameInput = /** @type {HTMLInputElement} */ (form.elements.namedItem("name"));
+const categoryInput = /** @type {HTMLSelectElement} */ (form.elements.namedItem("category"));
+const filesInput = /** @type {HTMLInputElement} */ (form.elements.namedItem("recordings"));
+const drop = /** @type {HTMLElement} */ (form.querySelector(".drop"));
+const list = /** @type {HTMLUListElement} */ (form.querySelector(".clip-list"));
+const error = /** @type {HTMLElement} */ (form.querySelector(".error"));
+const submit = /** @type {HTMLButtonElement} */ (form.querySelector("button[type=submit]"));
+
+/** @type {Clip[]} */
+let clips = [];
+let teaching = false;
+let queue = Promise.resolve();
+/** @type {Promise<Float32Array> | null} */
+let background = null;
+
+const live = () => clips.filter((c) => !c.removed);
+const accepted = () => live().filter((c) => c.state !== "skipped");
+
+function hallBackground() {
+  background ??= (async () => {
+    const res = await fetch("/dashboard/api/teach/background");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { audio, rate } = await decode(await res.arrayBuffer());
+    return toModelRate(audio, rate);
+  })();
+  background.catch(() => { background = null; });
+  return background;
+}
+
+function refresh() {
+  const busy = live().some((c) => c.state === "waiting" || c.state === "working");
+  submit.disabled = teaching || busy;
+  submit.textContent = teaching ? "Teaching…" : "Teach";
+  form.setAttribute("aria-busy", String(teaching || busy));
+}
+
+/** @param {string} [message] */
+function showError(message) {
+  error.textContent = message ?? "";
+  error.hidden = !message;
+}
+
+/** @param {Clip} clip @param {string} text */
+function setStatus(clip, text) {
+  clip.status.textContent = text;
+}
+
+/** @param {Clip} clip @param {string} reason */
+function skip(clip, reason) {
+  clip.state = "skipped";
+  clip.item.classList.add("skipped");
+  clip.progress.hidden = true;
+  setStatus(clip, reason);
+}
+
+/** @param {File} file */
+function addClip(file) {
+  const item = document.createElement("li");
+  const name = document.createElement("span");
+  name.className = "clip-name";
+  name.textContent = file.name;
+  const status = document.createElement("span");
+  status.className = "clip-status";
+  const progress = document.createElement("progress");
+  progress.setAttribute("aria-label", `${file.name} progress`);
+  progress.value = 0;
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "clip-remove";
+  remove.textContent = "Remove";
+  remove.setAttribute("aria-label", `Remove ${file.name}`);
+  item.append(name, status, progress, remove);
+  list.append(item);
+  /** @type {Clip} */
+  const clip = { file, item, status, progress, state: "waiting", removed: false, clean: [], mixed: [] };
+  remove.addEventListener("click", () => {
+    clip.removed = true;
+    item.remove();
+    takeChosenFiles(); // files chosen before this module finished loading
+refresh();
+  });
+  return clip;
+}
+
+/** @param {FileList | File[]} files */
+function addFiles(files) {
+  showError();
+  const seen = new Set(live().map((c) => `${c.file.name}|${c.file.size}|${c.file.lastModified}`));
+  for (const file of files) {
+    const key = `${file.name}|${file.size}|${file.lastModified}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const clip = addClip(file);
+    const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    const total = accepted().reduce((sum, c) => sum + c.file.size, 0);
+    if (accepted().length >= MAX_CLIPS) skip(clip, "Too many recordings");
+    else if (!EXTENSIONS.includes(extension)) skip(clip, "Couldn't be read");
+    else if (file.size > MAX_FILE || total + file.size > MAX_TOTAL) skip(clip, "Too large");
+    else {
+      setStatus(clip, "Waiting");
+      queue = queue.then(() => summariseClip(clip));
+    }
+    clips.push(clip);
+  }
+  clips = live();
+  takeChosenFiles(); // files chosen before this module finished loading
+refresh();
+}
+
+/** @param {Clip} clip */
+async function summariseClip(clip) {
+  if (clip.removed) return;
+  clip.state = "working";
+  setStatus(clip, "Reading");
+  takeChosenFiles(); // files chosen before this module finished loading
+refresh();
+  let parts;
+  try {
+    const { audio, rate } = await decode(await clip.file.arrayBuffer());
+    parts = windows(audio, rate);
+  } catch {
+    skip(clip, "Couldn't be read");
+    takeChosenFiles(); // files chosen before this module finished loading
+refresh();
+    return;
+  }
+  if (parts.length === 0) {
+    skip(clip, "Shorter than 1 s");
+    takeChosenFiles(); // files chosen before this module finished loading
+refresh();
+    return;
+  }
+  try {
+    const [hall] = await Promise.all([hallBackground(), loadModel()]);
+    setStatus(clip, "Summarising");
+    clip.progress.max = parts.length * 2;
+    for (const part of parts) {
+      if (clip.removed) return;
+      clip.clean.push(await summarise(part));
+      clip.progress.value += 1;
+      clip.mixed.push(await summarise(mixOver(part, hall)));
+      clip.progress.value += 1;
+    }
+  } catch {
+    skip(clip, "Not summarised");
+    showError(FAILED);
+    takeChosenFiles(); // files chosen before this module finished loading
+refresh();
+    return;
+  }
+  clip.state = "ready";
+  clip.progress.hidden = true;
+  setStatus(clip, "Ready");
+  takeChosenFiles(); // files chosen before this module finished loading
+refresh();
+}
+
+// The teach request: a JSON header with the clip list, then each clip's clean and mixed summaries as float32 rows.
+/** @param {Clip[]} ready */
+function encode(ready) {
+  const header = new TextEncoder().encode(JSON.stringify({
+    name: nameInput.value.trim(),
+    category: categoryInput.value,
+    clips: ready.map((c) => ({ file: c.file.name, windows: c.clean.length })),
+  }));
+  const start = 4 + Math.ceil(header.length / 4) * 4;
+  const rows = ready.reduce((n, c) => n + c.clean.length + c.mixed.length, 0);
+  const body = new ArrayBuffer(start + rows * DIM * 4);
+  new DataView(body).setUint32(0, header.length, true);
+  new Uint8Array(body, 4, header.length).set(header);
+  const out = new Float32Array(body, start);
+  let at = 0;
+  for (const c of ready) {
+    for (const row of [...c.clean, ...c.mixed]) {
+      out.set(row, at);
+      at += DIM;
+    }
+  }
+  return body;
+}
+
+async function teach() {
+  showError();
+  const ready = live().filter((c) => c.state === "ready");
+  if (ready.length < MIN_CLIPS) {
+    showError(TOO_FEW);
+    return;
+  }
+  teaching = true;
+  takeChosenFiles(); // files chosen before this module finished loading
+refresh();
+  try {
+    const res = await fetch("/dashboard/api/teach", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: encode(ready),
+    });
+    if (res.status === 401) {
+      location.assign(`/dashboard/signin?next=${encodeURIComponent(location.pathname)}`);
+      return;
+    }
+    if (res.ok) {
+      location.assign("/dashboard/sounds/");
+      return;
+    }
+    const reply = /** @type {{ error?: string }} */ (await res.json().catch(() => ({})));
+    showError(reply.error && SERVICE_REFUSALS.has(reply.error) ? reply.error : FAILED);
+  } catch {
+    showError(FAILED);
+  }
+  teaching = false;
+  takeChosenFiles(); // files chosen before this module finished loading
+refresh();
+}
+
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!teaching) teach();
+});
+const takeChosenFiles = () => {
+  if (filesInput.files?.length) addFiles([...filesInput.files]);
+  filesInput.value = "";
+};
+filesInput.addEventListener("change", takeChosenFiles);
+drop.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  drop.classList.add("over");
+});
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (event) => {
+  event.preventDefault();
+  drop.classList.remove("over");
+  if (event.dataTransfer?.files.length) addFiles([...event.dataTransfer.files]);
+});
+takeChosenFiles(); // files chosen before this module finished loading
+refresh();

@@ -10,6 +10,7 @@ import { postEvents } from "./api/events.ts";
 import { listEvents } from "./eventlog.ts";
 import { listSounds, switchSound } from "./sounds/sounds.ts";
 import { listSamples, sampleAudio } from "./player/player.ts";
+import { teachBackground, teachSound } from "./teach/teach.ts";
 
 export const routes: Route[] = [
   { method: "GET", path: "/dashboard/signin", access: "public", handle: signInPage },
@@ -22,6 +23,8 @@ export const routes: Route[] = [
   { method: "PATCH", path: "/dashboard/api/sounds/:sound", access: "researcher", handle: switchSound },
   { method: "GET", path: "/dashboard/api/player/samples", access: "researcher", handle: listSamples },
   { method: "GET", path: "/dashboard/api/player/samples/:file", access: "researcher", handle: sampleAudio },
+  { method: "POST", path: "/dashboard/api/teach", access: "researcher", handle: teachSound },
+  { method: "GET", path: "/dashboard/api/teach/background", access: "researcher", handle: teachBackground },
 ];
 
 // Run after a check-in (or first contact) is stored, and after a request's accepted events are stored.

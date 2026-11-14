@@ -1,0 +1,115 @@
+{
+ "species": "Boreal owl (Aegolius funereus)",
+ "source": "xeno-canto",
+ "first_seconds": 20,
+ "clips": [
+  {
+   "file": "teach-a/XC1097665.wav",
+   "recording": "XC1097665",
+   "recordist": "Dag Österlund",
+   "country": "Sweden",
+   "url": "https://xeno-canto.org/1097665",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-a/XC278784.wav",
+   "recording": "XC278784",
+   "recordist": "Ilkka Heiskanen",
+   "country": "Finland",
+   "url": "https://xeno-canto.org/278784",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-a/XC307650.wav",
+   "recording": "XC307650",
+   "recordist": "PE Svahn",
+   "country": "Sweden",
+   "url": "https://xeno-canto.org/307650",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-a/XC312639.wav",
+   "recording": "XC312639",
+   "recordist": "Jens Kirkeby",
+   "country": "Norway",
+   "url": "https://xeno-canto.org/312639",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-a/XC638436.wav",
+   "recording": "XC638436",
+   "recordist": "Sergiusz Nizinski",
+   "country": "Poland",
+   "url": "https://xeno-canto.org/638436",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-a/XC625748.wav",
+   "recording": "XC625748",
+   "recordist": "Anders Westman",
+   "country": "Sweden",
+   "url": "https://xeno-canto.org/625748",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-b/XC560096.wav",
+   "recording": "XC560096",
+   "recordist": "Patrik Åberg",
+   "country": "Sweden",
+   "url": "https://xeno-canto.org/560096",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-b/XC632037.wav",
+   "recording": "XC632037",
+   "recordist": "Stanislas Wroza",
+   "country": "France",
+   "url": "https://xeno-canto.org/632037",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-b/XC782854.wav",
+   "recording": "XC782854",
+   "recordist": "Teet Sirotkin",
+   "country": "Sweden",
+   "url": "https://xeno-canto.org/782854",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-b/XC801369.wav",
+   "recording": "XC801369",
+   "recordist": "Rafał Kurowski",
+   "country": "Poland",
+   "url": "https://xeno-canto.org/801369",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-b/XC985318.wav",
+   "recording": "XC985318",
+   "recordist": "Bill Pyle",
+   "country": "United States",
+   "url": "https://xeno-canto.org/985318",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  },
+  {
+   "file": "teach-b/XC356978.wav",
+   "recording": "XC356978",
+   "recordist": "Antero Lindholm",
+   "country": "Finland",
+   "url": "https://xeno-canto.org/356978",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 20.0
+  }
+ ]
+}
