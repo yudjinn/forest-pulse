@@ -69,9 +69,10 @@ In `~/ArduinoApps/atech-serial-listener/python/` on each board:
   - It's secret: mode 600, git-ignored.
   - Don't print the key.
   - All nodes share one key; the sensor ID tells them apart.
-- **`config.local.json`:** per-board overrides merged over `config.json`. Currently node2 has:
-  - the calibration test modes: a faked bearing, and mic2 only;
-  - `trigger.coherence: 0`, because only its mic2 is fitted.
+- **`config.local.json`:** per-board overrides merged over `config.json`. Currently:
+  - node2: the calibration test modes (a faked bearing, mic2 only) and `trigger.coherence: 0`, because only its mic2 is fitted;
+  - node1: the same calibration test modes with mic1. Its three mics time the other board's beep up to 25 samples apart (reflections in the hall, and the beep's 2.5 to 5 kHz band is too high for this array's spacing to give a bearing), so its detections come out weak and the run fails. With one mic it ranges reliably; the facings are faked.
+  - `calibration.test_dump_calibration: true` saves each calibration stream's raw 3-mic audio to `data/calibration/` on the board (an `.npz` with the SDK's stream positions per block), to replay a run's detections offline. Off by default; turn it off again afterwards.
 
   The app logs `[app] board overrides from config.local.json` when one exists.
 

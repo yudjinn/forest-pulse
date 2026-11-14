@@ -61,6 +61,8 @@ class SensorTee:
         self._bypass = False
         self._release_at_end = False
         self.mono_mic: int | None = None  # TEST: 0-based column fed to the SDK as all 3 channels while calibrating
+        self.dump_dir: str | None = None  # TEST: save each calibration stream's raw audio here (.npz)
+        self._dump: list | None = None
 
     def set_calibrating(self, on: bool) -> None:
         with self._lock:
@@ -68,8 +70,29 @@ class SensorTee:
                 if not self._bypass:
                     self.queue.put(PipelineReset("location calibration"))
                 self._bypass, self._release_at_end = True, False
+                if self.dump_dir:
+                    self._dump = []
             elif self._bypass:
                 self._release_at_end = True
+            dump = None if on else self._dump
+            if not on:
+                self._dump = None
+        if dump:
+            threading.Thread(target=self._write_dump, args=(dump,), daemon=True).start()
+
+    def _write_dump(self, dump) -> None:
+        """TEST: the raw 3-mic stream (before any mono copy) with, per block, the SDK stream position after it,
+        so a report's positions can be found in the audio."""
+        import os
+        import time
+        try:
+            os.makedirs(self.dump_dir, exist_ok=True)
+            path = os.path.join(self.dump_dir, time.strftime("calib-%Y%m%d-%H%M%S.npz", time.gmtime()))
+            np.savez_compressed(path, pcm=np.concatenate([d[0] for d in dump]),
+                                blocks=np.array([(len(d[0]), d[1], d[2]) for d in dump], np.int64))
+            self.log(f"[calib] TEST: saved the calibration stream to {path}")
+        except Exception as e:
+            self.log(f"[calib] TEST: could not save the calibration stream: {e}")
 
     @property
     def bypassing(self) -> bool:
@@ -97,9 +120,15 @@ class SensorTee:
             if isinstance(msg, AudioBlock):
                 # frame_offset 0 = first packet of a new event: a new burst for the SDK
                 pcm = msg.pcm
+                raw = pcm
                 if self.mono_mic is not None and self._bypass:  # TEST: one mic for the calibration stream
                     pcm = pcm[:, [self.mono_mic] * 3]
-                self.sensor.feed(pcm, break_before=msg.break_before or msg.frame_offset == 0)
+                brk = msg.break_before or msg.frame_offset == 0
+                self.sensor.feed(pcm, break_before=brk)
+                dump = self._dump
+                if dump is not None:
+                    st = getattr(getattr(self.sensor, "_calibration", None), "stream", None)
+                    dump.append((np.array(raw, copy=True), -1 if st is None else st.total, int(brk)))
             elif isinstance(msg, EventEnd):
                 self.sensor.end_of_audio()
         except Exception as e:  # never let the SDK take the reader down

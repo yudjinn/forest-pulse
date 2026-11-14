@@ -48,7 +48,9 @@ DEFAULTS = {
                     # 3 mics' arrival times is that mic's. Works for a 2-node run; a 3-node run fails its
                     # angle check with faked bearings.
                     "test_fake_bearing_deg": None,
-                    "test_mono_mic": None},
+                    "test_mono_mic": None,
+                    # TEST only: save every calibration stream's raw 3-mic audio to <data_dir>/calibration/
+                    "test_dump_calibration": False},
 }
 
 
