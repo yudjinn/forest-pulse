@@ -5,7 +5,7 @@ Only one program can have the serial port open at a time, so this is also
 the live monitor: use it instead of running monitor.py alongside.
 
 Usage:
-  uv run receiver.py [--port /dev/ttyACM0] [--out events/] [--duration 60]
+  uv run receiver.py [--port PATH (default: auto-detect ESP32)] [--out events/] [--duration 60]
                      [--status-hz 4 | --status-hz 0] [--trigger-after S]
                      [--sound-after S --sound-for S]
 """

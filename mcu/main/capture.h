@@ -26,6 +26,7 @@ typedef struct {
     // Bring-up diagnostics, filled when no EOF arrives:
     uint32_t toggles_bclk, toggles_ws, toggles_sd1, toggles_sd2, toggles_sd3;  // level changes in 20k polls
     uint32_t desc0_len, buf_nonzero;                 // did DMA write anything?
+    uint32_t load_permille;  // capture task busy time on core 0, last 1 s window
     uint32_t avg_block_us;
     uint32_t max_block_us;
 } capture_diag_t;

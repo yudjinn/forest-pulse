@@ -1,0 +1,5 @@
+# Installed by App Lab into the app container. Keep to packages with aarch64
+# wheels: native-build packages tend to fail in the container.
+numpy
+forestpulse-sensor @ https://github.com/yudjinn/forest-pulse/archive/refs/heads/main.zip#subdirectory=sensor-sdk
+# (onnxruntime comes with forestpulse-sensor; our own disabled classifier.py needed it too)

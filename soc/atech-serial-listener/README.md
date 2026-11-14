@@ -1,6 +1,11 @@
 # Atech Serial Listener (Arduino UNO Q)
 
-The atech board (ESP32, 3 mics) streams binary audio packets over USB CDC serial to the UNO Q's Linux side. The app decodes them, prints event summaries in the Python console and forwards event start/end to the MCU.
+The node app for the Uno Q. The atech board (ESP32, 3 mics) streams binary audio packets over USB to the Uno Q's Linux side. For each event the app:
+- leaves **classification to the server SDK**. The on-device EfficientAT/ONNX classifier (`classifier.py`, `models/`) is kept but commented out in `main.py` and `requirements.txt`;
+- estimates the **bearing** (GCC-PHAT / SRP-PHAT), using the speed of sound from a Modulino Thermo;
+- **stores** the event (WAV + JSON);
+- hands the record to the **uplink**, a stub until the server API exists;
+- shows a **direction arrow** on the Uno Q's LED matrix for every event with a reliable bearing (`led.require_chainsaw` is off, since the node no longer classifies).
 
 ```
 atech ESP32 --USB CDC--> /dev/ttyACM0 (Linux host)
@@ -9,25 +14,84 @@ atech ESP32 --USB CDC--> /dev/ttyACM0 (Linux host)
 [serial-bridge container: socat]  TCP :5000 on the App's Docker network
         |
         v
-[App Python container: main.py + atech_protocol.py]  --Bridge.notify("serial_event")-->  [STM32 sketch]
-        <--Bridge "send_to_board" (single-byte commands I/T/C/X)----------------------
+[App Python container]
+  reader thread:  Receiver (parse packets, follow events; never blocks)
+        | queue
+  worker thread:  Pipeline -> bearing.py, classifier.py, storage.py, uplink.py
+        |
+        +--Bridge "led_frame" (arrow), "serial_event" (summary)--> [STM32 sketch]
+        <--Bridge "trigger_pin" (D7), "climate" (Modulino Thermo)---
+        <--Bridge "send_to_board" (single-byte commands I/T/C/X)----
 ```
 
 **Why the extra container:** App Lab's Python container is not given `/dev/tty*`, and `app.yaml` can't add devices. A custom Brick's `brick_compose.yaml` *can* (Docker Compose `devices:` key). That needs App Lab 0.7 or newer.
 
 **Hardware:**
 - The UNO Q's USB-C port only acts as a USB host through a **powered USB-C hub**. Without one, nothing shows up in `lsusb`.
-- The ESP32's notify line (ATech port 6 D1, 3.3 V, HIGH from trigger until the event's END packet) goes to UNO Q header pin **D7**. The sketch reports each edge to Python (`trigger_pin`), which logs it and the delay to the event's first packet.
+- The ESP32's notify line (ATech port 6 D1, 3.3 V, HIGH from trigger until the event's END packet) goes to UNO Q header pin **D7**. Its rising edge gives each event a precise trigger time.
+- **Modulino Thermo** on the Qwiic connector (optional): temperature + humidity → speed of sound `c = 331.3 + 0.606·T + 0.0124·RH`. Without it, or after 60 s with no valid reading, 343 m/s is used. Each event record shows which value was used.
+
+## Files (`python/`)
+
+| File | Role |
+|---|---|
+| `main.py` | App Lab glue: socket reader, Bridge callbacks, builds the pipeline. The only file importing `arduino.app_utils`. |
+| `receiver.py` | bytes → `EventStart` / `AudioBlock` / `EventEnd` (`events.py`), console summaries |
+| `pipeline.py` | worker: live + final bearing, classification, record, storage, uplink, LED |
+| `bearing.py` | GCC-PHAT pair delays + SRP-PHAT 1° grid; quality gate; circular mean |
+| `classifier.py` | numpy mel frontend + ONNX Runtime; mono mix, 48 → 32 kHz, 10 s tiling |
+| `models/` | exported by `experiments/efficientat-chainsaw/export_onnx.py` (model ≈ 19.5 MB) |
+| `climate.py` | Modulino readings → speed of sound, with fallback |
+| `led_arrow.py` | renders the 8×13 arrow (the sketch only displays it) |
+| `storage.py` / `uplink.py` | events on disk (newest 50 kept) / **stub** uplink that queues records in `data/outbox/` |
+| `config.json` | node id, mic geometry, thresholds, LED mounting rotation |
+| `requirements.txt` | `numpy`, `onnxruntime` (installed by App Lab into the container) |
+
+## What happens per event
+- **Live, while streaming:**
+  - a bearing for the newest 0.5 s window, every 0.5 s;
+  - classification of the newest ≤10 s every 2 s;
+  - once the event is classified as a chainsaw (score ≥ 0.2) and at least 3 bearing windows pass the quality gate, the LED arrow shows the current direction.
+- **At the event end:**
+  - bearing over the whole event (0.5 s windows, 0.25 s hop, never across a discontinuity);
+  - classification over 10 s windows (best chainsaw score);
+  - the record (`data/events/<id>.json`, schema as in [`soc/README.md`](../README.md) §4) plus the WAV, then the uplink stub;
+  - the arrow holds for 10 s, then clears.
+- **Bearing quality gate:**
+  - the window isn't quieter than the event's own pre-trigger background;
+  - the SRP peak is at least 3× the median;
+  - the three pair delays agree within 1 sample;
+  - at least 3 such windows are needed for a bearing.
+
+  On 2 min of hall background this yields no bearing. On the phone-clip test event it gives 276.7° ± 0.9°.
 
 ## Setup
-1. SSH into the board, plug in the atech board through the hub, run `ls -l /dev/serial/by-id/ /dev/ttyACM*`.
-2. In `bricks/serial_bridge/brick_compose.yaml`, set the host device path. The ESP32's by-id name contains `:`, which Compose's short `devices:` syntax can't take, so this uses `/dev/ttyACM0`. The baud rate is ignored by USB CDC.
-3. Copy this folder to `~/ArduinoApps/` on the board, then start it: `arduino-app-cli app start user:atech-serial-listener` (or press Run in App Lab). `sketch/sketch.yaml` is required by App CLI 0.14+.
-4. The Python console shows `[serial] connected to serial-bridge:5000`, an `INFO ...` line from the ESP32, then for each event:
-   `=== event start`, one `pre`/`live` line per second of audio with peak dBFS per mic, and `=== event end` with a summary.
+1. SSH into the board, plug in the atech board through the hub, and run `ls -l /dev/serial/by-id/ /dev/ttyACM*`.
+2. In `bricks/serial_bridge/brick_compose.yaml`, set the host device path.
+   - The ESP32's by-id name contains `:`, which Compose's short `devices:` syntax can't take, so this uses `/dev/ttyACM0`.
+   - The baud rate is ignored by USB CDC.
+3. **Model files:** `python/models/` must contain `mn10_as.onnx`, `mel_basis.npy`, `labels.json` and `classes.json`. Regenerate them with `experiments/efficientat-chainsaw/export_onnx.py`. Without them the app runs, logs `classifier disabled`, and never lights the arrow (`led.require_chainsaw`).
+4. **`config.json`:**
+   - `led.rotation_deg`: the angle of the ATech board's +x axis (mic1 → mic2) as seen on the Uno Q's matrix, so the arrow points the right way in the room.
+   - `mic_positions_cm`: replace with measured sound-port positions when you have them.
+5. Copy this folder to `~/ArduinoApps/` on the board and start it: `arduino-app-cli app start user:atech-serial-listener` (or press Run in App Lab). `sketch/sketch.yaml` is required by App CLI 0.14+.
+6. **The Python console should show:**
+   - `[app] … classifier on` and `[serial] connected to serial-bridge:5000`;
+   - an `INFO …` line from the ESP32;
+   - per event: `=== event start`, per-second peak lines, `[class] live …`, `[led] arrow -> … deg`, `[event] … bearing … conf …`, then `[uplink] stub: …`.
 
-## Protocol
-See the docstring in `python/atech_protocol.py`. Packets start with `AA 55`, carry 3 × int16 mic samples at 48 kHz, and end with a CRC-32. A seq gap or a set flag marks a break in the audio. Put your own processing in `on_audio()` in `python/main.py`.
+## Not yet verified on the device
+The processing code is tested on a laptop (`soc/dev/`: 33 tests, plus replay of recorded events and live runs against the ESP32). These parts can only be checked on the Uno Q:
+- **The sketch compiles.** It uses `Arduino_LED_Matrix` (`matrix.begin()`, `setGrayscaleBits(1)`, `draw(uint8_t[104])`) and `Arduino_Modulino` (`Modulino.begin(Wire1)`, `ModulinoThermo`). If App Lab doesn't auto-install `Arduino_Modulino`, add it to `sketch/sketch.yaml` `libraries:`.
+- **The Bridge accepts** the 104-character `led_frame` string and the two-float `climate` notify.
+- **`onnxruntime` installs** from `requirements.txt` in the App Lab container (aarch64 wheel).
+- **Timing on the Cortex-A53:**
+  - final processing is ~1 s per 7.5 s event on a laptop, so expect several seconds on the device; it runs after the event, and the reader never waits;
+  - live bearing must keep up at one window per 0.5 s;
+  - the classifier uses 2 ONNX threads.
+
+## Develop on a laptop
+See [`../dev/`](../dev/): `uv run pytest`, `uv run replay.py <event.wav>` (prints the record and an ASCII LED preview), `uv run run_local.py` (live against the ESP32 on USB, found by its USB ID).
 
 ## Serial port settings (socat)
 - `noctty,rawer`: without these, 0x03/0x1C bytes in the audio are taken as Ctrl-C/Ctrl-\ and kill socat.
@@ -38,3 +102,4 @@ See the docstring in `python/atech_protocol.py`. Packets start with `AA 55`, car
 - `cannot resolve serial-bridge`: the two containers aren't on a shared network. Set `SERIAL_BRIDGE_HOST` or publish the port and use the host IP.
 - `ring overrun` right after starting: packets were dropped while nothing was reading. That's expected once.
 - `no INFO reply`: check that the ESP32 isn't in a boot loop (`docker logs` of serial-bridge, `dmesg`).
+- `classifier disabled: …`: the model files are missing or `onnxruntime` didn't install.

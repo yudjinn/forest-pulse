@@ -1,6 +1,6 @@
 """M1: measure sustained USB-Serial/JTAG throughput and verify data integrity.
 
-Usage: uv run usb_bench.py [--port /dev/ttyACM0] [--mb 16]
+Usage: uv run usb_bench.py [--port PATH (default: auto-detect ESP32)] [--mb 16]
 Go/no-go: >= 450 KB/s sustained (288 KB/s live @48 kHz + backlog catch-up).
 """
 

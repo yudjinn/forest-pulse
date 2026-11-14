@@ -36,11 +36,11 @@ menu "Acoustic Front-End"
 
         config FE_TRIG_SNR_DB
             int "RMS gate: dB above adaptive noise floor"
-            default 6
+            default 4
 
         config FE_TRIG_BAND_RATIO_DB
             int "Spectral gate: mean band power over 50 Hz wind bin (dB)"
-            default 3
+            default 0
 
         config FE_TRIG_ARM_BLOCKS
             int "Consecutive positive 20 ms blocks to trigger"
@@ -67,7 +67,7 @@ menu "Acoustic Front-End"
 
         config FE_TRIG_COHERENCE_PCT
             int "Coherence gate: min inter-mic coherence, percent (0 = off)"
-            default 50
+            default 60
             range 0 99
             help
                 Mean magnitude-squared coherence between mic pairs over
@@ -77,6 +77,19 @@ menu "Acoustic Front-End"
         config FE_TRIG_COHERENCE_TAU_MS
             int "Coherence averaging time constant (ms)"
             default 200
+
+        config FE_TEST_TONE_HZ
+            int "TEST: also trigger on a pure tone at this frequency (Hz, 0 = off)"
+            default 0
+            range 0 3000
+            help
+                Test mode for bring-up with a tone generator. A block is also
+                positive when mic1's Goertzel bin at this frequency is >= 20 dB
+                above its neighbours (+-150/200 Hz) and the level is >= 6 dB
+                above the noise floor, bypassing the band-ratio and coherence
+                gates. Must be a multiple of 50 Hz. Keep <= 2300 Hz so the
+                Uno Q can still take an unambiguous bearing on it. Turn OFF
+                for real use.
 
     endmenu
 

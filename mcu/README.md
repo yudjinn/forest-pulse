@@ -18,17 +18,23 @@ For where the MCU fits in the whole system, see the [repo README](../README.md).
 | USB throughput (768 KB/s sustained; needs ≥ 450 KB/s) | done |
 | PSRAM ring, trigger, packetizer, host tools | done; acceptance tests pass (synthetic source) |
 | I2S clock fan-out + LCD_CAM bit capture + deserializer | done; all 3 mics live, 48 kHz, 0 sync losses |
-| Coherence gate + long-term floor adaptation | done; hall background coherence 0.24–0.38 (gate 0.5) |
+| Coherence gate + long-term floor adaptation | done; tuned on 2 min of hall audio (level 4 dB / ratio 0 dB / coherence 0.60) |
 | Impulse (clap) clock-lock test, trigger tuning on real sound | next |
 
 ## TODO
 
-- [ ] **Trigger tuning (hall demo).** Candidate defaults from `tools/trigger_sim.py` on a 34 s hall recording plus the phone chainsaw clip: **level 4 dB, ratio 0 dB, coherence 0.55**. That gave 0 positive background blocks and detected the clip 2.2 s after onset (current 6/3/0.50 detects at 4.3 s). Before adopting it:
-  - [ ] record ≥ 2 min of hall background (`C` … `X`) and confirm no false events (background coherence max so far 0.53, too close to 0.55);
-  - [ ] set the Kconfig defaults, flash, update the trigger section below.
+- [x] **Trigger tuning (hall demo).** Defaults are now **level 4 dB / ratio 0 dB / coherence 0.60**, chosen with `tools/trigger_sim.py` on 2 min of hall background (`tools/events/background_hall_2min.wav`) plus the phone chainsaw clip:
+
+  | Level / ratio / coherence | False events in 2 min (sim) | Clip detected after |
+  |---|---|---|
+  | old: 6 dB / 3 dB / 0.50 | 2 | 4.4 s |
+  | **new: 4 / 0 / 0.60** | **0** | **2.4 s** |
+
+  **Live on the board:** 3 events in one 2-minute window, during bursts of strongly coherent sound (0.88, probably nearby talking); 0 in the next 2.5 minutes. With the ratio gate at 0 dB, the MCU trigger means "a loud sound from one direction". Telling a chainsaw from a voice is the SoC classifier's job.
 - [ ] **Clock-lock / impulse test:** claps from known directions, all 3 mics; inter-channel lag drift ≤ 1 sample over 10 min. Pairwise lags on ambient noise so far are inconclusive.
-- [ ] **Real chainsaw recordings:** re-tune for outdoor use. A real saw has strong energy below 300 Hz, so the band-ratio (wind) gate can come back; a phone clip doesn't.
-- [ ] **CPU headroom:** trigger ≈ 7.2 ms per 20 ms block at 80 MHz plus deserialization; go to 160 MHz if more per-block work is added.
+- [ ] **Real chainsaw recordings:** re-tune for outdoor use. A real saw has strong energy below 300 Hz, so the band-ratio (wind) gate can come back (it's at 0 dB for the phone-clip demo). Re-check the level and coherence margins with `trigger_sim.py`.
+- [x] **CPU headroom:** measured core-0 load (`core0_load_pct` in `INFO`) is **55.7% at 80 MHz**: trigger ≈ 36%, deserialization and ring ≈ 20%. Staying at 80 MHz; switch to 160 MHz (`CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_160`) if per-block work grows.
+- [x] **Regression:** synthetic-source build (`build_synth/`) passes all four `accept_buffer.py` tests after the capture rewrite.
 - [ ] **Mic geometry for direction finding:** measure each mic's sound-port position (mm) on the board, plus the board's mounting heading.
 
 ## Modules and ports
@@ -169,12 +175,12 @@ That means zero inter-channel offset, and no drift is possible.
 
 A block counts as **positive** only if all three gates pass:
 
-1. **Level (mic 1):** remove DC and compute RMS, smoothed over about 100 ms (single blocks swing ±3 dB, which would break the 5-in-a-row debounce). The smoothed level must be at least 6 dB above the adaptive noise floor.
-2. **Spectral (mic 1):** Hann window, then Goertzel bins every 50 Hz: 100–400 Hz (7), 1–3 kHz (9) and the 50 Hz wind bin. Mean band power and wind power are each smoothed over about 100 ms before taking the ratio, which must exceed 3 dB (phone/PA playback has little energy below ~300 Hz). (A single 20 ms bin of noise swings ±10 dB block to block; smoothed, background stays within −1.5 to +3 dB.)
+1. **Level (mic 1):** remove DC and compute RMS, smoothed over about 100 ms (single blocks swing ±3 dB, which would break the 5-in-a-row debounce). The smoothed level must be at least **4 dB** above the adaptive noise floor.
+2. **Spectral (mic 1):** Hann window, then Goertzel bins every 50 Hz: 100–400 Hz (7), 1–3 kHz (9) and the 50 Hz wind bin. Mean band power and wind power are each smoothed over about 100 ms before taking the ratio, which must exceed **0 dB**. It's effectively relaxed for the hall demo, since phone/PA playback has little energy below ~300 Hz; raise it for outdoor use with real saws. (A single 20 ms bin of noise swings ±10 dB block to block; smoothed, background stays within −1.5 to +3 dB.)
 3. **Coherence (all mics):** complex Goertzel on the 1–3 kHz bins of every mic. Cross- and auto-spectra are averaged over about 200 ms, then the mean magnitude-squared coherence is taken over the 3 mic pairs × 9 bins:
    - a distant point source (a chainsaw) is coherent across the array, so it scores near 1, whatever its direction;
    - wind turbulence, raindrops and a diffuse hall background are not. Measured in the hall: **0.24–0.38**.
-   - The gate requires **> 0.5**. It's bypassed with the synthetic source, whose channels 2/3 carry frame counters.
+   - The gate requires **> 0.60**. That's tuned on 2 min of hall audio: background 99th percentile 0.52, bursts up to 0.62. It's bypassed with the synthetic source, whose channels 2/3 carry frame counters.
 
 **How the noise floor adapts (all on mic 1, every block, 50×/s):**
 
@@ -190,7 +196,7 @@ A block counts as **positive** only if all three gates pass:
 - ACTIVE raises the notify line and ends after 2 s of quiet or 15 s after the trigger.
 - REARM waits for a full quiet period before allowing the next event.
 
-**CPU:** about 7.2 ms per 20 ms block at 80 MHz (≈36% of core 0), plus deserialization.
+**CPU:** the trigger takes about 7.2 ms per 20 ms block at 80 MHz (≈36% of core 0). The whole capture task, including deserialization, is about **56%** (`core0_load_pct` in `INFO`).
 
 All thresholds are in `idf.py menuconfig` → *Acoustic Front-End → Trigger*.
 Watch them live with `uv run tools/receiver.py` (status + event capture).
@@ -268,9 +274,18 @@ uv run monitor.py                                     # status only (no event ca
 # Only ONE program can open the serial port at a time: use receiver.py when
 # you want both status and recordings.
 cc -O2 -I../main test_deserialize.c ../main/deserialize.c -o /tmp/td && /tmp/td
-# Buffer-integrity tests need the synthetic source (menuconfig), which embeds
-# the frame index in channels 2/3:
-uv run accept_buffer.py [--acoustic | --cap | --overrun]
+uv run trigger_sim.py events/*.wav                    # replay recordings through the trigger offline
+```
+
+**Synthetic-source test build.** The buffer-integrity tests need the synthetic
+source, which puts the frame index in channels 2/3. It builds into its own
+directory, so the main mic build's `sdkconfig` is untouched:
+
+```sh
+idf.py -B build_synth -D SDKCONFIG=build_synth/sdkconfig \
+       -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.synth" build flash
+cd tools && uv run accept_buffer.py [--acoustic | --cap | --overrun]
+cd .. && idf.py flash                                  # back to the mic build
 ```
 
 ## Acceptance tests
