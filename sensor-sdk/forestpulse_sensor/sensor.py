@@ -3,8 +3,11 @@
 Threads: `feed()` only queues audio and returns at once, so the caller's USB reader is never blocked. An analysis
 thread runs the model; a sync thread checks in, pulls sound lists and delivers queued events.
 """
+import collections
 import json
 import logging
+import math
+import numbers
 import os
 import queue
 import socket
@@ -32,18 +35,23 @@ MAX_BACKLOG_S = 60.0  # audio waiting for analysis beyond this is dropped (logge
 BATCH = 100
 CHECKIN_S = 3.0              # check-in interval; the server shows a board offline after 10 s without one
 CALIBRATION_CHECKIN_S = 1.0  # check-in interval while taking part in a calibration run
+RECORDINGS_WINDOW_S = 60.0   # recordings per minute counts the bursts that started within this
+TRIGGER_KEYS = ("snr_db", "ratio_db", "coherence")
 
 
 class Sensor:
     def __init__(self, server_url: str, sensor_key: str, sensor_id: str | None = None, state_dir: str = "~/.forestpulse",
                  angle_fn=None, sample_rate: int = 48000, checkin_interval: float = CHECKIN_S,
-                 model: Model | None = None, model_threads: int = 2, calibration=None, clock=None):
+                 model: Model | None = None, model_threads: int = 2, calibration=None, trigger_settings=None,
+                 clock=None):
         """
         angle_fn: optional callable(window) -> angle_deg | (angle_deg, confidence) | None, called once per window
             that produced a detection. `window` is the (N, channels) int16 audio that was classified, at
             `sample_rate`. Return degrees clockwise from the board's forward (0-360); see board_to_angle().
         calibration: the node's calibration hooks (README, "Calibration hooks"). Checked at start-up; the sensor
             takes part in calibration runs only when every hook and attribute is there.
+        trigger_settings: the optional trigger health hook (README, "Trigger health hook"): read at each check-in,
+            never changed.
         clock: the wall clock, seconds since the epoch; default the system's. Simulated boards pass their own.
         """
         self.sensor_id = sensor_id or socket.gethostname()
@@ -71,6 +79,7 @@ class Sensor:
         self._want_sounds = False
         self._checkin_soon = threading.Event()
         self._calibration = Calibrator(calibration, self.api, self.clock, wake=self._checkin_now)
+        self._health = TriggerHealth(trigger_settings)
 
     @classmethod
     def from_file(cls, path: str, **overrides) -> "Sensor":
@@ -124,6 +133,8 @@ class Sensor:
             frames = frames[:, None]
         if self._calibration.feed(frames, break_before):
             return  # the calibration stream: the run's alone, never analysed for sounds
+        if break_before:
+            self._health.note_recording()
         with self._backlog_lock:
             if self._backlog_frames + len(frames) > MAX_BACKLOG_S * self.sample_rate:
                 log.warning("analysis is behind by more than %.0f s; dropping audio", MAX_BACKLOG_S)
@@ -143,6 +154,7 @@ class Sensor:
 
     def report(self, scores, embedding, angle_deg=None, angle_confidence=None, detected_at: float | None = None) -> list:
         """For callers that run the model themselves: score one window and queue its events. Returns them."""
+        self._health.own_model = True
         return self._report(np.asarray(scores), np.asarray(embedding), detected_at or self.clock(),
                             lambda: (angle_deg, angle_confidence))
 
@@ -296,7 +308,7 @@ class Sensor:
                     reply = self.api.checkin(instance_id=self.instance_id, sdk_version=__version__, model=MODEL_ID,
                                              sound_list_version=self._sounds.version if self._sounds_from_server
                                              else None, queued_events=len(self.outbox),
-                                             **self._calibration.checkin_fields())
+                                             **self._calibration.checkin_fields(), **self._health.checkin_fields())
                     self._calibration.note_reply(reply, sent, self.clock())
                     self._set_key_ok()
                     self.last_checkin_ok = time.time()
@@ -357,6 +369,91 @@ class Sensor:
         if self.key_rejected:
             log.info("sensor key accepted again; delivering queued events")
         self.key_rejected = False
+
+
+class TriggerHealth:
+    """Trigger health for the check-in: recordings per minute, counted here, and the optional hook's trigger values
+    and noise floor. The hook is read only by checkin_fields(), on the sync thread; a value it cannot give is left
+    out and the reason logged once per kind of problem. It is never changed."""
+
+    def __init__(self, settings=None):
+        self.settings = settings
+        self.own_model = False  # report() was called: without fed audio there is nothing to count
+        self._starts = collections.deque()
+        self._fed = False
+        self._lock = threading.Lock()
+        self._logged = set()
+
+    def note_recording(self) -> None:
+        """A burst started: audio was fed with a break before it."""
+        with self._lock:
+            self._fed = True
+            self._starts.append(time.monotonic())
+
+    def checkin_fields(self) -> dict:
+        fields = {}
+        with self._lock:
+            cutoff = time.monotonic() - RECORDINGS_WINDOW_S
+            while self._starts and self._starts[0] < cutoff:
+                self._starts.popleft()
+            if self._fed or not self.own_model:
+                fields["recordings_per_min"] = len(self._starts)
+        if self.settings is not None:
+            trigger = self._trigger()
+            if trigger:
+                fields["trigger"] = trigger
+            floor = self._noise_floor()
+            if floor is not None:
+                fields["noise_floor_dbfs"] = floor
+        return fields
+
+    def _trigger(self):
+        try:
+            values = self.settings.current()
+        except Exception as e:
+            return self._once("current-raised", logging.WARNING, "trigger_settings.current() raised %r; "
+                              "trigger values left out of the check-in", e)
+        if values is None:
+            return self._once("current-none", logging.INFO, "trigger_settings.current() returned None "
+                              "(the front-end has not reported yet); trigger values left out of the check-in")
+        if not isinstance(values, dict):
+            return self._once("current-not-dict", logging.WARNING, "trigger_settings.current() returned %s, not a "
+                              "dict; trigger values left out of the check-in", type(values).__name__)
+        trigger = {}
+        for key in TRIGGER_KEYS:
+            if key in values:
+                if _number(values[key]):
+                    trigger[key] = float(values[key])
+                else:
+                    self._once("current-not-number", logging.WARNING, "trigger_settings.current() gave %s=%r, "
+                               "not a number; that value left out of the check-in", key, values[key])
+        return trigger
+
+    def _noise_floor(self):
+        try:
+            read = getattr(self.settings, "noise_floor_dbfs", None)
+            if not callable(read):
+                return self._once("noise-missing", logging.INFO, "trigger_settings has no noise_floor_dbfs(); "
+                                  "noise floor left out of the check-in")
+            value = read()
+        except Exception as e:
+            return self._once("noise-raised", logging.WARNING, "trigger_settings.noise_floor_dbfs() raised %r; "
+                              "noise floor left out of the check-in", e)
+        if value is None or _number(value):
+            return None if value is None else float(value)
+        return self._once("noise-not-number", logging.WARNING, "trigger_settings.noise_floor_dbfs() returned %r, "
+                          "not a number; noise floor left out of the check-in", value)
+
+    def _once(self, kind, level, msg, *args):
+        if kind not in self._logged:
+            self._logged.add(kind)
+            log.log(level, msg, *args)
+        return None
+
+
+def _number(v) -> bool:
+    """A finite real number: bools are not, and NaN or infinity would make the check-in invalid JSON."""
+    return isinstance(v, numbers.Real) and not isinstance(v, bool) and math.isfinite(v)
 
 
 def board_to_angle(bearing_ccw_deg: float, forward_ccw_deg: float = 90.0) -> float:

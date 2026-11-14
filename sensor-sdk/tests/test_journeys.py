@@ -1,5 +1,6 @@
 """End-to-end journeys: real model, real HTTP, the dev server standing in for the Cloudflare one."""
 import json
+import logging
 import socket
 import time
 import urllib.request
@@ -137,7 +138,7 @@ def test_checks_in_every_3_s_unless_the_config_file_says_otherwise_and_reports_i
         assert sensor.checkin_interval == 1
         sensor.start()
         assert wait_for(lambda: "node-e" in state.sensors)
-        assert state.sensors["node-e"]["sdk_version"] == "0.4.0"
+        assert state.sensors["node-e"]["sdk_version"] == "0.5.0"
     finally:
         sensor.stop()
         server.shutdown()
@@ -153,3 +154,101 @@ def test_report_path_for_callers_running_their_own_model(tmp_path, model):
     assert [e["sound_id"] for e in events] == ["chainsaw"] and events[0]["angle_deg"] == 10.0
     assert sensor.report(scores, emb) == []  # same sound within 5 s
     assert np.isfinite(emb).all()
+
+
+class TeammateSettings:
+    """Shaped like the device team's trigger settings object: current() and update(), nothing else."""
+
+    def __init__(self):
+        self.updates = []
+
+    def current(self):
+        return {"snr_db": 4.0, "ratio_db": 0, "coherence": 0.6, "trig_default_snr_db": 6.0}
+
+    def update(self, settings, **kw):
+        self.updates.append(settings)
+
+
+class FlakyHook:
+    """A trigger health hook whose answers the test changes between check-ins."""
+
+    def __init__(self):
+        self.trigger = {"snr_db": 8.5}
+        self.floor = -52.0
+
+    def current(self):
+        if isinstance(self.trigger, Exception):
+            raise self.trigger
+        return self.trigger
+
+    def noise_floor_dbfs(self):
+        if isinstance(self.floor, Exception):
+            raise self.floor
+        return self.floor
+
+
+def test_reports_trigger_health_and_keeps_checking_in_when_the_hook_is_wrong(tmp_path, model, capsys, caplog):
+    caplog.set_level(logging.INFO, logger="forestpulse_sensor")
+    port = free_port()
+    server, state = serve(port, key="k", quiet=False)
+    url = f"http://127.0.0.1:{port}"
+    teammate = TeammateSettings()
+    board = Sensor(url, "k", sensor_id="node-t", state_dir=str(tmp_path / "t"), model=model, checkin_interval=0.2,
+                   trigger_settings=teammate).start()
+    hook = FlakyHook()
+    flaky = Sensor(url, "k", sensor_id="node-f", state_dir=str(tmp_path / "f"), model=model, checkin_interval=0.2,
+                   trigger_settings=hook).start()
+
+    def checkin(sensor_id):
+        return state.sensors.get(sensor_id, {})
+
+    def checked_in_again(sensor_id, cond):
+        """A fresh check-in from the sensor satisfies cond: the sensor is still checking in."""
+        since = checkin(sensor_id).get("last_checkin")
+        return wait_for(lambda: checkin(sensor_id).get("last_checkin") != since and cond(checkin(sensor_id)))
+
+    try:
+        # three recordings, each a burst of packets: only the first packet of each starts one
+        burst = np.zeros((PACKET, 3), np.int16)
+        for _ in range(3):
+            for i in range(4):
+                board.feed(burst, break_before=(i == 0))
+            board.end_of_audio()
+
+        # the teammate's object, unchanged: its values are reported, its update() never called, no noise floor
+        assert checked_in_again("node-t", lambda c: c.get("recordings_per_min") == 3)
+        body = checkin("node-t")
+        assert body["trigger"] == {"snr_db": 4.0, "ratio_db": 0.0, "coherence": 0.6}
+        assert "noise_floor_dbfs" not in body
+        assert "node-t: check-in, 3 recordings/min, trigger snr_db 4.0 ratio_db 0.0 coherence 0.6, noise floor " \
+               "missing" in capsys.readouterr().out
+
+        # a hook that gives everything; a sensor that has had no recording reports 0, not missing
+        assert checked_in_again("node-f", lambda c: c.get("noise_floor_dbfs") == -52.0)
+        assert checkin("node-f")["trigger"] == {"snr_db": 8.5} and checkin("node-f")["recordings_per_min"] == 0
+        assert "node-f: check-in, 0 recordings/min, trigger snr_db 8.5, noise floor -52.0 dBFS" in \
+               capsys.readouterr().out
+
+        # each wrong answer leaves its field out and the sensor keeps checking in
+        for trigger, floor in ((None, None), (["snr_db", 4.0], RuntimeError("i2c gone")),
+                               ({"snr_db": "loud", "coherence": float("nan"), "ratio_db": True}, "quiet")):
+            hook.trigger, hook.floor = trigger, floor
+            assert checked_in_again("node-f", lambda c: "trigger" not in c and "noise_floor_dbfs" not in c)
+            assert checked_in_again("node-f", lambda c: "trigger" not in c and "noise_floor_dbfs" not in c)
+            assert "node-f: check-in, 0 recordings/min, trigger missing, noise floor missing" in capsys.readouterr().out
+        hook.trigger = RuntimeError("bridge down")
+        assert checked_in_again("node-f", lambda c: "trigger" not in c)
+        assert checked_in_again("node-f", lambda c: "trigger" not in c)
+
+        # after many check-ins, each reason was logged exactly once
+        reasons = ["has no noise_floor_dbfs()", "current() returned None", "current() returned list",
+                   "noise_floor_dbfs() raised", "gave snr_db='loud'", "noise_floor_dbfs() returned 'quiet'",
+                   "current() raised"]
+        messages = [r.getMessage() for r in caplog.records]
+        for reason in reasons:
+            assert len([m for m in messages if reason in m]) == 1, (reason, messages)
+        assert teammate.updates == []
+    finally:
+        board.stop()
+        flaky.stop()
+        server.shutdown()
