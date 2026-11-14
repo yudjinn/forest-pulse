@@ -1,7 +1,7 @@
 """Find the Forest Pulse nodes listed in scripts/nodes.txt on the local network, by their wlan0 MAC.
 
 Shared by deploy-nodes.py, node-logs.py and node-access.py. IPs change between venues; the MAC doesn't:
-each MAC is looked up in the laptop's neighbour table (ip neigh) and, if any is missing, the local subnet
+each MAC is looked up in the laptop's neighbour table (ip neigh on Linux, arp on macOS) and, if any is missing, the local subnet
 is pinged once (in parallel, /20 or smaller) so the table learns it.
 """
 from __future__ import annotations
@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 NODES_FILE = Path(__file__).resolve().parent / "nodes.txt"
+MACOS = sys.platform == "darwin"
 SSH = ["ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=15"]
 
 
@@ -28,8 +29,21 @@ def read_nodes(path: Path = NODES_FILE) -> list[tuple[str, str]]:
     return out
 
 
+def norm_mac(mac: str) -> str:
+    """macOS arp drops leading zeros (14:b5:cd:f:39:99); pad each octet back to two digits."""
+    return ":".join(o.zfill(2) for o in mac.lower().split(":"))
+
+
 def neighbours() -> dict[str, str]:
     """mac -> IPv4 from the kernel's neighbour table (entries that aren't FAILED / INCOMPLETE)."""
+    if MACOS:
+        out = subprocess.run(["arp", "-an"], capture_output=True, text=True).stdout
+        found = {}
+        for line in out.splitlines():  # ? (10.0.32.1) at 40:9e:a4:df:90:80 on en0 ifscope [ethernet]
+            f = line.split()
+            if len(f) >= 4 and f[2] == "at" and ":" in f[3]:
+                found[norm_mac(f[3])] = f[1].strip("()")
+        return found
     out = subprocess.run(["ip", "-4", "neigh", "show"], capture_output=True, text=True).stdout
     found = {}
     for line in out.splitlines():
@@ -42,6 +56,18 @@ def neighbours() -> dict[str, str]:
 def local_subnets() -> list:
     """IPv4 networks of the laptop's up interfaces with a default route (e.g. wlan0's /20)."""
     import ipaddress
+    if MACOS:
+        route = subprocess.run(["route", "-n", "get", "default"], capture_output=True, text=True).stdout
+        devs = [l.split(":", 1)[1].strip() for l in route.splitlines() if l.strip().startswith("interface:")]
+        nets = []
+        for dev in devs:
+            ifc = subprocess.run(["ifconfig", dev], capture_output=True, text=True).stdout
+            for line in ifc.splitlines():  # inet 10.0.32.238 netmask 0xfffff000 broadcast ...
+                f = line.split()
+                if f[:1] == ["inet"] and "netmask" in f:
+                    mask = str(ipaddress.IPv4Address(int(f[f.index("netmask") + 1], 16)))
+                    nets.append(ipaddress.ip_interface(f"{f[1]}/{mask}").network)
+        return nets
     routes = subprocess.run(["ip", "-4", "route", "show", "default"], capture_output=True, text=True).stdout
     devs = {r.split(" dev ")[1].split()[0] for r in routes.splitlines() if " dev " in r}
     nets = []
@@ -56,9 +82,10 @@ def local_subnets() -> list:
 def sweep(nets, workers: int = 256) -> None:
     """One ping to every address (in parallel) so the neighbour table learns who is on the subnet."""
     from concurrent.futures import ThreadPoolExecutor
+    wait = ["-t", "1"] if MACOS else ["-W", "1"]  # macOS ping -W is milliseconds; -t is the overall timeout
     hosts = [str(h) for n in nets if n.num_addresses <= 4096 for h in n.hosts()]
     with ThreadPoolExecutor(workers) as ex:
-        list(ex.map(lambda h: subprocess.run(["ping", "-c", "1", "-W", "1", h], capture_output=True), hosts))
+        list(ex.map(lambda h: subprocess.run(["ping", "-c", "1", *wait, h], capture_output=True), hosts))
 
 
 def resolve(wanted: list[str]) -> list[tuple[str, str]]:
