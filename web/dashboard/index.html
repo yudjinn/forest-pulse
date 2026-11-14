@@ -10,11 +10,22 @@
     <link rel="apple-touch-icon" href="/brand/icons/apple-touch-icon.png" sizes="180x180">
     <link rel="stylesheet" href="/dashboard/shell.css">
     <link rel="stylesheet" href="/dashboard/log/log.css">
+    <link rel="stylesheet" href="/dashboard/plan/plan.css">
     <script type="module" src="/dashboard/shell.js"></script>
     <script type="module" src="/dashboard/log/log.js"></script>
+    <script type="module" src="/dashboard/plan/plan.js"></script>
   </head>
   <body>
     <main class="panels">
+      <section id="plan" class="panel" aria-labelledby="plan-title">
+        <h2 id="plan-title">Sensor plan</h2>
+        <p class="error plan-error" role="alert" hidden></p>
+        <p class="plan-empty" hidden>No sensors yet. Sensors appear here when they first check in.</p>
+        <div class="plan-body" hidden>
+          <svg class="plan-map" role="group" aria-label="Plan"></svg>
+          <ul class="plan-sensors" aria-label="Sensors"></ul>
+        </div>
+      </section>
       <section id="log" class="panel" aria-labelledby="log-title">
         <h2 id="log-title">Event log</h2>
         <div class="log-scroll">

@@ -1,0 +1,192 @@
+/* The sensor plan panel: the drawing, and a card per sensor. */
+.plan-body {
+  display: grid;
+  gap: 16px;
+}
+
+.plan-body[hidden] {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .plan-body {
+    grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr);
+    align-items: start;
+  }
+}
+
+.plan-map {
+  display: block;
+  width: 100%;
+  background: var(--ivory);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  touch-action: none;
+  user-select: none;
+}
+
+.plan-grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.plan-grid line.plan-axis {
+  stroke: #b9b19d;
+}
+
+.plan-sensor {
+  cursor: grab;
+  outline: none;
+}
+
+.plan-sensor:active {
+  cursor: grabbing;
+}
+
+.plan-sensor-target {
+  fill: transparent;
+}
+
+.plan-sensor-dot {
+  fill: var(--evergreen);
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.plan-sensor-facing {
+  fill: var(--evergreen);
+}
+
+.plan-sensor-label {
+  fill: var(--evergreen);
+  font-size: 13px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--ivory);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.plan-sensor:focus-visible .plan-sensor-target {
+  stroke: var(--evergreen);
+  stroke-width: 2;
+}
+
+.plan-sensor.shared .plan-sensor-dot {
+  stroke: var(--alert);
+  stroke-width: 3;
+}
+
+.plan-sensor.offline {
+  opacity: 0.35;
+}
+
+.plan-sensors {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.plan-card.offline > :not(.plan-card-actions) {
+  opacity: 0.55;
+}
+
+.plan-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plan-card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.plan-status {
+  flex: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.plan-card.offline .plan-status {
+  color: var(--muted);
+}
+
+.plan-warning {
+  margin: 6px 0 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--alert-bg);
+  color: var(--alert);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.plan-warning[hidden] {
+  display: none;
+}
+
+.plan-card dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 12px;
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
+.plan-card dt {
+  color: var(--muted);
+}
+
+.plan-card dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.plan-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.plan-facing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plan-facing input {
+  width: 6em;
+  padding: 6px 8px;
+}
+
+.plan-remove {
+  margin-left: auto;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--evergreen);
+  border: 1px solid var(--line);
+}
+
+.plan-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+.plan-error {
+  margin: 0 0 12px;
+}
