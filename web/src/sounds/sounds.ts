@@ -2,6 +2,7 @@
 import type { RouteContext } from "../router.ts";
 import { json } from "../http.ts";
 import { logLine } from "../log.ts";
+import { soundListReach } from "../sensors/plan.ts";
 
 // Moves the sound-list version on, but only when the statement just before it in the same batch touched a row: a
 // change that changed nothing would otherwise make every sensor refetch an unchanged list.
@@ -39,14 +40,20 @@ const COLUMNS = "id, name, category, kind, enabled, taught_at";
 
 export const SEEDED_KEPT = "Only taught sounds can be deleted";
 
-// Every sound, switched on or off, in the sound list's order, with the list's current version and sensitivity.
+// Every sound, switched on or off, in the sound list's order, with the list's current version and sensitivity, and
+// how far that version has reached: {sensors, reached}, the sensors on the plan and those that last reported it.
+// One batch, so the reach is counted against the version it is sent with.
 export async function listSounds(_request: Request, { env }: RouteContext): Promise<Response> {
-  const [rows, list] = await env.DB.batch([
+  const [rows, list, reach] = await env.DB.batch([
     env.DB.prepare(`SELECT ${COLUMNS} FROM sounds ORDER BY rowid`),
     env.DB.prepare("SELECT version, sensitivity FROM sound_list WHERE id = 1"),
+    soundListReach(env.DB),
   ]);
   const { version, sensitivity } = list.results[0] as { version: number; sensitivity: number };
-  return json({ version, sensitivity, sounds: (rows.results as SoundRow[]).map(toSound) });
+  return json({
+    version, sensitivity, reach: reach.results[0] as { sensors: number; reached: number },
+    sounds: (rows.results as SoundRow[]).map(toSound),
+  });
 }
 
 // The sensitivity: the confidence every sound must reach before a sensor reports it, served as every sound's

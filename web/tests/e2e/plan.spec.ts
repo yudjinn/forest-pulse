@@ -1,12 +1,13 @@
 // Sensor plan journey: sensors join the plan when they first check in and are named Sensor 1, 2, 3, researchers
-// place and turn them, the plan shows each sensor's health, and removing and returning sensors frees and reuses
-// their numbers. Runs on its own fresh service, so the first sensor here is the first one ever.
+// place and turn them, the plan shows each sensor's health and flags sensors behind on the sound list, and removing
+// and returning sensors frees and reuses their numbers. Runs on its own fresh service, so the first sensor here is
+// the first one ever, and changing its sound list touches no other journey.
 import { mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { signIn } from "../fixtures/dashboard.ts";
-import { referenceClip, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
+import { asSensor, referenceClip, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { planServicePorts } from "../ports.ts";
 
@@ -14,7 +15,9 @@ const sensorList = (page: Page) => page.getByRole("list", { name: "Sensors" });
 // A sensor's card, found by the sensor's own id shown beneath its name.
 const card = (page: Page, id: string) =>
   sensorList(page).getByRole("listitem").filter({ has: page.getByText(id, { exact: true }) });
-const marker = (page: Page, name: string) => page.getByRole("button", { name: `Move ${name}`, exact: true });
+// A sensor's marker: "Move Sensor N", with ", outdated sound list" after it while the sensor is outdated.
+const marker = (page: Page, name: string) =>
+  page.getByRole("button", { name: new RegExp(`^Move ${name}(, outdated sound list)?$`) });
 // The event log's rows whose sensor column reads exactly this.
 const logRows = (page: Page, sensor: string) =>
   page.getByRole("row").filter({ has: page.getByRole("cell", { name: sensor, exact: true }) });
@@ -146,9 +149,18 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(card(page, c).getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list \d+$/)).toBeVisible();
     await expect(cardA.getByText("Two devices share this id")).toBeHidden();
 
-    // a stopped checking in long ago and shows offline; c just checked in and is online.
+    // a stopped checking in long ago and shows offline; c just checked in and is online, with the current sound list.
     await expect(cardA.getByText("Offline", { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(card(page, c).getByText("Online", { exact: true })).toBeVisible();
+    await expect(card(page, c).getByText("Updating", { exact: true })).toBeHidden();
+    await expect(card(page, c).getByText("Outdated sound list")).toBeHidden();
+    await expect(marker(page, "Sensor 3")).toHaveAccessibleName("Move Sensor 3");
+
+    // The sound list changes (a switch; the Sounds page's own switch is the sounds journey's). c last reported the
+    // old list and is still online: it is updating.
+    const old: number = (await (await page.request.get("/dashboard/api/sounds")).json()).version;
+    expect((await page.request.patch("/dashboard/api/sounds/gunshot", { data: { enabled: false } })).ok()).toBe(true);
+    await expect(card(page, c).getByText("Updating", { exact: true })).toBeVisible({ timeout: 3000 });
 
     // c has stopped too: it shows offline 10 s after its last check-in, give or take the plan's 2 s poll.
     const cLastCheckin = await lastCheckin(page, c);
@@ -156,6 +168,22 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     const silentFor = Date.now() - cLastCheckin;
     expect(silentFor).toBeGreaterThanOrEqual(10_000);
     expect(silentFor).toBeLessThan(15_000);
+    // Offline while behind, c is outdated: on its card, and as a warning on its marker.
+    await expect(card(page, c).getByText("Outdated sound list")).toBeVisible({ timeout: 3000 });
+    await expect(card(page, c).getByText("Updating", { exact: true })).toBeHidden();
+    await expect(marker(page, "Sensor 3")).toHaveAccessibleName("Move Sensor 3, outdated sound list");
+
+    // a checks in again reporting the old list without fetching the new one: updating after one such check-in,
+    // outdated after three, though it is online.
+    const behind = { call: "checkin" as const, fields: { sound_list_version: old } };
+    await asSensor(a, [behind], undefined, service.url);
+    await expect(cardA.getByText("Online", { exact: true })).toBeVisible({ timeout: 3000 });
+    await expect(cardA.getByText("Updating", { exact: true })).toBeVisible();
+    await expect(marker(page, "Sensor 1")).toHaveAccessibleName("Move Sensor 1");
+    await asSensor(a, [behind, behind], undefined, service.url);
+    await expect(cardA.getByText("Outdated sound list")).toBeVisible({ timeout: 3000 });
+    await expect(cardA.getByText("Online", { exact: true })).toBeVisible();
+    await expect(marker(page, "Sensor 1")).toHaveAccessibleName("Move Sensor 1, outdated sound list");
 
     // A new sensor after one was removed takes its default spot from the last sensor still on the plan and the
     // lowest free number: c is removed, so d goes 3 m to the right of b, not of c, and is Sensor 3.
