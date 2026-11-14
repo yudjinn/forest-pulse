@@ -128,6 +128,8 @@ On stage:
 4. On the Sounds page, choose "Teach a new sound", name it "Boreal owl", leave Wildlife, select everything in the pack
    folder and drop it on the page, wait for every recording to show Ready, then Teach. Boreal owl is listed, switched
    on.
-5. Play Boreal owl 1, then Boreal owl 2: each is reported as Boreal owl. Play Tawny owl: it is not.
+5. Back on the plan, wait until the sound list number on every board's card has gone up by one: a board fetches the
+   new list after its next check-in, within about a minute. An owl played before that is not reported.
+6. Play Boreal owl 1, then Boreal owl 2: each is reported as Boreal owl. Play Tawny owl: it is not.
 
 Afterwards: delete Boreal owl on the Sounds page and Clear events, so the next rehearsal and the boards start clean.
