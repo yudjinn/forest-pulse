@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { devVars, signIn } from "../fixtures/dashboard.ts";
-import { asSensor, referenceClip, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
+import { asSensor, referenceClip, replay, sensorName, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService, secondServiceURL } from "../fixtures/service.ts";
 import { webRoot } from "../ports.ts";
 
@@ -18,6 +18,12 @@ const clockTime = (ms: number) => {
   const d = new Date(ms);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
+
+// The event log's visible rows for a sensor, by its name as the plan gives it.
+async function visibleRows(page: Page, sensorId: string) {
+  const name = await sensorName(page.request, sensorId);
+  return page.getByRole("row").filter({ has: page.getByRole("cell", { name, exact: true }) });
+}
 
 async function logRows(page: Page, sensorId: string) {
   const res = await page.request.get("/dashboard/api/events");
@@ -98,7 +104,9 @@ test("sensors get the contract's replies: sound list, duplicates, dropped, rejec
   expect(Math.abs(Date.parse(late.occurred_at) - expected)).toBeLessThan(3000);
   // The visible row shows the corrected time, not the sensor's clock.
   const times = [-2000, -1000, 0, 1000, 2000].map((d) => clockTime(expected + d));
-  const lateRow = page.getByRole("row").filter({ hasText: lateId });
+  // Never checked in, so not on the plan: the log names it by its id.
+  expect(await sensorName(page.request, lateId)).toBe(lateId);
+  const lateRow = await visibleRows(page, lateId);
   await expect(lateRow).toHaveCount(1, { timeout: 3000 });
   expect(times).toContain((await lateRow.getByRole("cell").first().textContent()) ?? "");
 });
@@ -119,7 +127,7 @@ test("a replay with a wrong key is refused, then delivered once the key is fixed
   const rows = await logRows(page, sensorId);
   expect(rows).toHaveLength(queued);
   expect(rows.map((r) => r.sound_name)).toContain("Chainsaw");
-  await expect(page.getByRole("row").filter({ hasText: sensorId }).first()).toBeVisible();
+  await expect((await visibleRows(page, sensorId)).first()).toBeVisible();
 });
 
 test("the dashboard shows when it has lost the service, and clears it when the service is back", async ({ page }) => {

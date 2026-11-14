@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { devVars, signIn } from "../fixtures/dashboard.ts";
-import { asSensor, referenceClip, replay, uniqueSensorId } from "../fixtures/sensor.ts";
+import { asSensor, referenceClip, replay, sensorName, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { activitiesServicePorts, activitiesServiceStateDir, webRoot } from "../ports.ts";
 
@@ -35,19 +35,22 @@ test("events become activities by category and corrected time, and Clear events 
     await expect(page.getByText("Nothing heard yet")).toBeVisible();
     await expect(page.getByRole("button", { name: "Clear events" })).toBeDisabled();
 
-    // A sensor hears a chainsaw: one Logging activity with its icon, sound, time, count and sensor.
+    // A sensor hears a chainsaw: one Logging activity with its icon, sound, time, count and sensor, named as the
+    // plan names it.
     const saw = uniqueSensorId("act-saw");
     expect(await replay({ sensorId: saw, wavs: [referenceClip("chainsaw.wav")], serverUrl: origin }))
       .toContain("0 event(s) still queued");
+    const sawName = await sensorName(page.request, saw, origin);
     const logging = activity(page, "Logging");
     await expect(logging).toHaveCount(1, { timeout: 3000 });
     await expect(logging).toContainText("Chainsaw");
     await expect(logging).toContainText("1 event");
-    await expect(logging).toContainText(saw);
+    await expect(logging.getByText(sawName, { exact: true })).toBeVisible();
     await expect(logging.getByText(/^\d{2}:\d{2}:\d{2}$/)).toBeVisible();
     await expect(page.getByText("Nothing heard yet")).toBeHidden();
 
-    // Within 60 s a second sensor reports a vehicle (through the library's own client): its own Vehicle activity.
+    // Within 60 s a second sensor reports a vehicle (through the library's own client): its own Vehicle activity. It
+    // never checked in, so it is not on the plan and the activity names it by its id.
     const road = uniqueSensorId("act-road");
     const [posted] = await asSensor(road, [{ call: "post_events", events: [
       { event_id: "vehicle-1", detected_at: new Date().toISOString(), sound_id: "vehicle", confidence: 0.8 },
@@ -57,7 +60,7 @@ test("events become activities by category and corrected time, and Clear events 
     await expect(vehicle).toHaveCount(1, { timeout: 3000 });
     await expect(vehicle).toContainText("Vehicle");
     await expect(vehicle).toContainText("1 event");
-    await expect(vehicle).toContainText(road);
+    await expect(vehicle.getByText(road, { exact: true })).toBeVisible();
     await expect(activities(page)).toHaveCount(2);
     for (const [card, icon] of [[logging, "logging"], [vehicle, "vehicle"]] as const) {
       await expect(card.getByTestId("activity-icon")).toHaveAttribute("src", `/dashboard/icons/${icon}.svg`);
@@ -70,7 +73,8 @@ test("events become activities by category and corrected time, and Clear events 
     expect(await replay({ sensorId: behind, wavs: [referenceClip("chainsaw.wav")], serverUrl: origin, clockShiftS: -300 }))
       .toContain("0 event(s) still queued");
     await expect(logging).toContainText("2 events", { timeout: 3000 });
-    await expect(logging).toContainText(`${saw}, ${behind}`);
+    await expect(logging.getByText(`${sawName}, ${await sensorName(page.request, behind, origin)}`, { exact: true }))
+      .toBeVisible();
     await expect(logging.getByText(/^\d{2}:\d{2}:\d{2} to \d{2}:\d{2}:\d{2}$/)).toBeVisible();
     await expect(activities(page)).toHaveCount(2);
 
@@ -98,7 +102,7 @@ test("events become activities by category and corrected time, and Clear events 
 
     // Confirmed, every event and activity is gone; the sensors, their placements and the sounds stay as they were.
     const sawCard = page.getByRole("list", { name: "Sensors" }).getByRole("listitem")
-      .filter({ has: page.getByRole("heading", { name: saw }) });
+      .filter({ has: page.getByText(saw, { exact: true }) });
     await sawCard.getByLabel("Facing").fill("45");
     await sawCard.getByLabel("Facing").press("Enter");
     await expect(sawCard.getByLabel("Facing")).toHaveValue("45");

@@ -4,15 +4,16 @@
 // Every journey here starts its own fresh service on the calibration pair, so they run one after another.
 import { expect, test, type Page } from "@playwright/test";
 import { devVars, signIn } from "../fixtures/dashboard.ts";
-import { asSensor, referenceClip, uniqueSensorId } from "../fixtures/sensor.ts";
+import { asSensor, referenceClip, sensorName, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { calibrationServicePorts } from "../ports.ts";
 import { SimulatedSensors } from "./calibration-sensors.ts";
 
 test.describe.configure({ mode: "serial" });
 
+// A sensor's card, found by the sensor's own id shown beneath its name.
 const card = (page: Page, id: string) =>
-  page.getByRole("list", { name: "Sensors" }).getByRole("listitem").filter({ has: page.getByRole("heading", { name: id }) });
+  page.getByRole("list", { name: "Sensors" }).getByRole("listitem").filter({ has: page.getByText(id, { exact: true }) });
 const position = (page: Page, id: string) => card(page, id).getByText(/^x -?\d+\.\d m, y -?\d+\.\d m$/);
 const measured = (page: Page) => page.getByRole("img", { name: /^Measured \d+\.\d\d m from / });
 const facing = (page: Page, id: string) => card(page, id).getByLabel("Facing");
@@ -62,6 +63,9 @@ test("two sensors measure their distance and facings and appear as they stand; a
         emitter_offset_m: 0.07, muted: true },
     });
     await expect(calibrate).toBeEnabled({ timeout: 5000 });
+    // Calibration names the sensors as the plan does.
+    const nameA = await sensorName(page.request, a);
+    const nameB = await sensorName(page.request, b);
 
     // The researcher has placed both by hand, elsewhere and turned other ways.
     for (const [id, x_m, y_m, facing_deg] of [[a, -1, 1, 45], [b, 1, 2, 135]] as const) {
@@ -82,7 +86,7 @@ test("two sensors measure their distance and facings and appear as they stand; a
     await calibrate.click();
     await expect(page.getByText(/^Waiting for boards \(\d of 2 ready\)$/)).toBeVisible({ timeout: 5000 });
     await expect(calibrate).toBeDisabled();
-    await expect(page.getByText(`Calibration failed: ${b} its beep wasn't heard`)).toBeVisible({ timeout: 40_000 });
+    await expect(page.getByText(`Calibration failed: ${nameB} its beep wasn't heard`)).toBeVisible({ timeout: 40_000 });
     await asPlaced();
 
     // With its buzzer working, its stream starting 5 s late and its bearing code unable to tell where a sound came
@@ -94,7 +98,7 @@ test("two sensors measure their distance and facings and appear as they stand; a
     await expect(page.getByText("Waiting for boards (1 of 2 ready)")).toBeVisible({ timeout: 8000 });
     await expect(page.getByText("Waiting for boards (2 of 2 ready)")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Beeping", { exact: true })).toBeVisible({ timeout: 8000 });
-    await expect(page.getByText(`Calibration failed: couldn't tell direction between ${a} and ${b}`))
+    await expect(page.getByText(`Calibration failed: couldn't tell direction between ${nameA} and ${nameB}`))
       .toBeVisible({ timeout: 40_000 });
     await asPlaced();
 
@@ -108,7 +112,7 @@ test("two sensors measure their distance and facings and appear as they stand; a
     const label = (await measured(page).getAttribute("aria-label"))!;
     const [, metres] = label.match(/^Measured (\d+\.\d\d) m from /)!;
     expect(Math.abs(Number(metres) - 3)).toBeLessThanOrEqual(0.05);
-    expect(label).toBe(`Measured ${metres} m from ${a} to ${b}`);
+    expect(label).toBe(`Measured ${metres} m from ${nameA} to ${nameB}`);
     await expect(page.getByText(`${metres} m`, { exact: true })).toBeVisible();
     await expect(position(page, a)).toHaveText("x 0.0 m, y 0.0 m", { timeout: 3000 });
     await expect(position(page, b)).toHaveText(`x ${Number(metres).toFixed(1)} m, y 0.0 m`);
@@ -122,7 +126,7 @@ test("two sensors measure their distance and facings and appear as they stand; a
     // was.
     await sensors.send({ hear: { ids: [a, b], wav: referenceClip("chainsaw.wav"), x_m: 1, y_m: 2 } });
     await expect(locations(page)).toHaveCount(1, { timeout: 15_000 });
-    await expect(locations(page)).toHaveAccessibleName(new RegExp(`^Location, \\d+\\.\\d m from ${a}, \\d+\\.\\d m from ${b}$`));
+    await expect(locations(page)).toHaveAccessibleName(new RegExp(`^Location, \\d+\\.\\d m from ${nameA}, \\d+\\.\\d m from ${nameB}$`));
     const { points } = await (await page.request.get("/dashboard/api/locations")).json() as
       { points: { x_m: number; y_m: number }[] };
     expect(points).toHaveLength(1);
@@ -179,6 +183,9 @@ test("three sensors calibrate into a triangle on the side of the line they stand
       expect(placed.ok()).toBe(true);
     }
     await expect(position(page, c)).toHaveText("x 0.0 m, y 2.0 m", { timeout: 3000 });
+    // Calibration names the sensors as the plan does.
+    const names: Record<string, string> = {};
+    for (const id of [a, b, c]) names[id] = await sensorName(page.request, id);
 
     // What the plan holds for a sensor: its card's position and facing, and the plan feed's exact coordinates behind
     // the card's rounded ones.
@@ -200,7 +207,7 @@ test("three sensors calibrate into a triangle on the side of the line they stand
     const sidesDrawn = async (pairs: [string, string][]) => {
       await expect(measured(page)).toHaveCount(pairs.length);
       for (const [p, q] of pairs) {
-        const side = page.getByRole("img", { name: new RegExp(`^Measured \\d+\\.\\d\\d m from ${p} to ${q}$`) });
+        const side = page.getByRole("img", { name: new RegExp(`^Measured \\d+\\.\\d\\d m from ${names[p]} to ${names[q]}$`) });
         const [, metres] = (await side.getAttribute("aria-label"))!.match(/^Measured (\d+\.\d\d) m/)!;
         const length = Math.hypot(truth[q].x - truth[p].x, truth[q].y - truth[p].y);
         expect(Math.abs(Number(metres) - length), `${p} to ${q}`).toBeLessThanOrEqual(0.05);
@@ -235,7 +242,7 @@ test("three sensors calibrate into a triangle on the side of the line they stand
     await sensors.send({ power_off: { id: c } });
     await calibrate.click();
     await expect(page.getByText("Waiting for boards (2 of 3 ready)")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(new RegExp(`^Calibrated \\d\\d:\\d\\d, ${c} left out$`))).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(new RegExp(`^Calibrated \\d\\d:\\d\\d, ${names[c]} left out$`))).toBeVisible({ timeout: 60_000 });
     await sidesDrawn([[a, b]]);
     await asTheyStand([a, b]);
     expect(await onPlan(c)).toEqual(cBefore);

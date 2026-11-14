@@ -7,7 +7,7 @@ import type { AcceptedEvent } from "../api/intake.ts";
 import type { RouteContext } from "../router.ts";
 import { json } from "../http.ts";
 import { logLine } from "../log.ts";
-import { readPlan } from "../sensors/plan.ts";
+import { byName, readPlan, sensorNames } from "../sensors/plan.ts";
 import { type Candidate, choosePartner, crossing, directionDeg, normaliseDeg, PAIR_WINDOW_MS } from "./geometry.ts";
 
 // Lines and points show on the plan for this long after the event's corrected time.
@@ -83,9 +83,10 @@ interface ShownRow {
 }
 
 // GET /dashboard/api/locations: the lines and crossing points to show now, with the service's clock so the page
-// can take each one down when its time is up.
+// can take each one down when its time is up. Each names its sensors as shown now.
 export async function listLocations(_request: Request, { env }: RouteContext): Promise<Response> {
   const now = Date.now();
+  const name = await sensorNames(env.DB);
   const rows = await env.DB.prepare(
     `SELECT e.id, e.sensor_id, e.occurred_at, e.line_x_m, e.line_y_m, e.line_deg, e.location_x_m, e.location_y_m,
        e.location_partner_id, e.location_partner_sensor, e.location_distance_m, e.location_partner_distance_m,
@@ -109,13 +110,14 @@ export async function listLocations(_request: Request, { env }: RouteContext): P
         { sensor_id: r.sensor_id, x_m: r.line_x_m, y_m: r.line_y_m, distance_m: r.location_distance_m },
         { sensor_id: r.location_partner_sensor, x_m: r.partner_x_m, y_m: r.partner_y_m,
           distance_m: r.location_partner_distance_m },
-      ].sort(bySensor),
+      ].map(named(name)).sort(bySensor),
     });
   }
   return json({
     now,
     lines: rows.results.map((r) => ({
-      event_id: r.id, sensor_id: r.sensor_id, x_m: r.line_x_m, y_m: r.line_y_m, direction_deg: r.line_deg,
+      event_id: r.id, sensor_id: r.sensor_id, sensor_name: name(r.sensor_id), x_m: r.line_x_m, y_m: r.line_y_m,
+      direction_deg: r.line_deg,
       occurred_at: r.occurred_at,
     })),
     points,
@@ -136,22 +138,27 @@ export interface LocationColumns {
 }
 
 // An activity's latest location: the crossing of its most recent located event (events oldest first), or null.
-export function latestLocation(events: readonly LocationColumns[]) {
+// name gives each sensor's name as shown now.
+export function latestLocation(events: readonly LocationColumns[], name: (id: string) => string) {
   for (let i = events.length - 1; i >= 0; i--) {
     const e = events[i];
     if (e.location_x_m === null || e.location_y_m === null) continue;
     const distances = [
       { sensor_id: e.sensor_id, distance_m: e.location_distance_m },
       { sensor_id: e.location_partner_sensor, distance_m: e.location_partner_distance_m },
-    ].sort(bySensor);
+    ].map(named(name)).sort(bySensor);
     return { x_m: e.location_x_m, y_m: e.location_y_m, distances };
   }
   return null;
 }
 
+// Adds each sensor's name as shown now; a partner whose id is missing is named by nothing.
+const named = (name: (id: string) => string) => <T extends { sensor_id: string | null }>(f: T) =>
+  ({ ...f, sensor_name: f.sensor_id === null ? null : name(f.sensor_id) });
+
 // Distances are listed by sensor name, so a pair reads the same whichever event arrived first.
-const bySensor = (a: { sensor_id: string | null }, b: { sensor_id: string | null }) =>
-  (a.sensor_id ?? "") < (b.sensor_id ?? "") ? -1 : 1;
+const bySensor = (a: { sensor_name: string | null }, b: { sensor_name: string | null }) =>
+  byName(a.sensor_name ?? "", b.sensor_name ?? "");
 
 const round = (v: number, places: number) => {
   const r = Math.round(v * 10 ** places) / 10 ** places;

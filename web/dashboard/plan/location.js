@@ -5,10 +5,10 @@ import { poll } from "/dashboard/shell.js";
 import { addLayer } from "/dashboard/plan/plan.js";
 
 /**
- * @typedef {{ event_id: number, sensor_id: string, x_m: number, y_m: number, direction_deg: number,
- *   occurred_at: number }} DirectionLine
+ * @typedef {{ event_id: number, sensor_id: string, sensor_name: string, x_m: number, y_m: number,
+ *   direction_deg: number, occurred_at: number }} DirectionLine
  * @typedef {{ x_m: number, y_m: number, occurred_at: number,
- *   from: { sensor_id: string, x_m: number, y_m: number, distance_m: number }[] }} CrossingPoint
+ *   from: { sensor_id: string, sensor_name: string, x_m: number, y_m: number, distance_m: number }[] }} CrossingPoint
  */
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -49,7 +49,7 @@ const layer = addLayer({
       const [x2, y2] = view.toScreen(l.x_m + reach * Math.sin(r), l.y_m + reach * Math.cos(r));
       g.append(svgEl("line", {
         x1, y1, x2, y2, stroke: LINE, "stroke-width": 2, "stroke-opacity": 0.6, "stroke-dasharray": "6 4",
-        role: "img", "aria-label": `Direction from ${l.sensor_id}`,
+        role: "img", "aria-label": `Direction from ${l.sensor_name}`,
       }));
     }
     for (const p of points.filter(showing)) {
@@ -66,7 +66,7 @@ const layer = addLayer({
       }
       g.append(svgEl("circle", {
         cx: px, cy: py, r: 7, fill: POINT, stroke: "#fff", "stroke-width": 2, role: "img",
-        "aria-label": `Location, ${p.from.map((f) => `${metres(f.distance_m)} from ${f.sensor_id}`).join(", ")}`,
+        "aria-label": `Location, ${p.from.map((f) => `${metres(f.distance_m)} from ${f.sensor_name}`).join(", ")}`,
       }));
     }
   },

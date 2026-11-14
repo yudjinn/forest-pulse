@@ -17,7 +17,7 @@
 - **Calibration-capable sensor**: a sensor with a 3-mic array, a buzzer and a sensor library new enough to take part. A single-mic sensor or one without a buzzer is not.
 - **Stage check**: recording the real buzzer on the stage at 1, 3 and 5 m and running the library's check tool on the recordings, which answers PASS or FAIL for relying on calibration at the demo.
 - **Measured layout**: a plan set by a calibration run, relative to the sensors (first sensor at the origin, second to its right). A manual layout is one set by dragging and typing facings.
-- **Sensor name**: "Sensor N" on the dashboard, N the lowest number not held by another sensor on the plan when it joins. The sensor's own id still identifies it to the service.
+- **Sensor name**: "Sensor N" on the dashboard, N the lowest number not held by another sensor on the plan when it joins; a returning sensor takes its old number back when still free. A sensor not on the plan shows its own id, which still identifies it to the service. The plan lists sensors by number, so plan order is Sensor 1 first.
 - **Warning**: the operator's response to a logging activity: every board that heard it plays the alarm on its buzzer, standing in for a radio warning to the loggers that logging here is unauthorised.
 - **Alarm**: the warning's sound: a harsh hi-lo stutter (3.5 kHz and 2.5 kHz tones, 120 ms each, one every 150 ms) for about 5 s, unlike the smooth calibration sweeps.
 - **Sensitivity**: one confidence threshold, set on the Sounds page, that every sound of interest must reach before a sensor reports it.

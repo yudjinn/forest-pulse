@@ -5,6 +5,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { expect, type APIRequestContext } from "@playwright/test";
 import { baseURL, webRoot } from "../ports.ts";
 import { devVars } from "./dashboard.ts";
 
@@ -17,6 +18,16 @@ export const referenceClip = (name: string) =>
 // A sensor id no other journey or run uses.
 export function uniqueSensorId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+// The name researchers see for a sensor, read from the plan of the service at origin (the request's own base URL
+// when empty): "Sensor N" while it is on the plan, its own id otherwise. Journeys look a name up here, never assume a
+// number: on the shared service the numbers depend on which journeys ran first.
+export async function sensorName(request: APIRequestContext, id: string, origin = ""): Promise<string> {
+  const res = await request.get(`${origin}/dashboard/api/sensors`);
+  expect(res.status(), "GET /dashboard/api/sensors").toBe(200);
+  const { sensors } = await res.json() as { sensors: { id: string; name: string }[] };
+  return sensors.find((s) => s.id === id)?.name ?? id;
 }
 
 export interface ReplayOptions {

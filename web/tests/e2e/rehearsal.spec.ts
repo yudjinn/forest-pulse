@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
+import { replay, sensorName, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { rehearsalServicePorts } from "../ports.ts";
 import {
@@ -38,13 +38,20 @@ async function read<T>(request: APIRequestContext, origin: string, what: string)
   return res.json() as Promise<T>;
 }
 
+// A sensor's card, found by the sensor's own id shown beneath its name.
 const sensorCard = (page: Page, id: string) => page.getByRole("list", { name: "Sensors" }).getByRole("listitem")
-  .filter({ has: page.getByRole("heading", { name: id }) });
-// The Logging activity a rehearsal sensor is part of; the live log may hold others.
-const logging = (page: Page, sensorId: string) => page.getByRole("list", { name: "Activities" }).getByRole("listitem")
-  .filter({ has: page.getByRole("heading", { name: "Logging", exact: true }) }).filter({ hasText: sensorId });
-const logRows = (page: Page, sensorId: string, sound: string) =>
-  page.getByRole("row").filter({ hasText: sensorId }).filter({ hasText: sound });
+  .filter({ has: page.getByText(id, { exact: true }) });
+// The Logging activity a rehearsal sensor is part of, by the sensor's name in its list of sensors; the live log may
+// hold others.
+const logging = (page: Page, sensor: string) => page.getByRole("list", { name: "Activities" }).getByRole("listitem")
+  .filter({ has: page.getByRole("heading", { name: "Logging", exact: true }) })
+  .filter({ has: page.getByText(new RegExp(`^(.*, )?${sensor}(, .*)?$`)) });
+// The event log's rows of a sound whose sensor column reads exactly this.
+const logRows = (page: Page, sensor: string, sound: string) =>
+  page.getByRole("row").filter({ has: page.getByRole("cell", { name: sensor, exact: true }) }).filter({ hasText: sound });
+// Distances as the service lists them, in name order.
+const distances = (from: [string, string][]) => from
+  .sort(([, x], [, y]) => x.localeCompare(y, "en", { numeric: true })).map(([m, n]) => `${m} m from ${n}`).join(", ");
 
 test("the demo script: a chainsaw's direction and location, the teaching pack taught, owls told apart, a clean slate",
   async ({ browser }) => {
@@ -67,6 +74,10 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
     const name = `Rehearsal owl ${Date.now().toString(36)}`;
     const ids = { a: uniqueSensorId("rehearsal-a"), b: uniqueSensorId("rehearsal-b"), c: uniqueSensorId("rehearsal-c") };
     const mine = new Set(Object.values(ids));
+    // Each rehearsal sensor's name as the plan gives it, looked up once it is on the plan: on the live site the
+    // numbers depend on which sensors are there.
+    const names: Record<string, string> = {};
+    const nameOf = (id: string) => names[id] ?? id;
     const stateDir = (id: string) => path.join(mkdtempSync(path.join(os.tmpdir(), "fp-rehearsal-")), id);
     const states = { a: stateDir(ids.a), b: stateDir(ids.b), c: stateDir(ids.c) };
     const context = await browser.newContext();
@@ -122,15 +133,17 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
           }
           await expect(sensorCard(page, ids.a).getByText(`x ${x0.toFixed(1)} m, y 0.0 m`)).toBeVisible(seen);
           await expect(sensorCard(page, ids.b).getByText(`x ${(x0 + 3).toFixed(1)} m, y 0.0 m`)).toBeVisible(seen);
+          for (const id of [ids.a, ids.b]) names[id] = await sensorName(request, id, origin);
         });
 
       const chainsaw = playerSample("chainsaw-1.wav");
       await demoStep("a sensor hears a chainsaw", `a Logging activity from ${ids.a} and its direction on the plan`,
         async () => {
           await hearTogether(origin, key, [{ id: ids.a, angle: 315, stateDir: states.a }], chainsaw).release();
-          await expect(logging(page, ids.a)).toBeVisible(seen);
+          await expect(logging(page, nameOf(ids.a))).toBeVisible(seen);
           // The sample can be heard more than once, each time with its own line.
-          await expect(page.getByRole("img", { name: `Direction from ${ids.a}`, exact: true }).first()).toBeVisible(seen);
+          await expect(page.getByRole("img", { name: `Direction from ${nameOf(ids.a)}`, exact: true }).first())
+            .toBeVisible(seen);
         });
 
       await demoStep("two sensors hear the chainsaw at once",
@@ -140,9 +153,9 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
             { id: ids.b, angle: 26.57, stateDir: states.b },
           ], chainsaw).release();
           // Both events of a pair can be located, so the same point can be drawn more than once.
-          await expect(page.getByRole("img", { name: `Location, 1.4 m from ${ids.a}, 2.2 m from ${ids.b}` }).first())
-            .toBeVisible(seen);
-          await expect(logging(page, ids.a)).toContainText(`1.4 m from ${ids.a}, 2.2 m from ${ids.b}`, seen);
+          const located = distances([["1.4", nameOf(ids.a)], ["2.2", nameOf(ids.b)]]);
+          await expect(page.getByRole("img", { name: `Location, ${located}` }).first()).toBeVisible(seen);
+          await expect(logging(page, nameOf(ids.a))).toContainText(located, seen);
         });
 
       const taught = await demoStep(`teach "${name}" from the teaching pack on the Teach page`,
@@ -168,11 +181,12 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
             expect(output).toMatch(new RegExp(`sound list ${taught.version}: .*${name}`));
             expect(output).toMatch(/^done: 0 event\(s\) still queued$/m);
           }
+          names[ids.c] = await sensorName(request, ids.c, origin);
           await page.goto(`${origin}/dashboard/`);
-          await expect(logRows(page, ids.a, name).first()).toBeVisible(seen);
-          await expect(logRows(page, ids.b, name).first()).toBeVisible(seen);
+          await expect(logRows(page, nameOf(ids.a), name).first()).toBeVisible(seen);
+          await expect(logRows(page, nameOf(ids.b), name).first()).toBeVisible(seen);
           await page.waitForTimeout(2500); // one more poll of the log
-          await expect(logRows(page, ids.c, name)).toHaveCount(0);
+          await expect(logRows(page, nameOf(ids.c), name)).toHaveCount(0);
         });
 
       await demoStep(`delete "${name}" on the Sounds page`, "it leaves the list after its confirmation", async () => {
@@ -186,7 +200,7 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
       await demoStep("remove the rehearsal sensors from the plan", "their cards gone from the plan", async () => {
         await page.goto(`${origin}/dashboard/`);
         for (const id of mine) {
-          await sensorCard(page, id).getByRole("button", { name: `Remove ${id}` }).click();
+          await sensorCard(page, id).getByRole("button", { name: `Remove ${nameOf(id)}` }).click();
           await expect(sensorCard(page, id)).toHaveCount(0, seen);
         }
       });

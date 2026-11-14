@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { uniqueSensorId } from "../fixtures/sensor.ts";
+import { sensorName, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SimulatedSensors } from "./calibration-sensors.ts";
 import { demoStep, liveOrigin, rehearsalSecrets, signInWith } from "./rehearsal-steps.ts";
 
@@ -31,8 +31,9 @@ async function read<T>(request: APIRequestContext, origin: string, what: string)
   return res.json() as Promise<T>;
 }
 
+// A sensor's card, found by the sensor's own id shown beneath its name.
 const card = (page: Page, id: string) => page.getByRole("list", { name: "Sensors" }).getByRole("listitem")
-  .filter({ has: page.getByRole("heading", { name: id }) });
+  .filter({ has: page.getByText(id, { exact: true }) });
 const measured = (page: Page) => page.getByRole("img", { name: /^Measured \d+\.\d\d m from / });
 const placement = (list: PlanSensor[]) => list.map((s) => ({ id: s.id, x_m: s.x_m, y_m: s.y_m, facing_deg: s.facing_deg }));
 // How far apart two directions are, degrees.
@@ -52,6 +53,8 @@ test("calibration on the live site: three rehearsal boards calibrate into their 
     const { password, key } = rehearsalSecrets();
     const [a, b, c] = ["rehearsal-cal-a", "rehearsal-cal-b", "rehearsal-cal-c"].map(uniqueSensorId);
     const mine = new Set([a, b, c]);
+    // Each rehearsal board's name as the live plan gives it, looked up once it is online.
+    const names: Record<string, string> = {};
     // Sides of 3 m (a-b), 2.5 m (a-c) and 2 m (b-c), c above the line from a to b, each board turned its own way with
     // its own clock, buzzers 2 cm from their arrays (as the local triangle journey).
     const cY = Math.sqrt(2.5 ** 2 - 1.875 ** 2);
@@ -99,6 +102,7 @@ test("calibration on the live site: three rehearsal boards calibrate into their 
           await expect(page.getByRole("button", { name: "Calibrate" })).toBeEnabled(seen);
           const state = await read<CalibrationState>(request, origin, "calibration");
           expect(state.eligible_sensors, "the sensors that can take part").toEqual([a, b, c]);
+          for (const id of mine) names[id] = await sensorName(request, id, origin);
         });
 
       await demoStep("Calibrate", "the boards beeping, then the run calibrated", async () => {
@@ -113,7 +117,7 @@ test("calibration on the live site: three rehearsal boards calibrate into their 
           expect(state.layout?.sensors, "the sensors the run placed").toEqual([a, b, c]);
           await expect(measured(page)).toHaveCount(3);
           for (const [p, q] of [[a, b], [a, c], [b, c]]) {
-            const side = page.getByRole("img", { name: new RegExp(`^Measured \\d+\\.\\d\\d m from ${p} to ${q}$`) });
+            const side = page.getByRole("img", { name: new RegExp(`^Measured \\d+\\.\\d\\d m from ${names[p]} to ${names[q]}$`) });
             const [, metres] = (await side.getAttribute("aria-label"))!.match(/^Measured (\d+\.\d\d) m/)!;
             console.log(`calibration rehearsal measured ${metres} m from ${p} to ${q}`);
             const length = Math.hypot(truth[q].x - truth[p].x, truth[q].y - truth[p].y);
@@ -134,7 +138,7 @@ test("calibration on the live site: three rehearsal boards calibrate into their 
           // Off first: a removed sensor comes back on the plan at its next check-in.
           await sensors!.stop();
           for (const id of mine) {
-            await card(page, id).getByRole("button", { name: `Remove ${id}` }).click();
+            await card(page, id).getByRole("button", { name: `Remove ${names[id]}` }).click();
             await expect(card(page, id)).toHaveCount(0, seen);
           }
           await expect(page.getByText(/^Calibrated /)).toBeHidden(seen);

@@ -1,6 +1,7 @@
-// The sensors on the plan: where each stands and faces, whether it is online, and whether two running devices
-// share its name. A sensor joins the plan on check-in (the check-in hook), researchers move, turn and remove it,
-// and everything that needs a sensor's placement or online state reads it through readPlan.
+// The sensors on the plan: where each stands and faces, its name, whether it is online, and whether two running
+// devices share its id. A sensor joins the plan on check-in (the check-in hook), researchers move, turn and remove
+// it, and everything that needs a sensor's placement or online state reads it through readPlan; everything that
+// shows a sensor to researchers names it through sensorNames.
 // Plan metres: x to the right, y up. Facing: degrees clockwise from the plan's up, 0 to under 360.
 import type { Env } from "../env.ts";
 import type { SensorCheckin } from "../api/intake.ts";
@@ -23,6 +24,11 @@ export const isOnline = (lastCheckinAt: number, now: number) => now - lastChecki
 
 export interface PlanSensor {
   id: string;
+  // The lowest number not held by another sensor on the plan when it joined or returned; null only in the moment
+  // between the numbering migration and this code going live, until its next check-in.
+  number: number | null;
+  // What researchers see: "Sensor N", or the id while it has no number.
+  name: string;
   x_m: number;
   y_m: number;
   facing_deg: number;
@@ -31,47 +37,77 @@ export interface PlanSensor {
   sdk_version: string | null;
   model: string | null;
   sound_list_version: number | null;
-  // Two different running devices checked in under this name within the shared-name window.
+  // Two different running devices checked in under this id within the shared-name window.
   shared_name: boolean;
 }
 
-interface PlanRow extends Omit<PlanSensor, "online" | "shared_name"> {
+interface PlanRow extends Omit<PlanSensor, "name" | "online" | "shared_name"> {
   instances: number;
 }
 
-// The sensors on the plan (removed ones excluded), in the order they were added; only those named when ids is
-// given. Online and the shared-name warning are judged at now.
+// The sensors on the plan (removed ones excluded), by number, so "plan order" is Sensor 1 first; only those named
+// when ids is given. Online and the shared-name warning are judged at now.
 export async function readPlan(db: D1Database, now: number, ids?: string[]): Promise<PlanSensor[]> {
   const rows = await db.prepare(
-    `SELECT p.sensor_id AS id, p.x_m, p.y_m, p.facing_deg, s.last_checkin_at, s.sdk_version, s.model,
+    `SELECT p.sensor_id AS id, p.number, p.x_m, p.y_m, p.facing_deg, s.last_checkin_at, s.sdk_version, s.model,
        s.sound_list_version,
        (SELECT COUNT(*) FROM sensor_instances i WHERE i.sensor_id = p.sensor_id AND i.last_checkin_at > ?1) AS instances
      FROM sensor_placements p JOIN sensors s ON s.id = p.sensor_id
      WHERE p.removed = 0 AND (?2 IS NULL OR p.sensor_id IN (SELECT value FROM json_each(?2)))
-     ORDER BY p.seq`,
+     ORDER BY p.number IS NULL, p.number, p.seq`,
   ).bind(now - SHARED_NAME_WINDOW_MS, ids ? JSON.stringify(ids) : null).all<PlanRow>();
   return rows.results.map(({ instances, ...r }) => ({
     ...r,
+    name: r.number === null ? r.id : sensorName(r.number),
     online: isOnline(r.last_checkin_at, now),
     shared_name: instances >= 2,
   }));
 }
 
+// The name researchers see for the sensor holding this number on the plan.
+export const sensorName = (number: number) => `Sensor ${number}`;
+
+// How each sensor is named right now: a sensor on the plan by its number ("Sensor N"), any other (removed, or never
+// checked in) by its own id. Worked out on every read and never stored, so a removed sensor's past events show its
+// id and show its name again once it returns.
+export async function sensorNames(db: D1Database): Promise<(id: string) => string> {
+  const rows = await db.prepare(
+    "SELECT sensor_id, number FROM sensor_placements WHERE removed = 0 AND number IS NOT NULL",
+  ).all<{ sensor_id: string; number: number }>();
+  const names = new Map(rows.results.map((r) => [r.sensor_id, sensorName(r.number)]));
+  return (id) => names.get(id) ?? id;
+}
+
+// Orders names for listing: Sensor 2 before Sensor 10, ids after names.
+export const byName = (a: string, b: string) => a.localeCompare(b, "en", { numeric: true });
+
+// The lowest number no sensor on the plan holds.
+const LOWEST_FREE_NUMBER = `(SELECT MIN(n) FROM
+  (SELECT 1 AS n UNION ALL SELECT number + 1 FROM sensor_placements WHERE removed = 0 AND number IS NOT NULL)
+  WHERE n NOT IN (SELECT number FROM sensor_placements WHERE removed = 0 AND number IS NOT NULL))`;
+
 // Check-in hook: a sensor new to the plan gets its default spot (the first at the origin facing right, each later
-// one 3 m to the right of the most recently added one still on the plan, facing it); a removed sensor comes back at
-// its kept placement.
-// One statement, so two first check-ins at once still get different spots. Then records the device identity.
+// one 3 m to the right of the most recently added one still on the plan, facing it) and the lowest free number; a
+// removed sensor comes back at its kept placement, with its old number when no sensor on the plan holds it and the
+// lowest free one otherwise. A sensor already on the plan keeps its number.
+// One statement, so two first check-ins at once still get different spots and numbers. Then records the device
+// identity.
 export async function placeOnCheckin(env: Env, { current, now }: SensorCheckin): Promise<void> {
   const db = env.DB;
   const statements = [
     db.prepare(
-      `INSERT INTO sensor_placements (sensor_id, x_m, y_m, facing_deg)
+      `INSERT INTO sensor_placements (sensor_id, x_m, y_m, facing_deg, number)
        SELECT ?1,
          COALESCE((SELECT x_m + ?2 FROM sensor_placements WHERE removed = 0 ORDER BY seq DESC LIMIT 1), 0),
          COALESCE((SELECT y_m FROM sensor_placements WHERE removed = 0 ORDER BY seq DESC LIMIT 1), 0),
-         CASE WHEN EXISTS (SELECT 1 FROM sensor_placements WHERE removed = 0) THEN 270 ELSE 90 END
+         CASE WHEN EXISTS (SELECT 1 FROM sensor_placements WHERE removed = 0) THEN 270 ELSE 90 END,
+         ${LOWEST_FREE_NUMBER}
        WHERE true
-       ON CONFLICT (sensor_id) DO UPDATE SET removed = 0 WHERE removed = 1`,
+       ON CONFLICT (sensor_id) DO UPDATE SET removed = 0,
+         number = CASE WHEN number IS NOT NULL AND NOT EXISTS
+             (SELECT 1 FROM sensor_placements o WHERE o.removed = 0 AND o.number = sensor_placements.number)
+           THEN number ELSE excluded.number END
+       WHERE removed = 1 OR number IS NULL`,
     ).bind(current.id, NEW_SENSOR_SPACING_M),
   ];
   if (current.instance_id) {
