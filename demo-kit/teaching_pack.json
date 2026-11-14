@@ -1,0 +1,254 @@
+{
+ "species": "Boreal owl (Aegolius funereus)",
+ "source": "xeno-canto",
+ "first_seconds": 60,
+ "sizes_tried": [
+  10,
+  15,
+  20
+ ],
+ "chosen_size": 10,
+ "seed": 11,
+ "how": "summaries with the sensor library's model, trained with web/src/teach/train.ts against web/bucket/teach/other-sounds.f32, replayed through the sensor library at threshold 0.5",
+ "sizes": [
+  {
+   "size": 10,
+   "passed": true,
+   "missed": [],
+   "false_alarms": [],
+   "training_iterations": 61,
+   "samples": [
+    {
+     "file": "chainsaw-1.wav",
+     "kind": "chainsaw",
+     "detections": 0,
+     "top_confidence": null
+    },
+    {
+     "file": "chainsaw-2.wav",
+     "kind": "chainsaw",
+     "detections": 0,
+     "top_confidence": null
+    },
+    {
+     "file": "chainsaw-3.wav",
+     "kind": "chainsaw",
+     "detections": 0,
+     "top_confidence": null
+    },
+    {
+     "file": "boreal-owl-1.wav",
+     "kind": "boreal owl",
+     "detections": 1,
+     "top_confidence": 0.9995
+    },
+    {
+     "file": "boreal-owl-2.wav",
+     "kind": "boreal owl",
+     "detections": 1,
+     "top_confidence": 0.8158
+    },
+    {
+     "file": "tawny-owl.wav",
+     "kind": "tawny owl",
+     "detections": 0,
+     "top_confidence": null
+    }
+   ]
+  },
+  {
+   "size": 15,
+   "passed": true,
+   "missed": [],
+   "false_alarms": [],
+   "training_iterations": 66,
+   "samples": [
+    {
+     "file": "chainsaw-1.wav",
+     "kind": "chainsaw",
+     "detections": 0,
+     "top_confidence": null
+    },
+    {
+     "file": "chainsaw-2.wav",
+     "kind": "chainsaw",
+     "detections": 0,
+     "top_confidence": null
+    },
+    {
+     "file": "chainsaw-3.wav",
+     "kind": "chainsaw",
+     "detections": 0,
+     "top_confidence": null
+    },
+    {
+     "file": "boreal-owl-1.wav",
+     "kind": "boreal owl",
+     "detections": 1,
+     "top_confidence": 0.9997
+    },
+    {
+     "file": "boreal-owl-2.wav",
+     "kind": "boreal owl",
+     "detections": 1,
+     "top_confidence": 0.8748
+    },
+    {
+     "file": "tawny-owl.wav",
+     "kind": "tawny owl",
+     "detections": 0,
+     "top_confidence": null
+    }
+   ]
+  },
+  {
+   "size": 20,
+   "passed": false,
+   "missed": [],
+   "false_alarms": [
+    "tawny-owl.wav"
+   ],
+   "training_iterations": 76,
+   "samples": [
+    {
+     "file": "chainsaw-1.wav",
+     "kind": "chainsaw",
+     "detections": 0,
+     "top_confidence": null
+    },
+    {
+     "file": "chainsaw-2.wav",
+     "kind": "chainsaw",
+     "detections": 0,
+     "top_confidence": null
+    },
+    {
+     "file": "chainsaw-3.wav",
+     "kind": "chainsaw",
+     "detections": 0,
+     "top_confidence": null
+    },
+    {
+     "file": "boreal-owl-1.wav",
+     "kind": "boreal owl",
+     "detections": 1,
+     "top_confidence": 0.9999
+    },
+    {
+     "file": "boreal-owl-2.wav",
+     "kind": "boreal owl",
+     "detections": 1,
+     "top_confidence": 0.9426
+    },
+    {
+     "file": "tawny-owl.wav",
+     "kind": "tawny owl",
+     "detections": 1,
+     "top_confidence": 0.6113
+    }
+   ]
+  }
+ ],
+ "pack": [
+  {
+   "file": "boreal-owl-XC1097665.wav",
+   "recording": "XC1097665",
+   "recordist": "Dag Österlund",
+   "country": "Sweden",
+   "type": "song",
+   "url": "https://xeno-canto.org/1097665",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 60.0
+  },
+  {
+   "file": "boreal-owl-XC560096.wav",
+   "recording": "XC560096",
+   "recordist": "Patrik Åberg",
+   "country": "Sweden",
+   "type": "song",
+   "url": "https://xeno-canto.org/560096",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 60.0
+  },
+  {
+   "file": "boreal-owl-XC625748.wav",
+   "recording": "XC625748",
+   "recordist": "Anders Westman",
+   "country": "Sweden",
+   "type": "song",
+   "url": "https://xeno-canto.org/625748",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 60.0
+  },
+  {
+   "file": "boreal-owl-XC632037.wav",
+   "recording": "XC632037",
+   "recordist": "Stanislas Wroza",
+   "country": "France",
+   "type": "song",
+   "url": "https://xeno-canto.org/632037",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 60.0
+  },
+  {
+   "file": "boreal-owl-XC762214.wav",
+   "recording": "XC762214",
+   "recordist": "Romuald Mikusek",
+   "country": "Poland",
+   "type": "song",
+   "url": "https://xeno-canto.org/762214",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 60.0
+  },
+  {
+   "file": "boreal-owl-XC801369.wav",
+   "recording": "XC801369",
+   "recordist": "Rafał Kurowski",
+   "country": "Poland",
+   "type": "song",
+   "url": "https://xeno-canto.org/801369",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 60.0
+  },
+  {
+   "file": "boreal-owl-XC985318.wav",
+   "recording": "XC985318",
+   "recordist": "Bill Pyle",
+   "country": "United States",
+   "type": "song",
+   "url": "https://xeno-canto.org/985318",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 60.0
+  },
+  {
+   "file": "boreal-owl-XC312639.wav",
+   "recording": "XC312639",
+   "recordist": "Jens Kirkeby",
+   "country": "Norway",
+   "type": "song",
+   "url": "https://xeno-canto.org/312639",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 54.19
+  },
+  {
+   "file": "boreal-owl-XC356978.wav",
+   "recording": "XC356978",
+   "recordist": "Antero Lindholm",
+   "country": "Finland",
+   "type": "song",
+   "url": "https://xeno-canto.org/356978",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 46.92
+  },
+  {
+   "file": "boreal-owl-XC782854.wav",
+   "recording": "XC782854",
+   "recordist": "Teet Sirotkin",
+   "country": "Sweden",
+   "type": "song",
+   "url": "https://xeno-canto.org/782854",
+   "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "seconds": 40.66
+  }
+ ]
+}
