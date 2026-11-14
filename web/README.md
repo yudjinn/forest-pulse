@@ -73,7 +73,7 @@ whose format changes gets a new name instead of replacing the old one. `npx wran
 shows what is live.
 
 After a deploy, rehearse the whole demo against the live site with the rehearsal
-journey (`../demo-kit/README.md`, Rehearsal).
+journey, and calibration with the calibration rehearsal (`../demo-kit/README.md`, Rehearsal).
 
 The build copies brand assets from `../shared/assets/forest-pulse/`; generated
 files in `dist/` are not tracked. Edit the shared masters and run their generator

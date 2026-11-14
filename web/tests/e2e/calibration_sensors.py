@@ -2,7 +2,7 @@
 library's simulated hooks on one shared simulated room (forestpulse_sensor.calibration.simulate), checking in to a
 service every second. Boards are added and changed while it runs, so their device identities stay the same.
 
-usage: python calibration_sensors.py <server_url> <sensor_key> <state dir>
+usage: FP_SENSOR_KEY=<sensor key> python calibration_sensors.py <server_url> <state dir>
 One JSON command per line on stdin, each answered with one line on stdout, "ok" or "error <why>":
   {"add": {"id": "...", "hooks": "full" | "incomplete", <Board fields: x_m, y_m, facing_deg, clock_offset_s,
            drift_ppm, emitter_offset_m, thermometer, muted, stream_delay_s, ...>}}   "incomplete": no bearing hook
@@ -67,7 +67,8 @@ def hear(boards, sensors, ids, wav, x_m, y_m):
 
 
 def main():
-    url, key, state = sys.argv[1:4]
+    url, state = sys.argv[1:3]
+    key = os.environ["FP_SENSOR_KEY"]
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(asctime)s %(threadName)s %(message)s")
     model = Model()
     room = Room()
