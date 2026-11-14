@@ -11,10 +11,11 @@
 - **Wake**: the ESP32 wakes the Uno Q on any sound noticeably above the background level. Always-on for the demo.
 - **Researcher**: a person signed in to the dashboard.
 - **Angle**: the direction of a sound relative to its sensor's board, degrees clockwise from the board's marked forward (0 to 360). Sent by the sensor.
-- **Facing**: which way a sensor's forward points on the plan. Entered on the dashboard; plan direction = facing + angle.
+- **Facing**: which way a sensor's forward points on the plan. Entered on the dashboard or set by a calibration run; plan direction = facing + angle.
 - **Hall background**: a recording of the demo venue that training mixes under every taught sound and uses as an example of what to ignore.
-- **Calibration run**: pressing Calibrate: 2 or 3 calibration-capable sensors beep their own sweep in scheduled slots over several rounds; the service turns what each heard into distances, facings and a relative layout.
+- **Calibration run**: pressing Calibrate: 2 or 3 calibration-capable sensors beep their own sweep in scheduled slots over several rounds; the service turns what each heard into distances, facings and a relative layout. A participant that never gets ready is left out and the others calibrate without it.
 - **Calibration-capable sensor**: a sensor with a 3-mic array, a buzzer and a sensor library new enough to take part. A single-mic sensor or one without a buzzer is not.
+- **Stage check**: recording the real buzzer on the stage at 1, 3 and 5 m and running the library's check tool on the recordings, which answers PASS or FAIL for relying on calibration at the demo.
 - **Measured layout**: a plan set by a calibration run, relative to the sensors (first sensor at the origin, second to its right). A manual layout is one set by dragging and typing facings.
 - **Sensor name**: "Sensor N" on the dashboard, N the lowest number not held by another sensor on the plan when it joins. The sensor's own id still identifies it to the service.
 - **Warning**: the operator's response to a logging activity: every board that heard it plays the alarm on its buzzer, standing in for a radio warning to the loggers that logging here is unauthorised.
