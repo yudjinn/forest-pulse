@@ -1,20 +1,15 @@
 // Calibration journeys: simulated sensors (the sensor library with its simulated hooks, several instances in one
-// process sharing one simulated room, calibration_sensors.py) take part in runs a researcher starts from the plan.
+// process sharing one simulated room, driven through calibration-sensors.ts) take part in runs a researcher starts
+// from the plan.
 // Every journey here starts its own fresh service on the calibration pair, so they run one after another.
-import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtempSync, openSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { createInterface, type Interface } from "node:readline";
 import { expect, test, type Page } from "@playwright/test";
 import { devVars, signIn } from "../fixtures/dashboard.ts";
 import { asSensor, referenceClip, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
-import { calibrationServicePorts, webRoot } from "../ports.ts";
+import { calibrationServicePorts } from "../ports.ts";
+import { SimulatedSensors } from "./calibration-sensors.ts";
 
 test.describe.configure({ mode: "serial" });
-
-const python = path.join(webRoot, "..", ".venv", "bin", "python");
 
 const card = (page: Page, id: string) =>
   page.getByRole("list", { name: "Sensors" }).getByRole("listitem").filter({ has: page.getByRole("heading", { name: id }) });
@@ -25,47 +20,12 @@ const locations = (page: Page) => page.getByRole("img", { name: /^Location, / })
 // How far apart two directions are, degrees.
 const offBy = (deg: number, truth: number) => Math.abs((((deg - truth) % 360) + 540) % 360 - 180);
 
-// The simulated sensors' process: add and change boards by command; each command waits for its answer.
-class SimulatedSensors {
-  private readonly proc: ChildProcess;
-  private readonly lines: Interface;
-  readonly log: string;
-
-  constructor(origin: string) {
-    const dir = mkdtempSync(path.join(os.tmpdir(), "fp-calibration-"));
-    this.log = path.join(dir, "sensors.log");
-    this.proc = spawn(python, [path.join(webRoot, "tests", "e2e", "calibration_sensors.py"), origin,
-      devVars().DEVICE_KEY, dir], { stdio: ["pipe", "pipe", openSync(this.log, "w")] });
-    this.lines = createInterface({ input: this.proc.stdout! });
-  }
-
-  send(command: Record<string, unknown>): Promise<void> {
-    const answer = new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`no answer to ${JSON.stringify(command)}; see ${this.log}`)), 60_000);
-      this.lines.once("line", (line) => {
-        clearTimeout(timer);
-        if (line === "ok") resolve();
-        else reject(new Error(`${line} (log: ${this.log})`));
-      });
-    });
-    this.proc.stdin!.write(JSON.stringify(command) + "\n");
-    return answer;
-  }
-
-  async stop(): Promise<void> {
-    if (this.proc.exitCode !== null) return;
-    const exited = new Promise((r) => this.proc.once("exit", r));
-    await this.send({ stop: true }).catch(() => this.proc.kill());
-    await exited;
-  }
-}
-
 test("two sensors measure their distance and facings and appear as they stand; a failed run names the board or pair and changes nothing", async ({ browser }) => {
   test.setTimeout(300_000);
   const service = new SecondService(calibrationServicePorts);
   await service.start();
   const origin = service.url;
-  const sensors = new SimulatedSensors(origin);
+  const sensors = new SimulatedSensors(origin, devVars().DEVICE_KEY);
   try {
     const context = await browser.newContext({ baseURL: origin });
     const page = await context.newPage();
@@ -173,6 +133,112 @@ test("two sensors measure their distance and facings and appear as they stand; a
     await facing(page, a).press("Enter");
     await expect(page.getByText(/^Calibrated \d\d:\d\d$/)).toBeHidden({ timeout: 5000 });
     await expect(measured(page)).toHaveCount(0);
+    await context.close();
+  } finally {
+    await sensors.stop();
+    await service.stop();
+  }
+});
+
+test("three sensors calibrate into a triangle on the side of the line they stand; a third board that never gets ready is left out", async ({ browser }) => {
+  test.setTimeout(300_000);
+  const service = new SecondService(calibrationServicePorts);
+  await service.start();
+  const origin = service.url;
+  const sensors = new SimulatedSensors(origin, devVars().DEVICE_KEY);
+  try {
+    const context = await browser.newContext({ baseURL: origin });
+    const page = await context.newPage();
+    await signIn(page, "/dashboard/", origin);
+    const calibrate = page.getByRole("button", { name: "Calibrate" });
+
+    // Sides of 3 m (a-b), 2.5 m (a-c) and 2 m (b-c), c above the line from a to b, each board turned its own way with
+    // its own clock. No buzzer can sit square to both of its board's sides, so two-way ranging is off by up to the
+    // buzzers' offsets; they are 2 cm from their arrays here, well inside the 10 cm the layout must keep.
+    const [a, b, c] = ["tri-a", "tri-b", "tri-c"].map(uniqueSensorId);
+    const cY = Math.sqrt(2.5 ** 2 - 1.875 ** 2);
+    const truth: Record<string, { x: number; y: number; facing: number }> = {
+      [a]: { x: 0, y: 0, facing: 30 }, [b]: { x: 3, y: 0, facing: 200 }, [c]: { x: 1.875, y: cY, facing: 120 },
+    };
+    const boards = [
+      { id: a, emitter_ccw_deg: 45, clock_offset_s: 0.4, drift_ppm: 15 },
+      { id: b, emitter_ccw_deg: 160, clock_offset_s: -0.9, drift_ppm: -25 },
+      { id: c, emitter_ccw_deg: 280, clock_offset_s: 1.6, drift_ppm: 10 },
+    ];
+    for (const { id, ...board } of boards) {
+      const t = truth[id];
+      await sensors.send({ add: { id, x_m: t.x, y_m: t.y, facing_deg: t.facing, emitter_offset_m: 0.02, ...board } });
+    }
+    for (const id of [a, b, c]) {
+      await expect(card(page, id).getByText("Online", { exact: true })).toBeVisible({ timeout: 5000 });
+    }
+    // The researcher has placed them by hand, nowhere near where they stand.
+    for (const [id, x_m, y_m] of [[a, -2, 2], [b, -1, 2], [c, 0, 2]] as const) {
+      const placed = await page.request.patch(`/dashboard/api/sensors/${encodeURIComponent(id)}`,
+        { data: { x_m, y_m, facing_deg: 0 } });
+      expect(placed.ok()).toBe(true);
+    }
+    await expect(position(page, c)).toHaveText("x 0.0 m, y 2.0 m", { timeout: 3000 });
+
+    // What the plan holds for a sensor: its card's position and facing, and the plan feed's exact coordinates behind
+    // the card's rounded ones.
+    const onPlan = async (id: string) => {
+      const { sensors: plan } = await (await page.request.get("/dashboard/api/sensors")).json() as
+        { sensors: { id: string; x_m: number; y_m: number; facing_deg: number }[] };
+      const s = plan.find((p) => p.id === id)!;
+      await expect(position(page, id)).toHaveText(`x ${s.x_m.toFixed(1)} m, y ${s.y_m.toFixed(1)} m`, { timeout: 3000 });
+      return { x: s.x_m, y: s.y_m, facing: Number(await facing(page, id).inputValue()) };
+    };
+    const asTheyStand = async (ids: string[]) => {
+      for (const id of ids) {
+        const t = truth[id];
+        const s = await onPlan(id);
+        expect(Math.hypot(s.x - t.x, s.y - t.y), `${id} at ${s.x}, ${s.y}`).toBeLessThanOrEqual(0.1);
+        expect(offBy(s.facing, t.facing), `${id} faces ${s.facing}`).toBeLessThanOrEqual(5);
+      }
+    };
+    const sidesDrawn = async (pairs: [string, string][]) => {
+      await expect(measured(page)).toHaveCount(pairs.length);
+      for (const [p, q] of pairs) {
+        const side = page.getByRole("img", { name: new RegExp(`^Measured \\d+\\.\\d\\d m from ${p} to ${q}$`) });
+        const [, metres] = (await side.getAttribute("aria-label"))!.match(/^Measured (\d+\.\d\d) m/)!;
+        const length = Math.hypot(truth[q].x - truth[p].x, truth[q].y - truth[p].y);
+        expect(Math.abs(Number(metres) - length), `${p} to ${q}`).toBeLessThanOrEqual(0.05);
+        await expect(side.getByText(`${metres} m`, { exact: true })).toBeVisible();
+      }
+    };
+    const run = async (done: RegExp | string) => {
+      await expect(calibrate).toBeEnabled({ timeout: 5000 });
+      await calibrate.click();
+      await expect(page.getByText("Beeping", { exact: true })).toBeVisible({ timeout: 40_000 });
+      await expect(page.getByText(done)).toBeVisible({ timeout: 40_000 });
+    };
+
+    // The run places all three where they stand, c above the line, and draws the three measured sides.
+    await run(/^Calibrated \d\d:\d\d$/);
+    await sidesDrawn([[a, b], [a, c], [b, c]]);
+    await asTheyStand([a, b, c]);
+    expect((await onPlan(c)).y).toBeGreaterThan(0);
+
+    // With c moved to the other side of the line, the same distances, the next run puts it below the line.
+    truth[c] = { ...truth[c], y: -cY };
+    await sensors.send({ set: { id: c, y_m: -cY } });
+    await run(/^Calibrated \d\d:\d\d$/);
+    await sidesDrawn([[a, b], [a, c], [b, c]]);
+    await asTheyStand([a, b, c]);
+    expect((await onPlan(c)).y).toBeLessThan(0);
+
+    // c loses power just before the press, still shown online: it never gets ready, so the run goes ahead with a and
+    // b, solved as a pair, and says c was left out; c stays where the last run put it.
+    const cBefore = await onPlan(c);
+    await expect(calibrate).toBeEnabled({ timeout: 5000 });
+    await sensors.send({ power_off: { id: c } });
+    await calibrate.click();
+    await expect(page.getByText("Waiting for boards (2 of 3 ready)")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(new RegExp(`^Calibrated \\d\\d:\\d\\d, ${c} left out$`))).toBeVisible({ timeout: 60_000 });
+    await sidesDrawn([[a, b]]);
+    await asTheyStand([a, b]);
+    expect(await onPlan(c)).toEqual(cBefore);
     await context.close();
   } finally {
     await sensors.stop();

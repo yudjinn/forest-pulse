@@ -210,6 +210,22 @@ otherwise the run fails for that pair and nothing changes. Positions and facings
 The bearing hook gets a window of 40 ms from 5 ms before the detected first path, within the pattern's band, so the
 direct sound fills it before most echoes arrive.
 
+### Three sensors
+
+With three participants every pair's distance is measured as above, and each sensor's bearing of each other one is
+the circular median of its bearings (at least 2, scattered by at most 15 degrees). The three distances must make a
+triangle (the longest side shorter than the other two together) whose smallest angle is at least 10 degrees. The
+first sensor is at the origin and the second on the line straight to its right; the second's distance along it, the
+third's position and all three facings are one least-squares fit to the three distances (0.15 m each) and the six
+bearings (12 degrees each). The fit is made with the third sensor on each side of that line, and the side whose
+bearings fit better wins; if the two fit within 20 percent of each other the run fails. Each sensor's angle between
+the other two, from its bearings, must also agree with the angle the distances give within 20 degrees. A failure
+names a pair: the longest side for an impossible triangle, the side opposite the smallest angle for a flat one, and
+the pair the fit fits worst when the bearings disagree.
+
+A participant that never confirms ready is left out (step 3 of the run): the two that ran are solved as a pair, and
+the dashboard says which sensor was left out.
+
 ## Errors
 
 | Response | Meaning | Sensor does |
