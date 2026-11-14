@@ -18,15 +18,16 @@ import {
 export const MAX_PARTICIPANTS = 3;
 const ROLES = ["A", "B", "C"];
 // The sweeps, set by the service so they can be retuned without changing the boards: A rises, B falls, C rises then
-// falls, over 1.5 to 3.5 kHz, 120 ms.
+// falls, over 2.5 to 5 kHz, 150 ms. The Modulino Buzzer is nearly silent below 2.5 kHz and loudest near 4 kHz, so a
+// sweep reaching lower loses that part and with it the bandwidth that times the beep.
 const PATTERNS: Record<string, { f_start_hz: number; f_mid_hz: number; f_end_hz: number; duration_ms: number }> = {
-  A: { f_start_hz: 1500, f_mid_hz: 2500, f_end_hz: 3500, duration_ms: 120 },
-  B: { f_start_hz: 3500, f_mid_hz: 2500, f_end_hz: 1500, duration_ms: 120 },
-  C: { f_start_hz: 1500, f_mid_hz: 3500, f_end_hz: 1500, duration_ms: 120 },
+  A: { f_start_hz: 2500, f_mid_hz: 3750, f_end_hz: 5000, duration_ms: 150 },
+  B: { f_start_hz: 5000, f_mid_hz: 3750, f_end_hz: 2500, duration_ms: 150 },
+  C: { f_start_hz: 2500, f_mid_hz: 5000, f_end_hz: 2500, duration_ms: 150 },
 };
 const SLOT_MS = 500;
 const ROUND_GAP_MS = 1000;
-const ROUNDS = 4;
+const ROUNDS = 6;
 const READY_WAIT_MS = 20_000;
 const START_AFTER_READY_MS = 4000;
 const REPORT_AFTER_END_MS = 15_000;
