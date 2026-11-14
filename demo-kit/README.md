@@ -44,3 +44,49 @@ player's source recordings and records the ones it trained on. `check` fails if 
 recording with them. `seed` copies the detector into the sensor library's built-in list at list version `<n>` (the
 version the service reaches after the new migration) and writes that migration. Bump the sensor library's version
 with it.
+
+## Teaching pack
+
+The boreal owl recordings the presenter drops into "Teach a new sound" on stage. They are not in the repository:
+`teaching_pack.py` builds them on the presenting laptop into the folder `~/Desktop/Boreal owl teaching pack`
+(or `$FP_TEACHING_PACK`). The folder holds only the clips, so on stage select everything in it and drop it on the
+page. Its report and credits are committed in `teaching_pack.json`.
+
+The pack is the smallest of 10, 15 or 20 recordings that works on the player's own samples: teaching it (summaries
+with the sensor library's model, the teach request's own training against the stored other-sounds library) makes the
+sensor library's replay report both player boreal owls and never the tawny owl. Candidates are the experiment's boreal
+owls minus the player's recordists, the held-out recordings and no-derivatives licences, one recording per recordist
+first, songs before calls, longer before shorter; each clip is the recording's first 60 s.
+
+The page mixes each recording over the hall at random, so every size is taught with five different mixes and works
+only if it works with all five. Scores are the detector's top confidence on each player sample (threshold 0.5).
+
+| Size | Boreal owl 1 | Boreal owl 2 | Tawny owl | Chainsaws | Result |
+|---|---|---|---|---|---|
+| 10 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.56 to 0.89) | not heard | not heard | works, chosen |
+| 15 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.82 to 0.97) | not heard | not heard | works |
+| 20 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.94 to 0.99) | heard in 3 of 5 (0.59 to 0.65) | not heard | fails |
+
+| Clip | Recordist | Source | Licence |
+|---|---|---|---|
+| boreal-owl-XC1097665.wav | Dag Österlund | [xeno-canto XC1097665](https://xeno-canto.org/1097665) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC560096.wav | Patrik Åberg | [xeno-canto XC560096](https://xeno-canto.org/560096) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC625748.wav | Anders Westman | [xeno-canto XC625748](https://xeno-canto.org/625748) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC632037.wav | Stanislas Wroza | [xeno-canto XC632037](https://xeno-canto.org/632037) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC762214.wav | Romuald Mikusek | [xeno-canto XC762214](https://xeno-canto.org/762214) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC801369.wav | Rafał Kurowski | [xeno-canto XC801369](https://xeno-canto.org/801369) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC985318.wav | Bill Pyle | [xeno-canto XC985318](https://xeno-canto.org/985318) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC312639.wav | Jens Kirkeby | [xeno-canto XC312639](https://xeno-canto.org/312639) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC356978.wav | Antero Lindholm | [xeno-canto XC356978](https://xeno-canto.org/356978) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+| boreal-owl-XC782854.wav | Teet Sirotkin | [xeno-canto XC782854](https://xeno-canto.org/782854) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
+
+Rebuild from the repository root, after `experiments/efficientat-chainsaw/setup.sh` has fetched the recordings (with
+`XC_KEY`); the script itself needs no network and takes about three minutes:
+
+```
+uv run --project experiments/efficientat-chainsaw python demo-kit/teaching_pack.py
+```
+
+If no size works it prints which player samples were missed or falsely heard, writes the report and makes no pack.
+The rehearsal journey (`web/tests/e2e/rehearsal.spec.ts`) teaches the folder through the real Teach page and replays
+the player's owls; it fails if the folder is not the reported pack, and is skipped on a machine without it.
