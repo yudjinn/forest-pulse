@@ -1,0 +1,17 @@
+{
+  "name": "forest-pulse-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "python3 build.py",
+    "serve": "node tests/serve.ts",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2",
+    "wrangler": "4.162.0"
+  }
+}
