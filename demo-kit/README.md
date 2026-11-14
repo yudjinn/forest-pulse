@@ -88,5 +88,46 @@ uv run --project experiments/efficientat-chainsaw python demo-kit/teaching_pack.
 ```
 
 If no size works it prints which player samples were missed or falsely heard, writes the report and makes no pack.
-The rehearsal journey (`web/tests/e2e/rehearsal.spec.ts`) teaches the folder through the real Teach page and replays
-the player's owls; it fails if the folder is not the reported pack, and is skipped on a machine without it.
+
+## Rehearsal
+
+The rehearsal journey (`web/tests/e2e/rehearsal.spec.ts`) runs the whole demo script below as named steps and prints
+each step's result; a step that fails names itself and what it expected. It teaches the pack through the real Teach
+page under a fresh name (never "Boreal owl"), uses its own sensors placed clear of every other sensor on the plan, and
+ends by deleting what it taught, removing its sensors and clearing events, then checks that the sound list and every
+other sensor are as they were. It fails if the pack folder is not the reported pack. Without the pack it is skipped,
+unless `FP_REQUIRE_TEACHING_PACK=1` is set, when it fails; set it wherever the run is meant as proof.
+
+Against the live site, from `web/` after `npm run deploy` (the live password and sensor key come from
+`.dev-secrets.local`; the live run always requires the pack):
+
+```
+FP_E2E_PORT_BASE=8800 FP_REHEARSAL_ORIGIN=https://forestpulse.paxid.com npx playwright test tests/e2e/rehearsal.spec.ts
+```
+
+Clearing events removes every event on the live site, the real boards' included. The run prints what it clears from
+other sensors (count and time span per sensor); record that before running it if the team needs those events.
+
+## Presenter checklist
+
+Before the audience arrives:
+
+1. Deploy (`npm run deploy` in `web/`) and run the live rehearsal above; every step passes.
+2. Boards on, each running the sensor library 0.2.0 or later, and Online on the plan.
+3. On the plan, drag each board to where it stands in the hall and set its Facing. Do this before any sound is
+   played: an edit only affects events that arrive after it.
+4. The Sounds list has no "Boreal owl", and the event log is empty (Clear events if not).
+5. The phone: signed in on the player page, paired with the Bluetooth speaker, volume up, screen lock off.
+6. The laptop: signed in on the dashboard, the "Boreal owl teaching pack" folder open on the Desktop.
+
+On stage:
+
+1. Play Chainsaw 1 from the phone near one board: a Logging activity appears with the direction line from that board.
+2. Play it again between two boards: the plan shows where it was, and the activity shows the distance from each board.
+3. Stop the player.
+4. On the Sounds page, choose "Teach a new sound", name it "Boreal owl", leave Wildlife, select everything in the pack
+   folder and drop it on the page, wait for every recording to show Ready, then Teach. Boreal owl is listed, switched
+   on.
+5. Play Boreal owl 1, then Boreal owl 2: each is reported as Boreal owl. Play Tawny owl: it is not.
+
+Afterwards: delete Boreal owl on the Sounds page and Clear events, so the next rehearsal and the boards start clean.

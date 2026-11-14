@@ -72,6 +72,9 @@ tables and columns and never drop or rename what it reads, and a bucket file
 whose format changes gets a new name instead of replacing the old one. `npx wrangler deployments list`
 shows what is live.
 
+After a deploy, rehearse the whole demo against the live site with the rehearsal
+journey (`../demo-kit/README.md`, Rehearsal).
+
 The build copies brand assets from `../shared/assets/forest-pulse/`; generated
 files in `dist/` are not tracked. Edit the shared masters and run their generator
 when changing the logo.
