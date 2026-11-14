@@ -1,5 +1,5 @@
 """Forest Pulse sensor library: audio in, events out, sound list kept in sync with the server."""
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 from .model import Model, to_model_audio
 from .sensor import Sensor, board_to_angle

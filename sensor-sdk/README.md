@@ -246,23 +246,41 @@ play_alarm(hooks.emit)            # True when every tone played, False if emit r
   events while the alarm plays, and the audio it records meanwhile never reaches sound checking, so its own alarm
   never counts as logging. Then it is back to normal. A board already playing ignores a new alarm until it is done.
 
-## Trigger health hook (planned: not in the library yet)
+## Trigger health hook
 
-Optional. With it, the plan card shows what the front-end's trigger is set to and how quiet the room is. Without it,
-the card still shows recordings per minute, which the library counts itself.
+Optional (version 0.5.0 or later). With it, the plan card shows what the front-end's trigger is set to and how quiet
+the room is. Without it, the card still shows recordings per minute, which the library counts itself: the audio
+bursts that started in the last 60 s, a burst being audio fed with `break_before=True`.
+
+Pass your existing trigger settings object as it is:
 
 ```python
-sensor = Sensor.from_file(..., trigger_settings=settings).start()
+trigger = TriggerSettings(send_command, cfg["trigger"])    # your object: current() and update()
+sensor = Sensor.from_file(Path(__file__).with_name("forestpulse.toml"), angle_fn=bearing,
+                          trigger_settings=trigger).start()
 ```
 
-`settings` is any object with:
+The library uses only these, on any object:
 
 - **`current()`**: the trigger values the front-end confirmed, as a dict with any of `snr_db`, `ratio_db` and
-  `coherence`, or None before the front-end has reported. Other keys are ignored.
-- **`noise_floor_dbfs()`** (optional): the front-end's current noise floor in dBFS, or None.
+  `coherence` (numbers), or None before the front-end has reported. Other keys are ignored.
+- **`noise_floor_dbfs()`** (optional): the front-end's current noise floor in dBFS, or None. Add it to your object
+  to have the card show the noise floor.
 
-The library reads them at each check-in, never changes them (it never calls `update()`, if your object has one), and
-needs them to answer in well under 50 ms. A call that raises is logged and that value is left out.
+The library reads them at each check-in, on its sync thread, and never changes them: it never calls `update()` or
+anything else. They should answer in well under 50 ms, since a slow answer delays that check-in.
+
+When an answer is unusable, the board still checks in and only that value is left out: a call that raises,
+`current()` returning something other than a dict or None, or a value that is not a number. The log says why, once
+per kind of problem (not at every check-in), and also says once when `current()` returned None or the object has no
+`noise_floor_dbfs()`.
+
+To check the wiring, point the board at the dev server (quick start, step 5). It prints each check-in:
+
+```
+node-01: check-in, 12 recordings/min, trigger snr_db 4.0 ratio_db 0.0 coherence 0.6, noise floor -52.0 dBFS
+node-01: check-in, 0 recordings/min, trigger missing, noise floor missing
+```
 
 ## Tests
 
@@ -270,7 +288,8 @@ needs them to answer in well under 50 ms. A call that raises is logged and that 
 pip install "./sensor-sdk[dev]" && pytest sensor-sdk/tests
 ```
 
-Four journeys against the dev server with the real model: detection with angle and sound-list updates (including a
-broken list), surviving an outage, a wrong key and a restart, the bring-your-own-model path, and a calibration run
-of two simulated boards whose reports range to the true distance. Two focused calibration tests: finding each
+Journeys against the dev server with the real model: detection with angle and sound-list updates (including a
+broken list), surviving an outage, a wrong key and a restart, the check-in interval, the bring-your-own-model path,
+trigger health from a well-behaved and a broken hook, and a calibration run of two simulated boards whose reports
+range to the true distance. Two focused calibration tests: finding each
 role's sweep under hall noise, speech and a wall echo, and the stage check on simulated recordings.

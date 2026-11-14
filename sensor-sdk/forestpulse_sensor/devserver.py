@@ -7,6 +7,9 @@ Extra endpoints for testing (not part of the API): PUT /dev/sounds replaces the 
 GET /dev/events and GET /dev/sensors show what arrived, POST /dev/calibration {"sensors": [ids]} starts a
 calibration run with those sensors as roles A, B, C, and GET /dev/calibration shows the latest run with its reports.
 
+Each check-in prints the sensor's trigger health (recordings per minute, trigger values, noise floor), "missing" for
+any field the sensor left out.
+
 Calibration as the service runs it, minus the solving: participants get the run in their check-in replies, it is
 scheduled 4 s after the last ready confirmation once every participant is ready, and it ends when every participant
 has reported.
@@ -71,6 +74,15 @@ class State:
             self.sounds = doc
 
 
+def checkin_line(sensor_id, body):
+    """The trigger health a check-in carried, each field "missing" when the sensor left it out."""
+    per_min, trigger, floor = body.get("recordings_per_min"), body.get("trigger"), body.get("noise_floor_dbfs")
+    per_min = f"{per_min} recordings/min" if per_min is not None else "recordings/min missing"
+    trigger = " ".join(f"{k} {v}" for k, v in trigger.items()) if isinstance(trigger, dict) and trigger else "missing"
+    floor = f"{floor} dBFS" if floor is not None else "missing"
+    return f"{sensor_id}: check-in, {per_min}, trigger {trigger}, noise floor {floor}"
+
+
 def make_handler(state: State, quiet: bool):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -105,6 +117,8 @@ def make_handler(state: State, quiet: bool):
             with state.lock:
                 if method == "POST" and action == "checkin":
                     state.sensors[sensor_id] = {**body, "last_checkin": utc_now_iso(), "clock_offset_s": offset}
+                    if not quiet:
+                        print(checkin_line(sensor_id, body), flush=True)
                     reply = {"server_time": utc_now_iso(), "sound_list_version": state.sounds["version"]}
                     block = state.calibration_block(sensor_id, body, time.time())
                     if block:
