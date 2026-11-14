@@ -36,8 +36,9 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     const silence = silentWav(1);
     const a = uniqueSensorId("plan-a");
     const b = uniqueSensorId("plan-b");
+    // Before a's replay, so its last check-in is no earlier than this.
+    const aStarted = Date.now();
     await replay({ sensorId: a, wavs: [silence], serverUrl: service.url });
-    const aStopped = Date.now();
     await replay({ sensorId: b, wavs: [silence], serverUrl: service.url });
     const cardA = card(page, a);
     const cardB = card(page, b);
@@ -107,7 +108,7 @@ test("sensors join the plan on first check-in, researchers place them, and the p
 
     // a stopped checking in; 30 s later it shows offline.
     await expect(cardA.getByText("Offline", { exact: true })).toBeVisible({ timeout: 40_000 });
-    expect(Date.now() - aStopped).toBeGreaterThan(29_000);
+    expect(Date.now() - aStarted).toBeGreaterThanOrEqual(30_000);
     await expect(card(page, c).getByText("Online", { exact: true })).toBeVisible();
     await context.close();
   } finally {

@@ -51,8 +51,18 @@ let loaded = false;
  * @type {Map<string, { x_m?: number, y_m?: number, facing_deg?: number, until: number }>}
  */
 const held = new Map();
-/** @type {{ id: string, pointerId: number, from: { x_m: number, y_m: number }, moved: boolean } | null} */
+/**
+ * The drag in progress: the sensor's position when it started, and what was held for it then.
+ * @type {{ id: string, pointerId: number, from: { x_m: number, y_m: number }, moved: boolean,
+ *   before: { x_m?: number, y_m?: number, facing_deg?: number, until: number } | undefined } | null}
+ */
 let drag = null;
+/**
+ * Sensors this page just removed, with their last check-in then. A poll already in flight still lists them; they
+ * stay hidden until a poll stops listing them or shows a newer check-in (the sensor came back).
+ * @type {Map<string, { checkin: string, until: number }>}
+ */
+const removing = new Map();
 /** @type {{ scale: number, ox: number, oy: number, width: number, height: number } | null} */
 let view = null;
 /** @type {Map<string, ReturnType<typeof setTimeout>>} */
@@ -93,9 +103,15 @@ function shown(s) {
 
 /** @param {{ sensors: PlanSensor[] }} data */
 function render(data) {
-  sensors = data.sensors;
-  loaded = true;
   const now = Date.now();
+  for (const [id, r] of removing) {
+    const s = data.sensors.find((x) => x.id === id);
+    if (!s || s.last_checkin_at !== r.checkin || now > r.until) removing.delete(id);
+  }
+  sensors = data.sensors.filter((s) => !removing.has(s.id));
+  loaded = true;
+  // Another researcher removed the sensor being dragged: the drag ends with it.
+  if (drag && !sensors.some((s) => s.id === drag?.id)) drag = null;
   for (const [id, h] of held) {
     const s = sensors.find((x) => x.id === id);
     const dragging = drag?.id === id || keySaves.has(id);
@@ -222,6 +238,8 @@ function makeMarker(id) {
   g.addEventListener("pointermove", (e) => moveDrag(id, e));
   g.addEventListener("pointerup", (e) => endDrag(id, e, false));
   g.addEventListener("pointercancel", (e) => endDrag(id, e, true));
+  // Capture can go without a pointerup (the element left the page); after a pointerup the drag is already over.
+  g.addEventListener("lostpointercapture", (e) => endDrag(id, e, true));
   g.addEventListener("keydown", (e) => nudge(id, e));
   return { g, pointer, label };
 }
@@ -246,7 +264,8 @@ function startDrag(id, g, e) {
   e.preventDefault();
   g.setPointerCapture(e.pointerId);
   g.focus();
-  drag = { id, pointerId: e.pointerId, from: { x_m: s.x_m, y_m: s.y_m }, moved: false };
+  const h = held.get(id);
+  drag = { id, pointerId: e.pointerId, from: { x_m: s.x_m, y_m: s.y_m }, moved: false, before: h && { ...h } };
 }
 
 /** @param {string} id @param {PointerEvent} e */
@@ -265,16 +284,14 @@ function moveDrag(id, e) {
 /** @param {string} id @param {PointerEvent} e @param {boolean} cancelled */
 function endDrag(id, e, cancelled) {
   if (!drag || drag.id !== id || drag.pointerId !== e.pointerId) return;
-  const { from, moved } = drag;
+  const { from, moved, before } = drag;
   drag = null;
   const h = held.get(id);
   if (cancelled || !moved || !h || h.x_m === undefined || h.y_m === undefined
     || (near(h.x_m, from.x_m) && near(h.y_m, from.y_m))) {
-    if (h) {
-      delete h.x_m;
-      delete h.y_m;
-      h.until = Date.now() + HOLD_MS;
-    }
+    // Nothing to save: the sensor shows what it showed before the drag.
+    if (before) held.set(id, before);
+    else held.delete(id);
     draw();
     return;
   }
@@ -357,6 +374,8 @@ async function remove(id) {
     const res = await fetch(`/dashboard/api/sensors/${encodeURIComponent(id)}`, { method: "DELETE" });
     if (res.status === 401) return signIn();
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const s = sensors.find((x) => x.id === id);
+    if (s) removing.set(id, { checkin: s.last_checkin_at, until: Date.now() + HOLD_MS });
     sensors = sensors.filter((s) => s.id !== id);
     held.delete(id);
     error.hidden = true;
@@ -404,9 +423,16 @@ function drawCards(items) {
     if (document.activeElement !== c.facing) c.facing.value = formatFacing(s.facing_deg);
     return c.item;
   });
-  for (const id of cards.keys()) if (!seen.has(id)) cards.delete(id);
-  // Re-appending keeps each element (and the focus in a facing field); only the order is applied.
-  if (els.some((el, i) => list.children[i] !== el) || list.children.length !== els.length) list.replaceChildren(...els);
+  for (const [id, c] of cards) {
+    if (!seen.has(id)) {
+      c.item.remove();
+      cards.delete(id);
+    }
+  }
+  // Only cards out of place move, so a card already in place (and the focus in its facing field) stays put.
+  els.forEach((el, i) => {
+    if (list.children[i] !== el) list.insertBefore(el, list.children[i] ?? null);
+  });
 }
 
 /** @param {string} id @returns {Card} */
