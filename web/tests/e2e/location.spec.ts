@@ -22,9 +22,11 @@ const locations = (page: Page) => page.getByRole("img", { name: /^Location, / })
 const logging = (page: Page) => page.getByRole("list", { name: "Activities" }).getByRole("listitem")
   .filter({ has: page.getByRole("heading", { name: "Logging", exact: true }) });
 
-// Each sensor replays the chainsaw with its angle; their detections are held until all of them have one and then
-// stamped with that moment, as sensors listening live would stamp them (location_replay.py).
-async function hearChainsaw(origin: string, sensors: { id: string; angle: number }[]) {
+// Each sensor replays the chainsaw with its angle; their detections are held until all of them have one and until
+// release() is called, then stamped with that moment, as sensors listening live would stamp them
+// (location_replay.py). Starting the replays early, while the previous lines are still showing, keeps every chainsaw
+// of the journey well within one activity's 60 s gap however long the replays take to start.
+function chainsaw(origin: string, sensors: { id: string; angle: number }[]) {
   const barrier = mkdtempSync(path.join(os.tmpdir(), "fp-location-"));
   let failed: unknown = null;
   const runs = Promise.all(sensors.map((s, i) => {
@@ -41,15 +43,20 @@ async function hearChainsaw(origin: string, sensors: { id: string; angle: number
   })).catch((e) => {
     failed = e;
   });
-  const deadline = Date.now() + 100_000;
-  while (!sensors.every((_, i) => existsSync(path.join(barrier, `${i}.ready`)))) {
-    if (failed) throw failed;
-    if (Date.now() > deadline) throw new Error("the sensors never heard the chainsaw");
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  writeFileSync(path.join(barrier, "go"), "");
-  await runs;
-  if (failed) throw failed;
+  return {
+    // Waits until every sensor has heard it, lets them all report it now, and waits for the replays to finish.
+    async release() {
+      const deadline = Date.now() + 100_000;
+      while (!sensors.every((_, i) => existsSync(path.join(barrier, `${i}.ready`)))) {
+        if (failed) throw failed;
+        if (Date.now() > deadline) throw new Error("the sensors never heard the chainsaw");
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      writeFileSync(path.join(barrier, "go"), "");
+      await runs;
+      if (failed) throw failed;
+    },
+  };
 }
 
 test("a sensor shows where it heard a sound from, and two sensors' crossing lines show where it was", async ({ browser }) => {
@@ -77,18 +84,19 @@ test("a sensor shows where it heard a sound from, and two sensors' crossing line
 
     // a alone hears it 45 degrees to its left (up and to the right on the plan): one line, no point, and the
     // activity has no location. The line goes 15 s after the sound.
-    await hearChainsaw(origin, [{ id: a, angle: 315 }]);
+    await chainsaw(origin, [{ id: a, angle: 315 }]).release();
     await expect(directions(page)).toHaveCount(1, { timeout: 3000 });
     await expect(directions(page)).toHaveAccessibleName(`Direction from ${a}`);
     await expect(logging(page)).toContainText(a, { timeout: 3000 });
     await page.waitForTimeout(2500); // one more poll
     await expect(locations(page)).toHaveCount(0);
     await expect(logging(page)).not.toContainText(" m from ");
+    const crossingPair = chainsaw(origin, [{ id: a, angle: 315 }, { id: b, angle: 26.57 }]);
     await expect(directions(page)).toHaveCount(0, { timeout: 16_000 });
 
     // Both hear it at once, a up and to its right, b 26.57 degrees to its right: the lines cross at (1, 1),
     // 1.4 m from a and 2.2 m from b, on the plan and on the activity.
-    await hearChainsaw(origin, [{ id: a, angle: 315 }, { id: b, angle: 26.57 }]);
+    await crossingPair.release();
     await expect(locations(page)).toHaveCount(1, { timeout: 3000 });
     await expect(locations(page)).toHaveAccessibleName(`Location, 1.4 m from ${a}, 2.2 m from ${b}`);
     await expect(directions(page)).toHaveCount(2);
@@ -96,12 +104,13 @@ test("a sensor shows where it heard a sound from, and two sensors' crossing line
     await expect(page.getByText("2.2 m", { exact: true })).toBeVisible();
     await expect(logging(page)).toContainText(`1.4 m from ${a}, 2.2 m from ${b}`, { timeout: 3000 });
     await expect(logging(page)).toContainText("3 events");
+    const divergingPair = chainsaw(origin, [{ id: a, angle: 225 }, { id: b, angle: 135 }]);
     await expect(locations(page)).toHaveCount(0, { timeout: 16_000 });
     await expect(directions(page)).toHaveCount(0);
 
     // Both hear it pointing away from each other: the lines meet only behind the sensors, so two lines and no
     // point. The activity keeps its latest location.
-    await hearChainsaw(origin, [{ id: a, angle: 225 }, { id: b, angle: 135 }]);
+    await divergingPair.release();
     await expect(directions(page)).toHaveCount(2, { timeout: 3000 });
     await expect(logging(page)).toContainText("5 events", { timeout: 3000 });
     await page.waitForTimeout(2500); // one more poll
