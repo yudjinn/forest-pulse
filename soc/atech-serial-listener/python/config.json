@@ -30,5 +30,15 @@
     "hold_s": 10.0,
     "min_change_deg": 5.0,
     "require_chainsaw": false
+  },
+
+  "calibration": {
+    "emitter_offset_cm": 3.0,
+    "band_hz": [1000, 4000],
+    "nfft": 2048,
+    "min_peak_ratio": 3.0,
+    "max_closure_samples": 1.0,
+    "sweep": [1500, 2500, 3500, 300],
+    "test_beep_every_s": 0
   }
 }

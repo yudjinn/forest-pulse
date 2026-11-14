@@ -26,6 +26,12 @@ class AudioBlock:
 
 
 @dataclass
+class PipelineReset:
+    """Drop the event in progress without finishing it (location calibration took over the stream)."""
+    reason: str = ""
+
+
+@dataclass
 class EventEnd:
     seq: int
     t_wall: float

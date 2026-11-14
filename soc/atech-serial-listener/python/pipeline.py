@@ -32,7 +32,7 @@ import numpy as np
 import led_arrow
 from bearing import BearingEstimator, Geometry
 from climate import Climate
-from events import PRE_TRIGGER_FRAMES, AudioBlock, EventEnd, EventStart
+from events import PRE_TRIGGER_FRAMES, AudioBlock, EventEnd, EventStart, PipelineReset
 
 FS = 48000
 BACKGROUND_S = 2.0  # first 2 s of the pre-trigger window = the event's own background
@@ -154,6 +154,10 @@ class Pipeline:
                 ev.background_dbfs = _dbfs(ev.audio()[: int(BACKGROUND_S * FS)])
         elif isinstance(msg, EventEnd) and self.ev is not None:
             self._finish(self.ev, msg)
+            self.ev = None
+        elif isinstance(msg, PipelineReset):
+            if self.ev is not None:
+                self.log(f"[event] dropped the event in progress ({msg.reason})")
             self.ev = None
 
     # ------------------------------------------------------------------- live

@@ -23,6 +23,14 @@ DEFAULTS = {
                 "max_closure_samples": 1.0, "band_hz": [200, 8000]},
     "classifier": {"model": "models/mn10_as.onnx", "chainsaw_threshold": 0.2, "live_every_s": 2.0},
     "led": {"source": "detections", "rotation_deg": 0, "hold_s": 10.0, "min_change_deg": 5.0, "require_chainsaw": False},
+    # Location calibration (LocationCalibrationIntegrationSpec.md): the SDK runs it, we provide the hooks.
+    "calibration": {"emitter_offset_cm": 3.0,       # s_i: buzzer to array centre (ruler)
+                    "band_hz": [1000, 4000],        # default bearing band when the SDK gives none
+                    "nfft": 2048,                   # bearing of one short arrival (~43 ms)
+                    "min_peak_ratio": 3.0, "max_closure_samples": 1.0,
+                    # the shared calibration sweep (every node plays the same; the server's "sweep" overrides)
+                    "sweep": [1500, 2500, 3500, 300],       # f_start, f_mid, f_end (Hz), ms: rising 1.5 -> 3.5 kHz
+                    "test_beep_every_s": 0},                # TEST: play the sweep periodically (0 = off)
 }
 
 

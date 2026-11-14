@@ -37,7 +37,7 @@ import config
 from climate import Climate
 from pipeline import Pipeline
 from receiver import Receiver
-from sdk_glue import DetectionBearing, SensorTee
+from sdk_glue import CalibrationHooks, DetectionBearing, SensorTee
 from storage import EventStore
 
 SENSOR_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "forestpulse.toml")
@@ -137,13 +137,27 @@ pipeline = Pipeline(
 # ------------------------------------------------------------------ sensor SDK
 
 logging.basicConfig(level=logging.INFO, format="[sdk] %(message)s")  # SDK logs: heard ..., server ...
+# One tee for the life of the app: the receiver writes to it, it feeds the SDK
+# and the pipeline (bypassed while the SDK runs a location calibration).
+tee = SensorTee(pipeline.queue, None, log=log)
+# Location calibration (LocationCalibrationIntegrationSpec.md): the SDK runs it
+# and calls these hooks for the stream (ESP32 C/X), buzzer, speed of sound and bearing.
+calibration = CalibrationHooks(cfg, climate, send_command=lambda c: send_command(c), notify=notify, tee=tee, log=log)
 sensor = None
 if os.path.exists(SENSOR_CONFIG):
     try:
+        import inspect
+
         from forestpulse_sensor import Sensor
 
         angle_fn = DetectionBearing(cfg, climate, on_bearing=pipeline.show_detection, log=log)
-        sensor = Sensor.from_file(SENSOR_CONFIG, angle_fn=angle_fn).start()
+        extra = {}
+        if "calibration" in inspect.signature(Sensor.__init__).parameters:
+            extra["calibration"] = calibration
+        else:
+            log("[calib] this SDK has no location calibration yet; hooks not registered")
+        sensor = Sensor.from_file(SENSOR_CONFIG, angle_fn=angle_fn, **extra).start()
+        tee.sensor = sensor
     except Exception as e:  # missing package, bad config: keep capturing, log why
         log(f"[sdk] sensor not started: {e!r}")
 else:
@@ -186,7 +200,7 @@ def _reader() -> None:
                 if line.startswith("INFO"):
                     state["info"] = True
 
-            rx = Receiver(SensorTee(pipeline.queue, sensor, log=log), on_text=on_text, log=log,
+            rx = Receiver(tee, on_text=on_text, log=log,
                           trigger_rise=take_trigger_rise)
             tries, last = 0, 0.0
             while True:
@@ -219,6 +233,37 @@ def _reader() -> None:
 Bridge.provide("send_to_board", send_command)   # sketch -> ESP32 commands
 Bridge.provide("trigger_pin", on_trigger_pin)   # sketch reports D7
 Bridge.provide("climate", on_climate)           # sketch reports the Modulino Thermo
+_modulino_last = None
+
+
+def on_modulino_status(thermo_ok, buzzer_ok, i2c) -> None:
+    """Sketch: every 5 s, whether the Modulino Thermo / Buzzer answered and what's on the Qwiic bus."""
+    global _modulino_last
+    st = (bool(int(thermo_ok)), bool(int(buzzer_ok)), str(i2c))
+    if st != _modulino_last:
+        _modulino_last = st
+        log(f"[modulino] thermo {'OK' if st[0] else 'MISSING'}, buzzer {'OK' if st[1] else 'MISSING'}, "
+            f"Qwiic bus devices: {st[2]}")
+
+
+Bridge.provide("modulino_status", on_modulino_status)
+Bridge.provide("emit_done", lambda ok: log("[calib] sketch played the sweep" if int(ok)
+                                           else "[calib] sketch: no Modulino Buzzer, sweep NOT played"))
+
+def _test_beep_loop(every_s: float, sweep) -> None:
+    """TEST: play the calibration sweep every `every_s` seconds (config calibration.test_beep_every_s)."""
+    while True:
+        time.sleep(every_s)
+        try:
+            calibration.emit(*sweep)
+        except Exception as e:
+            log(f"[calib] test beep failed: {e!r}")
+
+
+if cfg["calibration"].get("test_beep_every_s"):
+    log(f"[calib] TEST: beep {cfg['calibration']['sweep']} every {cfg['calibration']['test_beep_every_s']} s")
+    threading.Thread(target=_test_beep_loop, name="test-beep", daemon=True,
+                     args=(float(cfg["calibration"]["test_beep_every_s"]), cfg["calibration"]["sweep"])).start()
 
 log(f"[app] node {cfg['node_id']}, data in {os.path.abspath(cfg['data_dir'])}, "
     f"sensor SDK {'on: ' + sensor.sensor_id if sensor else 'OFF'}")

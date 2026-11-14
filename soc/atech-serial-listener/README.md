@@ -42,6 +42,7 @@ atech ESP32 --USB CDC--> /dev/ttyACM0 (Linux host)
 | `classifier.py` | numpy mel frontend + ONNX Runtime; mono mix, 48 → 32 kHz, 10 s tiling |
 | `models/` | exported by `experiments/efficientat-chainsaw/export_onnx.py` (model ≈ 19.5 MB) |
 | `climate.py` | Modulino readings → speed of sound, with fallback |
+| `sdk_glue.py` | sensor SDK glue: `SensorTee` (audio → SDK + pipeline), `DetectionBearing` (`angle_fn`), `CalibrationHooks` (location calibration) |
 | `led_arrow.py` | renders the 8×13 arrow (the sketch only displays it) |
 | `storage.py` / `uplink.py` | events on disk (newest 50 kept) / **stub** uplink that queues records in `data/outbox/` |
 | `config.json` | node id, mic geometry, thresholds, LED mounting rotation |
@@ -64,6 +65,19 @@ atech ESP32 --USB CDC--> /dev/ttyACM0 (Linux host)
   - at least 3 such windows are needed for a bearing.
 
   On 2 min of hall background this yields no bearing. On the phone-clip test event it gives 276.7° ± 0.9°.
+
+## Location calibration
+Contract and method: [`LocationCalibrationIntegrationSpec.md`](../../LocationCalibrationIntegrationSpec.md). The sensor SDK runs the calibration; this app only provides `CalibrationHooks` (`sdk_glue.py`):
+- `start_stream()` / `stop_stream()` send `C` / `X` to the ESP32 (continuous stream). While calibrating, every block still goes to the SDK, but our own pipeline is bypassed: no event bearing, WAV or LED.
+- Every node plays the same rising sweep (`calibration.sweep`, 1.5 → 3.5 kHz, 300 ms) in its own 500 ms slot; the SDK tells beeps apart by slot. Set `calibration.test_beep_every_s` to hear it every few seconds.
+- `emit(f_start, f_mid, f_end, ms)` → Bridge `emit` → the sketch plays a stepped sweep on the Modulino Buzzer and answers `emit_done` (logged as `[calib] sketch played the sweep`).
+- `speed_of_sound()` comes from the Modulino Thermo; `bearing(window, band)` gives the direction of one arrival (the early part of a beep, or all of it), clockwise from forward.
+- Static facts: `emitter_offset_m` (`config.json` `calibration.emitter_offset_cm`, measure it with a ruler), mic positions, forward.
+
+The hooks are registered only if the installed SDK's `Sensor` takes a `calibration` argument. Otherwise the log shows `[calib] this SDK has no location calibration yet`.
+
+**Updating the SDK on the board:** App Lab reinstalls packages only when `requirements.txt` changes, so a new SDK on `main` is not picked up by a restart. Run this, then restart the app:
+`docker exec atech-serial-listener-main-1 uv pip install --python /app/.cache/.venv/bin/python --reinstall-package forestpulse-sensor "forestpulse-sensor @ https://github.com/yudjinn/forest-pulse/archive/refs/heads/main.zip#subdirectory=sensor-sdk"`
 
 ## Setup
 1. SSH into the board, plug in the atech board through the hub, and run `ls -l /dev/serial/by-id/ /dev/ttyACM*`.
