@@ -62,8 +62,9 @@ npx wrangler rollback --message "<why>"
 ```
 
 A rollback restores the Worker's code and files only. Migrations and bucket
-uploads stay, so migrations must keep the previous version working (add tables
-and columns, never drop or rename what it reads). `npx wrangler deployments list`
+uploads stay, so both must keep the previous version working: migrations add
+tables and columns and never drop or rename what it reads, and a bucket file
+whose format changes gets a new name instead of replacing the old one. `npx wrangler deployments list`
 shows what is live.
 
 The build copies brand assets from `../shared/assets/forest-pulse/`; generated
