@@ -123,6 +123,26 @@ def test_events_survive_outage_wrong_key_and_restart(tmp_path, model):
         server.shutdown()
 
 
+def test_checks_in_every_3_s_unless_the_config_file_says_otherwise_and_reports_its_version(tmp_path, model):
+    # the server shows a board offline after 10 s without a check-in, so the default leaves room for two misses
+    assert Sensor("http://127.0.0.1:9", "k", sensor_id="node-d", state_dir=str(tmp_path / "default")).checkin_interval == 3
+
+    port = free_port()
+    server, state = serve(port, key="k", quiet=True)
+    config = tmp_path / "forestpulse.toml"
+    config.write_text(f'server_url = "http://127.0.0.1:{port}"\nsensor_key = "k"\nsensor_id = "node-e"\n'
+                      "checkin_interval = 1\n")
+    sensor = Sensor.from_file(config, model=model)
+    try:
+        assert sensor.checkin_interval == 1
+        sensor.start()
+        assert wait_for(lambda: "node-e" in state.sensors)
+        assert state.sensors["node-e"]["sdk_version"] == "0.4.0"
+    finally:
+        sensor.stop()
+        server.shutdown()
+
+
 def test_report_path_for_callers_running_their_own_model(tmp_path, model):
     frames, rate = read_wav(REF.joinpath("chainsaw.wav"))
     from forestpulse_sensor import to_model_audio

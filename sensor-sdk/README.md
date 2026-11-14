@@ -44,6 +44,13 @@ ESP32 packets ─► atech-serial-listener ─► sensor.feed_channels() ─► 
    Queued events and the cached sound list are kept in `forestpulse-state/` next to this file, so they survive
    restarts as long as the app folder does.
 
+   The sensor checks in every 3 s; the plan shows a board Offline after 10 s without one. A board still on a
+   library before 0.4.0 checks in every 10 s and flickers Offline: until it upgrades, add this line to the file:
+
+   ```toml
+   checkin_interval = 3
+   ```
+
 4. **Wire it into `main.py`:**
 
    ```python

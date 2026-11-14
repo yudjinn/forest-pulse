@@ -9,10 +9,11 @@ import { json } from "../http.ts";
 import { logLine } from "../log.ts";
 import { clearMeasuredMark } from "../calibration/layout.ts";
 
-// A sensor is offline once this long has passed without a check-in. The one place the rule lives.
-export const OFFLINE_AFTER_MS = 30_000;
+// A sensor is offline once this long has passed without a check-in. The one place the rule lives. Boards check in
+// every 3 s (the sensor library's default), so a board misses about three check-ins before it shows offline.
+export const OFFLINE_AFTER_MS = 10_000;
 // Two process identities checking in under one name within this window share the name.
-export const SHARED_NAME_WINDOW_MS = 30_000;
+export const SHARED_NAME_WINDOW_MS = 10_000;
 // The default spot of each new sensor: this far to the right of the most recently added one on the plan, facing it.
 const NEW_SENSOR_SPACING_M = 3;
 // Positions beyond this many metres from the origin are refused.

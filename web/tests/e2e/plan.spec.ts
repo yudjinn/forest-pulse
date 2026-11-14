@@ -39,8 +39,6 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     const silence = silentWav(1);
     const a = uniqueSensorId("plan-a");
     const b = uniqueSensorId("plan-b");
-    // Before a's replay, so its last check-in is no earlier than this.
-    const aStarted = Date.now();
     await replay({ sensorId: a, wavs: [silence], serverUrl: service.url });
     await replay({ sensorId: b, wavs: [silence], serverUrl: service.url });
     const cardA = card(page, a);
@@ -52,10 +50,11 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(page.getByText("No sensors yet. Sensors appear here when they first check in.")).toBeHidden();
 
     // Each card shows the sensor's health: online, its last check-in and its versions. A sensor that stopped before
-    // checking in with a sound list has none to report yet; the sound-list version is proven on c below.
-    await expect(cardA.getByText("Online", { exact: true })).toBeVisible();
-    await expect(cardA.getByText(/^\d{2}:\d{2}:\d{2}$/)).toBeVisible();
-    await expect(cardA.getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list (\d+|unknown)$/)).toBeVisible();
+    // checking in with a sound list has none to report yet; the sound-list version is proven on c below. b checked
+    // in last, so it is still online here however long the replays took.
+    await expect(cardB.getByText("Online", { exact: true })).toBeVisible();
+    await expect(cardB.getByText(/^\d{2}:\d{2}:\d{2}$/)).toBeVisible();
+    await expect(cardB.getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list (\d+|unknown)$/)).toBeVisible();
 
     // A second researcher watches the same plan.
     const other = await context.newPage();
@@ -114,10 +113,17 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(card(page, c).getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list \d+$/)).toBeVisible();
     await expect(cardA.getByText("Two devices share this name")).toBeHidden();
 
-    // a stopped checking in; 30 s later it shows offline.
-    await expect(cardA.getByText("Offline", { exact: true })).toBeVisible({ timeout: 40_000 });
-    expect(Date.now() - aStarted).toBeGreaterThanOrEqual(30_000);
+    // a stopped checking in long ago and shows offline; c just checked in and is online.
+    await expect(cardA.getByText("Offline", { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(card(page, c).getByText("Online", { exact: true })).toBeVisible();
+
+    // c has stopped too: it shows offline 10 s after its last check-in, give or take the plan's 2 s poll.
+    const plan = await (await page.request.get("/dashboard/api/sensors")).json();
+    const cLastCheckin = Date.parse(plan.sensors.find((s: { id: string }) => s.id === c).last_checkin_at);
+    await expect(card(page, c).getByText("Offline", { exact: true })).toBeVisible({ timeout: 20_000 });
+    const silentFor = Date.now() - cLastCheckin;
+    expect(silentFor).toBeGreaterThanOrEqual(10_000);
+    expect(silentFor).toBeLessThan(15_000);
 
     // A new sensor after one was removed takes its default spot from the last sensor still on the plan: c is
     // removed, so d goes 3 m to the right of b, not of c.

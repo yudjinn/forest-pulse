@@ -30,13 +30,14 @@ MIN_WINDOW_S = 1.0    # never analyse less than this
 REPEAT_S = 5.0        # report the same sound at most once per 5 s
 MAX_BACKLOG_S = 60.0  # audio waiting for analysis beyond this is dropped (logged), never blocking feed()
 BATCH = 100
+CHECKIN_S = 3.0              # check-in interval; the server shows a board offline after 10 s without one
 CALIBRATION_CHECKIN_S = 1.0  # check-in interval while taking part in a calibration run
 
 
 class Sensor:
     def __init__(self, server_url: str, sensor_key: str, sensor_id: str | None = None, state_dir: str = "~/.forestpulse",
-                 angle_fn=None, sample_rate: int = 48000, checkin_interval: float = 10.0, model: Model | None = None,
-                 model_threads: int = 2, calibration=None, clock=None):
+                 angle_fn=None, sample_rate: int = 48000, checkin_interval: float = CHECKIN_S,
+                 model: Model | None = None, model_threads: int = 2, calibration=None, clock=None):
         """
         angle_fn: optional callable(window) -> angle_deg | (angle_deg, confidence) | None, called once per window
             that produced a detection. `window` is the (N, channels) int16 audio that was classified, at
@@ -73,8 +74,9 @@ class Sensor:
 
     @classmethod
     def from_file(cls, path: str, **overrides) -> "Sensor":
-        """TOML file with server_url, sensor_key and optionally sensor_id, state_dir. A relative state_dir, and the
-        default one, live next to the config file, so they survive wherever the config file does."""
+        """TOML file with server_url, sensor_key and optionally sensor_id, state_dir and any other constructor
+        setting, such as checkin_interval. A relative state_dir, and the default one, live next to the config file, so
+        they survive wherever the config file does."""
         import tomllib
 
         path = os.path.abspath(os.path.expanduser(str(path)))

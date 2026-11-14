@@ -142,8 +142,9 @@ Before the audience arrives:
 
 1. Deploy (`npm run deploy` in `web/`) and run both live rehearsals above, the calibration one first, before the
    boards are on; every step passes.
-2. Boards on, each running the sensor library 0.2.0 or later, and Online on the plan. To calibrate, a board needs the
-   library 0.3.0 or later with the device app's calibration hooks.
+2. Boards on, each running the sensor library 0.2.0 or later, and Online on the plan. A board on a library before
+   0.4.0 needs `checkin_interval = 3` in its config file until it upgrades, or it flickers Offline. To calibrate, a
+   board needs the library 0.3.0 or later with the device app's calibration hooks.
 3. Stage check: record the buzzer at 1 m, 3 m and 5 m on the stage and run the stage check tool on the three
    recordings (`sensor-sdk/README.md`, Stage check). FAIL: skip to step 6.
 4. Calibrate: with 2 or 3 boards standing where they will be, press Calibrate on the plan and wait for

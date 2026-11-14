@@ -16,7 +16,9 @@ carry an angle, never audio) and ADR-20261114110501489 (one fixed model, small d
 
 ## Check in: `POST /sensors/{sensor_id}/checkin`
 
-Every 10 s.
+Every 3 s (every 1 s during a calibration run, see Calibration). The server shows a sensor offline once 10 s pass
+without a check-in. Library versions before 0.4.0 check in every 10 s by default and flicker offline; until such a
+board upgrades, its config file needs `checkin_interval = 3`.
 
 ```json
 {
