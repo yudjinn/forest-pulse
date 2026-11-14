@@ -8,7 +8,7 @@ Basis: each worktree builds its own web/dist, runs its own local Worker on ports
 Lock: ~/.agents/skills/_workflow-shared/scripts/e2e-lock.sh --capacity 3 -- scripts/test-all.sh. Two runs in one worktree are not supported: they share web/dist.
 
 ## Verification cost
-Full suite: 5 s web journeys plus 8 s sensor library, measured 2026-11-14 on the harness skeleton (budget 6 min). Re-measure when the journeys grow; no affected-only mode, run one spec instead.
+Full suite: 28 s wall clock (typecheck, 20 s web journeys including the local service start, 6 s sensor library), measured 2026-11-14 with the service-core journeys (budget 6 min). Re-measure when the journeys grow; no affected-only mode, run one spec instead.
 Workers per run: 2. Worker budget: 6 browser workers across all concurrent heavy runs. Heavy-job capacity on this machine: 3 at once (10 cores, 64 GB). Basis: 3 full suites on separate worktrees and bases ran concurrently, all green, 2026-11-14.
 Fast typecheck: cd web && npm run typecheck. Lint changed files: no linter is configured; typecheck is the gate.
 Fast development loop: FP_E2E_PORT_BASE=<base> npm run serve in web/, then reload the browser.
