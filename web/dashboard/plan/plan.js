@@ -1,6 +1,7 @@
 // The sensor plan on the overview page: a top-down view of every sensor, drawn to fit with a 1 m grid, and a card
 // per sensor with its health, each named as the service names it ("Sensor N", its own id on the card beneath), and
-// whether it has the current sound list as the service judges it. Researchers drag a sensor (or move it with the
+// whether it has the current sound list as the service judges it, and its trigger health as it last reported it
+// (read-only: nothing on the card sets a trigger). Researchers drag a sensor (or move it with the
 // arrow keys) and type its facing; each
 // change saves at once and the plan follows the shell's 2 s poll, so other researchers' edits appear too.
 // Plan metres: x to the right, y up. Facing: degrees clockwise from the plan's up.
@@ -12,7 +13,8 @@ import { clockTime, poll } from "/dashboard/shell.js";
 /**
  * @typedef {{ id: string, number: number | null, name: string, x_m: number, y_m: number, facing_deg: number, online: boolean, last_checkin_at: string,
  *   sdk_version: string | null, model: string | null, sound_list_version: number | null, shared_name: boolean,
- *   sound_list: "current" | "updating" | "outdated" }}
+ *   sound_list: "current" | "updating" | "outdated", recordings_per_min: number | null,
+ *   trigger: { snr_db?: number, ratio_db?: number, coherence?: number } | null, noise_floor_dbfs: number | null }}
  *   PlanSensor
  */
 /**
@@ -421,8 +423,8 @@ function signIn() {
 
 /**
  * @typedef {{ item: HTMLLIElement, name: HTMLElement, status: HTMLElement, warning: HTMLElement,
- *   soundList: HTMLElement, checkin: HTMLElement, versions: HTMLElement, position: HTMLElement, facing: HTMLInputElement,
- *   removeButton: HTMLButtonElement }} Card
+ *   soundList: HTMLElement, checkin: HTMLElement, health: HTMLElement, healthTerm: HTMLElement, versions: HTMLElement,
+ *   position: HTMLElement, facing: HTMLInputElement, removeButton: HTMLButtonElement }} Card
  */
 /** @type {Map<string, Card>} */
 const cards = new Map();
@@ -447,6 +449,15 @@ function drawCards(items) {
     c.soundList.className = s.sound_list === "outdated" ? "plan-warning" : "plan-updating";
     c.soundList.textContent = s.sound_list === "outdated" ? "Outdated sound list" : "Updating";
     c.checkin.textContent = checkinTime(new Date(s.last_checkin_at));
+    // Each part stays on one line, so a narrow card wraps the line only between parts.
+    const health = triggerHealth(s);
+    c.health.replaceChildren(...health.flatMap((part, i) => {
+      const el = document.createElement("span");
+      el.className = "plan-health-part";
+      el.textContent = part;
+      return i ? [" · ", el] : [el];
+    }));
+    c.health.hidden = c.healthTerm.hidden = !health.length;
     c.versions.textContent = [
       `Library ${s.sdk_version ?? "unknown"}`,
       `model ${s.model ?? "unknown"}`,
@@ -502,6 +513,8 @@ function makeCard(id) {
     return dd;
   };
   const checkin = fact("Last check-in");
+  const health = fact("Trigger health");
+  const healthTerm = /** @type {HTMLElement} */ (health.previousElementSibling);
   const versions = fact("Versions");
   const position = fact("Position");
 
@@ -545,8 +558,34 @@ function makeCard(id) {
     if (e.key === "Enter") facing.blur();
   });
   removeButton.addEventListener("click", () => remove(id));
-  return { item, name, status, warning, soundList, checkin, versions, position, facing, removeButton };
+  return {
+    item, name, status, warning, soundList, checkin, health, healthTerm, versions, position, facing, removeButton,
+  };
 }
+
+/**
+ * The parts of the sensor's trigger health line, "12 recordings/min · trigger 4 dB / 0 dB / 0.60 · floor -52 dBFS":
+ * the trigger values keep their places with "?" for one the sensor did not report, and a part with nothing known is
+ * left out. None when the sensor's last check-in carried none (a library older than 0.5.0).
+ * @param {PlanSensor} s
+ * @returns {string[]}
+ */
+function triggerHealth(s) {
+  const parts = [];
+  const per = s.recordings_per_min;
+  if (per !== null) parts.push(`${per} ${per === 1 ? "recording" : "recordings"}/min`);
+  const t = s.trigger;
+  if (t) {
+    const values = [t.snr_db, t.ratio_db].map((v) => (v === undefined ? "?" : `${tenths(v)} dB`));
+    values.push(t.coherence === undefined ? "?" : t.coherence.toFixed(2));
+    parts.push(`trigger ${values.join(" / ")}`);
+  }
+  if (s.noise_floor_dbfs !== null) parts.push(`floor ${tenths(s.noise_floor_dbfs)} dBFS`);
+  return parts;
+}
+
+/** To a tenth, without a trailing ".0" and never "-0". @param {number} v */
+const tenths = (v) => String(Math.round(v * 10) / 10 || 0);
 
 /** The same normalisation the service applies, so the field shows the stored value at once. @param {number} deg */
 function normaliseFacing(deg) {

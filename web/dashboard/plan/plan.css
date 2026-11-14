@@ -218,6 +218,10 @@
   overflow-wrap: anywhere;
 }
 
+.plan-health-part {
+  white-space: nowrap;
+}
+
 .plan-card-actions {
   display: flex;
   flex-wrap: wrap;

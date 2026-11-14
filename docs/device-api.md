@@ -250,7 +250,7 @@ on its buzzer. Library 0.6.0 and later.
   not confirmed it within 15 s of delivery; a confirmation later than that is ignored. A sensor offline when the
   warning is sent, without `can_warn`, or taking part in a calibration run is not sent the alarm.
 
-## Trigger health (not stored yet)
+## Trigger health
 
 Library 0.5.0 and later. Check-in request, added fields, each omitted when unknown:
 
@@ -269,8 +269,11 @@ Library 0.5.0 and later. Check-in request, added fields, each omitted when unkno
   `trigger` is missing when no key is left or the board has no hook.
 - `noise_floor_dbfs`: a number, from the same hook; missing when the hook does not give it.
 
-Read-only: the service shows them and never sends trigger settings back. Until the plan card stores them, the
-service ignores them.
+Read-only: the service shows them on the sensor's plan card and never sends trigger settings back. It keeps what the
+latest check-in carried, so a field the sensor leaves out is shown as unknown from that check-in on, and a sensor that
+sends none (a library older than 0.5.0) shows none; an offline sensor keeps what it last sent. Validated loosely: a
+field that is not as described above (a trigger value that is not a number, a negative or fractional count) is
+dropped, never a reason to refuse the check-in, and other keys in `trigger` are ignored.
 
 ## Errors
 
