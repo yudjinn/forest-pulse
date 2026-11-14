@@ -166,6 +166,9 @@ _c = cfg["calibration"]
 if _c.get("test_mono_mic"):
     tee.mono_mic = int(_c["test_mono_mic"]) - 1
     log(f"[calib] TEST: calibration stream uses mic{_c['test_mono_mic']} only (copied to all 3 channels)")
+if _c.get("test_dump_calibration"):
+    tee.dump_dir = os.path.join(cfg["data_dir"], "calibration")
+    log(f"[calib] TEST: saving each calibration stream to {tee.dump_dir}")
 if _c.get("test_fake_bearing_deg") is not None:
     log(f"[calib] TEST: faking every calibration bearing as {_c['test_fake_bearing_deg']} deg "
         "(fine for a 2-node run; a 3-node run fails its angle check)")

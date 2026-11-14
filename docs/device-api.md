@@ -127,12 +127,12 @@ ends (or when the sensor was left out of it, below):
   "run_id": "8f1c...",
   "role": "A",                                  // this sensor's role
   "order": ["A", "B"],                          // the roles taking part, in slot order
-  "patterns": {"A": {"f_start_hz": 1500, "f_mid_hz": 2500, "f_end_hz": 3500, "duration_ms": 120},
-               "B": {"f_start_hz": 3500, "f_mid_hz": 2500, "f_end_hz": 1500, "duration_ms": 120}},
+  "patterns": {"A": {"f_start_hz": 2500, "f_mid_hz": 3750, "f_end_hz": 5000, "duration_ms": 150},
+               "B": {"f_start_hz": 5000, "f_mid_hz": 3750, "f_end_hz": 2500, "duration_ms": 150}},
   "start_at": "2026-11-14T12:00:09.500Z",       // the first slot, service clock; absent until scheduled
   "slot_ms": 500,
   "round_gap_ms": 1000,
-  "rounds": 4
+  "rounds": 6
 }
 ```
 
