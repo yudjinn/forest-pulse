@@ -5,6 +5,11 @@ import shutil
 
 ROOT = Path(__file__).resolve().parent
 BRAND = ROOT.parent / "shared" / "assets" / "forest-pulse"
+# Teaching runs the sensors' own model file in the browser, with ONNX Runtime's WebAssembly build, both served
+# from the site itself at /model/.
+SENSOR_MODEL = ROOT.parent / "sensor-sdk" / "forestpulse_sensor" / "data" / "mn10_as.onnx"
+ORT = ROOT / "node_modules" / "onnxruntime-web" / "dist"
+ORT_FILES = ("ort.wasm.min.mjs", "ort-wasm-simd-threaded.mjs", "ort-wasm-simd-threaded.wasm")
 DIST = ROOT / "dist"
 
 
@@ -22,6 +27,10 @@ def main():
         shutil.copytree(BRAND / name, DIST / "brand" / name)
     shutil.copy2(BRAND / "site.webmanifest", DIST / "brand" / "site.webmanifest")
     shutil.copy2(BRAND / "icons" / "favicon.ico", DIST / "favicon.ico")
+    (DIST / "model").mkdir()
+    shutil.copy2(SENSOR_MODEL, DIST / "model" / SENSOR_MODEL.name)
+    for name in ORT_FILES:
+        shutil.copy2(ORT / name, DIST / "model" / name)
     print(f"Built landing page in {DIST}")
 
 

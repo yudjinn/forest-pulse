@@ -1,0 +1,3201 @@
+{
+ "model": "mn10_as",
+ "dim": 960,
+ "rows": 2024,
+ "dtype": "float32",
+ "layout": "per recording: one clean row per window, then one mixed row per window",
+ "window_seconds": 5,
+ "max_seconds": 60,
+ "mixed_ratio_db": [
+  -3.0,
+  15.0
+ ],
+ "background": "teach/hall.wav",
+ "seed": 9,
+ "recordings": [
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "1-116765-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 116765",
+    "url": "https://freesound.org/s/116765/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "1-19898-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 19898",
+    "url": "https://freesound.org/s/19898/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "1-19898-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 19898",
+    "url": "https://freesound.org/s/19898/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "1-19898-C-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 19898",
+    "url": "https://freesound.org/s/19898/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "1-47250-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 47250",
+    "url": "https://freesound.org/s/47250/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "1-47250-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 47250",
+    "url": "https://freesound.org/s/47250/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "1-64398-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 64398",
+    "url": "https://freesound.org/s/64398/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "1-64398-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 64398",
+    "url": "https://freesound.org/s/64398/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "2-50667-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 50667",
+    "url": "https://freesound.org/s/50667/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "2-50667-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 50667",
+    "url": "https://freesound.org/s/50667/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "2-50668-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 50668",
+    "url": "https://freesound.org/s/50668/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "2-50668-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 50668",
+    "url": "https://freesound.org/s/50668/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "2-68391-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 68391",
+    "url": "https://freesound.org/s/68391/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "2-68391-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 68391",
+    "url": "https://freesound.org/s/68391/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "2-77945-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 77945",
+    "url": "https://freesound.org/s/77945/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "2-77945-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 77945",
+    "url": "https://freesound.org/s/77945/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "3-118656-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 118656",
+    "url": "https://freesound.org/s/118656/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "3-118657-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 118657",
+    "url": "https://freesound.org/s/118657/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "3-118657-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 118657",
+    "url": "https://freesound.org/s/118657/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "3-118658-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 118658",
+    "url": "https://freesound.org/s/118658/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "3-118658-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 118658",
+    "url": "https://freesound.org/s/118658/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "3-118972-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 118972",
+    "url": "https://freesound.org/s/118972/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "3-118972-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 118972",
+    "url": "https://freesound.org/s/118972/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "3-165856-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 165856",
+    "url": "https://freesound.org/s/165856/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "4-149294-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 149294",
+    "url": "https://freesound.org/s/149294/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "4-149294-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 149294",
+    "url": "https://freesound.org/s/149294/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "4-157611-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 157611",
+    "url": "https://freesound.org/s/157611/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "4-157611-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 157611",
+    "url": "https://freesound.org/s/157611/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "4-165823-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 165823",
+    "url": "https://freesound.org/s/165823/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "4-165823-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 165823",
+    "url": "https://freesound.org/s/165823/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "4-169127-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 169127",
+    "url": "https://freesound.org/s/169127/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "4-169127-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 169127",
+    "url": "https://freesound.org/s/169127/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "5-170338-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 170338",
+    "url": "https://freesound.org/s/170338/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "5-170338-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 170338",
+    "url": "https://freesound.org/s/170338/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "5-171653-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 171653",
+    "url": "https://freesound.org/s/171653/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "5-185579-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 185579",
+    "url": "https://freesound.org/s/185579/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "5-185579-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 185579",
+    "url": "https://freesound.org/s/185579/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "5-216370-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 216370",
+    "url": "https://freesound.org/s/216370/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "5-216370-B-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 216370",
+    "url": "https://freesound.org/s/216370/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chainsaw",
+   "dataset": "ESC-50",
+   "recording": "5-222524-A-41.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 222524",
+    "url": "https://freesound.org/s/222524/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "1-100038-A-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 100038",
+    "url": "https://freesound.org/s/100038/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "1-100210-A-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 100210",
+    "url": "https://freesound.org/s/100210/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "1-100210-B-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 100210",
+    "url": "https://freesound.org/s/100210/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "1-103298-A-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 103298",
+    "url": "https://freesound.org/s/103298/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "1-11687-A-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 11687",
+    "url": "https://freesound.org/s/11687/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "1-119125-A-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 119125",
+    "url": "https://freesound.org/s/119125/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "1-137296-A-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 137296",
+    "url": "https://freesound.org/s/137296/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "1-17150-A-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 17150",
+    "url": "https://freesound.org/s/17150/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "1-172649-A-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 172649",
+    "url": "https://freesound.org/s/172649/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "1-172649-B-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 172649",
+    "url": "https://freesound.org/s/172649/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "1-172649-C-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 172649",
+    "url": "https://freesound.org/s/172649/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "1-172649-D-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 172649",
+    "url": "https://freesound.org/s/172649/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "1-172649-E-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 172649",
+    "url": "https://freesound.org/s/172649/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "1-172649-F-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 172649",
+    "url": "https://freesound.org/s/172649/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "1-17367-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 17367",
+    "url": "https://freesound.org/s/17367/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "1-17565-A-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 17565",
+    "url": "https://freesound.org/s/17565/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "1-17585-A-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 17585",
+    "url": "https://freesound.org/s/17585/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "1-17742-A-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 17742",
+    "url": "https://freesound.org/s/17742/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "1-17808-A-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 17808",
+    "url": "https://freesound.org/s/17808/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "1-17808-B-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 17808",
+    "url": "https://freesound.org/s/17808/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "1-181071-A-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 181071",
+    "url": "https://freesound.org/s/181071/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "1-181071-B-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 181071",
+    "url": "https://freesound.org/s/181071/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "1-18527-A-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 18527",
+    "url": "https://freesound.org/s/18527/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "1-18527-B-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 18527",
+    "url": "https://freesound.org/s/18527/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "1-18810-A-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 18810",
+    "url": "https://freesound.org/s/18810/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "1-19501-A-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 19501",
+    "url": "https://freesound.org/s/19501/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "1-19840-A-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 19840",
+    "url": "https://freesound.org/s/19840/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "1-19872-A-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 19872",
+    "url": "https://freesound.org/s/19872/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "1-19872-B-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 19872",
+    "url": "https://freesound.org/s/19872/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "1-21189-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 21189",
+    "url": "https://freesound.org/s/21189/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "1-22882-A-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 22882",
+    "url": "https://freesound.org/s/22882/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "1-23706-A-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 23706",
+    "url": "https://freesound.org/s/23706/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "1-24796-A-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 24796",
+    "url": "https://freesound.org/s/24796/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "1-26222-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 26222",
+    "url": "https://freesound.org/s/26222/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "1-29532-A-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 29532",
+    "url": "https://freesound.org/s/29532/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "1-29561-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 29561",
+    "url": "https://freesound.org/s/29561/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "1-34495-A-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 34495",
+    "url": "https://freesound.org/s/34495/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "1-34497-A-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 34497",
+    "url": "https://freesound.org/s/34497/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "1-36929-A-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 36929",
+    "url": "https://freesound.org/s/36929/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "1-38559-A-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 38559",
+    "url": "https://freesound.org/s/38559/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "1-38560-A-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 38560",
+    "url": "https://freesound.org/s/38560/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "1-39835-A-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 39835",
+    "url": "https://freesound.org/s/39835/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "1-39835-B-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 39835",
+    "url": "https://freesound.org/s/39835/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "1-4211-A-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 4211",
+    "url": "https://freesound.org/s/4211/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "1-43807-A-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 43807",
+    "url": "https://freesound.org/s/43807/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "1-43807-B-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 43807",
+    "url": "https://freesound.org/s/43807/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "1-43807-C-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 43807",
+    "url": "https://freesound.org/s/43807/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "1-43807-D-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 43807",
+    "url": "https://freesound.org/s/43807/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "1-46040-A-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 46040",
+    "url": "https://freesound.org/s/46040/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "1-46272-A-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 46272",
+    "url": "https://freesound.org/s/46272/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "1-46353-A-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 46353",
+    "url": "https://freesound.org/s/46353/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "1-46744-A-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 46744",
+    "url": "https://freesound.org/s/46744/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "1-46938-A-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 46938",
+    "url": "https://freesound.org/s/46938/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "1-46938-B-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 46938",
+    "url": "https://freesound.org/s/46938/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "1-47709-A-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 47709",
+    "url": "https://freesound.org/s/47709/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "1-47714-A-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 47714",
+    "url": "https://freesound.org/s/47714/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "1-50060-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 50060",
+    "url": "https://freesound.org/s/50060/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "1-50454-A-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 50454",
+    "url": "https://freesound.org/s/50454/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "1-50455-A-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 50455",
+    "url": "https://freesound.org/s/50455/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "1-50661-A-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 50661",
+    "url": "https://freesound.org/s/50661/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "1-51035-A-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 51035",
+    "url": "https://freesound.org/s/51035/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "1-51036-A-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 51036",
+    "url": "https://freesound.org/s/51036/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "1-51037-A-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 51037",
+    "url": "https://freesound.org/s/51037/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "1-53467-A-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 53467",
+    "url": "https://freesound.org/s/53467/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "1-54065-A-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 54065",
+    "url": "https://freesound.org/s/54065/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "1-54065-B-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 54065",
+    "url": "https://freesound.org/s/54065/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "1-54918-A-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 54918",
+    "url": "https://freesound.org/s/54918/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "1-54918-B-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 54918",
+    "url": "https://freesound.org/s/54918/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "1-54958-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 54958",
+    "url": "https://freesound.org/s/54958/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "1-56233-A-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 56233",
+    "url": "https://freesound.org/s/56233/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "1-56234-A-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 56234",
+    "url": "https://freesound.org/s/56234/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "1-56311-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 56311",
+    "url": "https://freesound.org/s/56311/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "1-60460-A-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 60460",
+    "url": "https://freesound.org/s/60460/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "1-61261-A-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 61261",
+    "url": "https://freesound.org/s/61261/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "1-62509-A-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 62509",
+    "url": "https://freesound.org/s/62509/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "1-62565-A-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 62565",
+    "url": "https://freesound.org/s/62565/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "1-63871-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 63871",
+    "url": "https://freesound.org/s/63871/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "1-64473-A-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 64473",
+    "url": "https://freesound.org/s/64473/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "1-69760-A-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 69760",
+    "url": "https://freesound.org/s/69760/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "1-70300-A-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 70300",
+    "url": "https://freesound.org/s/70300/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "1-7057-A-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 7057",
+    "url": "https://freesound.org/s/7057/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "1-73585-A-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 73585",
+    "url": "https://freesound.org/s/73585/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "1-75162-A-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 75162",
+    "url": "https://freesound.org/s/75162/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "1-75189-A-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 75189",
+    "url": "https://freesound.org/s/75189/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "1-79236-A-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 79236",
+    "url": "https://freesound.org/s/79236/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "1-7973-A-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 7973",
+    "url": "https://freesound.org/s/7973/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "1-7974-A-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 7974",
+    "url": "https://freesound.org/s/7974/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "1-7974-B-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 7974",
+    "url": "https://freesound.org/s/7974/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "1-80785-A-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 80785",
+    "url": "https://freesound.org/s/80785/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "1-88409-A-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 88409",
+    "url": "https://freesound.org/s/88409/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "1-88409-B-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 88409",
+    "url": "https://freesound.org/s/88409/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "1-96950-A-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 96950",
+    "url": "https://freesound.org/s/96950/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "1-96950-B-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 96950",
+    "url": "https://freesound.org/s/96950/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "1-9886-A-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 9886",
+    "url": "https://freesound.org/s/9886/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "1-9887-A-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 9887",
+    "url": "https://freesound.org/s/9887/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "1-9887-B-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 9887",
+    "url": "https://freesound.org/s/9887/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "2-101676-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 101676",
+    "url": "https://freesound.org/s/101676/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "2-104952-A-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 104952",
+    "url": "https://freesound.org/s/104952/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "2-104952-B-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 104952",
+    "url": "https://freesound.org/s/104952/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "2-105270-A-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 105270",
+    "url": "https://freesound.org/s/105270/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "2-106014-A-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 106014",
+    "url": "https://freesound.org/s/106014/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "2-106015-A-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 106015",
+    "url": "https://freesound.org/s/106015/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "2-106015-B-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 106015",
+    "url": "https://freesound.org/s/106015/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "2-106072-A-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 106072",
+    "url": "https://freesound.org/s/106072/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "2-106073-A-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 106073",
+    "url": "https://freesound.org/s/106073/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "engine",
+   "dataset": "ESC-50",
+   "recording": "2-106486-A-44.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 106486",
+    "url": "https://freesound.org/s/106486/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "2-106849-A-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 106849",
+    "url": "https://freesound.org/s/106849/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "2-108760-A-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 108760",
+    "url": "https://freesound.org/s/108760/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "2-108760-B-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 108760",
+    "url": "https://freesound.org/s/108760/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "2-108761-A-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 108761",
+    "url": "https://freesound.org/s/108761/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "2-108763-A-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 108763",
+    "url": "https://freesound.org/s/108763/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "2-108766-A-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 108766",
+    "url": "https://freesound.org/s/108766/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "2-108767-A-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 108767",
+    "url": "https://freesound.org/s/108767/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crow",
+   "dataset": "ESC-50",
+   "recording": "2-108767-B-9.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 108767",
+    "url": "https://freesound.org/s/108767/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "2-109371-A-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 109371",
+    "url": "https://freesound.org/s/109371/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "wind",
+   "dataset": "ESC-50",
+   "recording": "2-109371-B-16.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 109371",
+    "url": "https://freesound.org/s/109371/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "2-117625-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 117625",
+    "url": "https://freesound.org/s/117625/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "2-122066-A-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 122066",
+    "url": "https://freesound.org/s/122066/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "2-122066-B-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 122066",
+    "url": "https://freesound.org/s/122066/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "2-122067-A-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 122067",
+    "url": "https://freesound.org/s/122067/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "train",
+   "dataset": "ESC-50",
+   "recording": "2-122067-B-45.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 122067",
+    "url": "https://freesound.org/s/122067/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "chirping_birds",
+   "dataset": "ESC-50",
+   "recording": "2-122616-A-14.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 122616",
+    "url": "https://freesound.org/s/122616/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "2-122820-A-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 122820",
+    "url": "https://freesound.org/s/122820/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "vacuum_cleaner",
+   "dataset": "ESC-50",
+   "recording": "2-122820-B-36.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 122820",
+    "url": "https://freesound.org/s/122820/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "2-135860-A-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 135860",
+    "url": "https://freesound.org/s/135860/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "2-160128-A-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 160128",
+    "url": "https://freesound.org/s/160128/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "2-160888-A-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 160888",
+    "url": "https://freesound.org/s/160888/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "2-184077-A-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 184077",
+    "url": "https://freesound.org/s/184077/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "2-18766-A-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 18766",
+    "url": "https://freesound.org/s/18766/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "2-18766-B-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 18766",
+    "url": "https://freesound.org/s/18766/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "2-188822-A-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 188822",
+    "url": "https://freesound.org/s/188822/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "2-188822-B-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 188822",
+    "url": "https://freesound.org/s/188822/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "2-188822-C-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 188822",
+    "url": "https://freesound.org/s/188822/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "helicopter",
+   "dataset": "ESC-50",
+   "recording": "2-188822-D-40.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 188822",
+    "url": "https://freesound.org/s/188822/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "2-28314-A-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 28314",
+    "url": "https://freesound.org/s/28314/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "crackling_fire",
+   "dataset": "ESC-50",
+   "recording": "2-28314-B-12.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 28314",
+    "url": "https://freesound.org/s/28314/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "2-51630-A-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 51630",
+    "url": "https://freesound.org/s/51630/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "hand_saw",
+   "dataset": "ESC-50",
+   "recording": "2-51630-B-49.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 51630",
+    "url": "https://freesound.org/s/51630/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "2-72970-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 72970",
+    "url": "https://freesound.org/s/72970/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "rain",
+   "dataset": "ESC-50",
+   "recording": "2-73027-A-10.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 73027",
+    "url": "https://freesound.org/s/73027/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "airplane",
+   "dataset": "ESC-50",
+   "recording": "2-74361-A-47.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 74361",
+    "url": "https://freesound.org/s/74361/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "2-81970-A-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 81970",
+    "url": "https://freesound.org/s/81970/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "2-81970-B-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 81970",
+    "url": "https://freesound.org/s/81970/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "insects",
+   "dataset": "ESC-50",
+   "recording": "2-81970-C-7.wav",
+   "credit": {
+    "source": "ESC-50, Freesound 81970",
+    "url": "https://freesound.org/s/81970/",
+    "licence_url": "https://creativecommons.org/licenses/by-nc/3.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC1085639",
+   "credit": {
+    "recordist": "Jean Pierre Sciolla",
+    "url": "https://xeno-canto.org/1085639",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC528380",
+   "credit": {
+    "recordist": "Benjamin Mayer",
+    "url": "https://xeno-canto.org/528380",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC573978",
+   "credit": {
+    "recordist": "Giuseppe Speranza",
+    "url": "https://xeno-canto.org/573978",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 2
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC592322",
+   "credit": {
+    "recordist": "Simon Elliott",
+    "url": "https://xeno-canto.org/592322",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC611750",
+   "credit": {
+    "recordist": "Rob van Bemmelen",
+    "url": "https://xeno-canto.org/611750",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC651624",
+   "credit": {
+    "recordist": "SonoNatura",
+    "url": "https://xeno-canto.org/651624",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC721187",
+   "credit": {
+    "recordist": "Jarek Matusiak",
+    "url": "https://xeno-canto.org/721187",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 7
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC727150",
+   "credit": {
+    "recordist": "Anders Westman",
+    "url": "https://xeno-canto.org/727150",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 9
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC730362",
+   "credit": {
+    "recordist": "Stanislas Wroza",
+    "url": "https://xeno-canto.org/730362",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC737216",
+   "credit": {
+    "recordist": "Dmitriy",
+    "url": "https://xeno-canto.org/737216",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 3
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC793286",
+   "credit": {
+    "recordist": "Dominique Guillerme",
+    "url": "https://xeno-canto.org/793286",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC810608",
+   "credit": {
+    "recordist": "Dries Van de Loock",
+    "url": "https://xeno-canto.org/810608",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 5
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC901927",
+   "credit": {
+    "recordist": "João Tomás",
+    "url": "https://xeno-canto.org/901927",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC910034",
+   "credit": {
+    "recordist": "Mikael Lassen",
+    "url": "https://xeno-canto.org/910034",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 4
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC964799",
+   "credit": {
+    "recordist": "PAULUS",
+    "url": "https://xeno-canto.org/964799",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC983816",
+   "credit": {
+    "recordist": "Esperanza Poveda",
+    "url": "https://xeno-canto.org/983816",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC986925",
+   "credit": {
+    "recordist": "Lars Edenius",
+    "url": "https://xeno-canto.org/986925",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 6
+  },
+  {
+   "kind": "Asio otus",
+   "dataset": "xeno-canto",
+   "recording": "XC993358",
+   "credit": {
+    "recordist": "Dag Österlund",
+    "url": "https://xeno-canto.org/993358",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 9
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC1070833",
+   "credit": {
+    "recordist": "Stanislas Wroza",
+    "url": "https://xeno-canto.org/1070833",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC1077908",
+   "credit": {
+    "recordist": "Esperanza Poveda",
+    "url": "https://xeno-canto.org/1077908",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC1077911",
+   "credit": {
+    "recordist": "Esperanza Poveda",
+    "url": "https://xeno-canto.org/1077911",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 4
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC1077912",
+   "credit": {
+    "recordist": "Esperanza Poveda",
+    "url": "https://xeno-canto.org/1077912",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 4
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC1091374",
+   "credit": {
+    "recordist": "Samuel Persson",
+    "url": "https://xeno-canto.org/1091374",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC124104",
+   "credit": {
+    "recordist": "Elias A. Ryberg",
+    "url": "https://xeno-canto.org/124104",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/3.0/"
+   },
+   "windows": 11
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC167701",
+   "credit": {
+    "recordist": "Andre et Odile BOUCHER",
+    "url": "https://xeno-canto.org/167701",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/3.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC297798",
+   "credit": {
+    "recordist": "Carlos W.",
+    "url": "https://xeno-canto.org/297798",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC402782",
+   "credit": {
+    "recordist": "AUDEVARD Aurélien",
+    "url": "https://xeno-canto.org/402782",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 9
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC448131",
+   "credit": {
+    "recordist": "Patrik Åberg",
+    "url": "https://xeno-canto.org/448131",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC519758",
+   "credit": {
+    "recordist": "Sean Ronayne",
+    "url": "https://xeno-canto.org/519758",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC532785",
+   "credit": {
+    "recordist": "Lars Edenius",
+    "url": "https://xeno-canto.org/532785",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC703525",
+   "credit": {
+    "recordist": "Thomas Bergman",
+    "url": "https://xeno-canto.org/703525",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC745773",
+   "credit": {
+    "recordist": "Jarek Matusiak",
+    "url": "https://xeno-canto.org/745773",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 9
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC779442",
+   "credit": {
+    "recordist": "Stephan Börnecke",
+    "url": "https://xeno-canto.org/779442",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 8
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC839763",
+   "credit": {
+    "recordist": "Cedric Mroczko",
+    "url": "https://xeno-canto.org/839763",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC870713",
+   "credit": {
+    "recordist": "Alain Malengreau",
+    "url": "https://xeno-canto.org/870713",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 6
+  },
+  {
+   "kind": "Bubo bubo",
+   "dataset": "xeno-canto",
+   "recording": "XC880546",
+   "credit": {
+    "recordist": "Baltasar Pinheiro",
+    "url": "https://xeno-canto.org/880546",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC1079919",
+   "credit": {
+    "recordist": "Marc Anderson",
+    "url": "https://xeno-canto.org/1079919",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC1085590",
+   "credit": {
+    "recordist": "Petter Westberg",
+    "url": "https://xeno-canto.org/1085590",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 7
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC1102212",
+   "credit": {
+    "recordist": "Garai József",
+    "url": "https://xeno-canto.org/1102212",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC1105348",
+   "credit": {
+    "recordist": "Hsishu",
+    "url": "https://xeno-canto.org/1105348",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 4
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC1107274",
+   "credit": {
+    "recordist": "François Guibert",
+    "url": "https://xeno-canto.org/1107274",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC1107363",
+   "credit": {
+    "recordist": "Christian Bøggild",
+    "url": "https://xeno-canto.org/1107363",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 3
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC1107501",
+   "credit": {
+    "recordist": "Jacobo Ramil Millarengo",
+    "url": "https://xeno-canto.org/1107501",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC1146170",
+   "credit": {
+    "recordist": "Eetu Paljakka",
+    "url": "https://xeno-canto.org/1146170",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC1151786",
+   "credit": {
+    "recordist": "Aku Kalliomäki",
+    "url": "https://xeno-canto.org/1151786",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 2
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC1180938",
+   "credit": {
+    "recordist": "Bo Shunqi 薄顺奇",
+    "url": "https://xeno-canto.org/1180938",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC929646",
+   "credit": {
+    "recordist": "Ding Li Yong",
+    "url": "https://xeno-canto.org/929646",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 2
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC982391",
+   "credit": {
+    "recordist": "Benjamin Drillat",
+    "url": "https://xeno-canto.org/982391",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 5
+  },
+  {
+   "kind": "Cuculus canorus",
+   "dataset": "xeno-canto",
+   "recording": "XC994520",
+   "credit": {
+    "recordist": "WINDELS Martin",
+    "url": "https://xeno-canto.org/994520",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 9
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC1058371",
+   "credit": {
+    "recordist": "Lars Edenius",
+    "url": "https://xeno-canto.org/1058371",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 2
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC1079574",
+   "credit": {
+    "recordist": "Marc Anderson",
+    "url": "https://xeno-canto.org/1079574",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 8
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC344246",
+   "credit": {
+    "recordist": "Patrik Åberg",
+    "url": "https://xeno-canto.org/344246",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC439446",
+   "credit": {
+    "recordist": "Elias A. Ryberg",
+    "url": "https://xeno-canto.org/439446",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 7
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC573230",
+   "credit": {
+    "recordist": "Benjamin Drillat",
+    "url": "https://xeno-canto.org/573230",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC643305",
+   "credit": {
+    "recordist": "Johan Södercrantz",
+    "url": "https://xeno-canto.org/643305",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 9
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC676612",
+   "credit": {
+    "recordist": "Uku Paal",
+    "url": "https://xeno-canto.org/676612",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 2
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC684776",
+   "credit": {
+    "recordist": "Baltasar Pinheiro",
+    "url": "https://xeno-canto.org/684776",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC687366",
+   "credit": {
+    "recordist": "Sergio Mazzotti",
+    "url": "https://xeno-canto.org/687366",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC736467",
+   "credit": {
+    "recordist": "Thomas Bergman",
+    "url": "https://xeno-canto.org/736467",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 11
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC740358",
+   "credit": {
+    "recordist": "Philippe J. DUBOIS",
+    "url": "https://xeno-canto.org/740358",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 3
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC756012",
+   "credit": {
+    "recordist": "Dag Österlund",
+    "url": "https://xeno-canto.org/756012",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 5
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC783761",
+   "credit": {
+    "recordist": "Jarek Matusiak",
+    "url": "https://xeno-canto.org/783761",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC883372",
+   "credit": {
+    "recordist": "Teet Sirotkin",
+    "url": "https://xeno-canto.org/883372",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC900985",
+   "credit": {
+    "recordist": "Niclas Backstrom",
+    "url": "https://xeno-canto.org/900985",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC923431",
+   "credit": {
+    "recordist": "Marcin Sołowiej",
+    "url": "https://xeno-canto.org/923431",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 3
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC974668",
+   "credit": {
+    "recordist": "Ulf Elman",
+    "url": "https://xeno-canto.org/974668",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "Glaucidium passerinum",
+   "dataset": "xeno-canto",
+   "recording": "XC986852",
+   "credit": {
+    "recordist": "Romuald Mikusek",
+    "url": "https://xeno-canto.org/986852",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 3
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1085603",
+   "credit": {
+    "recordist": "Petter Westberg",
+    "url": "https://xeno-canto.org/1085603",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1096198",
+   "credit": {
+    "recordist": "Valentin Toussaert",
+    "url": "https://xeno-canto.org/1096198",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 6
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1137135",
+   "credit": {
+    "recordist": "Daniel Berkowic",
+    "url": "https://xeno-canto.org/1137135",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 5
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1151822",
+   "credit": {
+    "recordist": "Romuald Mikusek",
+    "url": "https://xeno-canto.org/1151822",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1163713",
+   "credit": {
+    "recordist": "Zsombor Károlyi",
+    "url": "https://xeno-canto.org/1163713",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 6
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1172428",
+   "credit": {
+    "recordist": "Arjan Boonman",
+    "url": "https://xeno-canto.org/1172428",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 5
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1173407",
+   "credit": {
+    "recordist": "noah seex svalin",
+    "url": "https://xeno-canto.org/1173407",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1173989",
+   "credit": {
+    "recordist": "Steen Knarberg",
+    "url": "https://xeno-canto.org/1173989",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 2
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1175146",
+   "credit": {
+    "recordist": "Mika E Laine",
+    "url": "https://xeno-canto.org/1175146",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 11
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1176912",
+   "credit": {
+    "recordist": "Darina O.",
+    "url": "https://xeno-canto.org/1176912",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1183230",
+   "credit": {
+    "recordist": "Per Folkesson",
+    "url": "https://xeno-canto.org/1183230",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1184870",
+   "credit": {
+    "recordist": "Mark James Pearson",
+    "url": "https://xeno-canto.org/1184870",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 4
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1188631",
+   "credit": {
+    "recordist": "Christian Bøggild",
+    "url": "https://xeno-canto.org/1188631",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1188910",
+   "credit": {
+    "recordist": "Philippe Grange",
+    "url": "https://xeno-canto.org/1188910",
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1189421",
+   "credit": {
+    "recordist": "Tahvo Repo",
+    "url": "https://xeno-canto.org/1189421",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1189424",
+   "credit": {
+    "recordist": "Thierry THOMAS",
+    "url": "https://xeno-canto.org/1189424",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 8
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1193439",
+   "credit": {
+    "recordist": "Paul Pukropski",
+    "url": "https://xeno-canto.org/1193439",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 5
+  },
+  {
+   "kind": "Strix aluco",
+   "dataset": "xeno-canto",
+   "recording": "XC1193822",
+   "credit": {
+    "recordist": "Astrid Cervantes",
+    "url": "https://xeno-canto.org/1193822",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 6
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC1053601",
+   "credit": {
+    "recordist": "Lars Edenius",
+    "url": "https://xeno-canto.org/1053601",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 7
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC1053612",
+   "credit": {
+    "recordist": "Lars Edenius",
+    "url": "https://xeno-canto.org/1053612",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC1058362",
+   "credit": {
+    "recordist": "Lars Edenius",
+    "url": "https://xeno-canto.org/1058362",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 3
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC1058363",
+   "credit": {
+    "recordist": "Lars Edenius",
+    "url": "https://xeno-canto.org/1058363",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 9
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC1082571",
+   "credit": {
+    "recordist": "Lars Edenius",
+    "url": "https://xeno-canto.org/1082571",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC1082804",
+   "credit": {
+    "recordist": "Ulf Elman",
+    "url": "https://xeno-canto.org/1082804",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC1151782",
+   "credit": {
+    "recordist": "Aku Kalliomäki",
+    "url": "https://xeno-canto.org/1151782",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 11
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC343162",
+   "credit": {
+    "recordist": "Tero Linjama",
+    "url": "https://xeno-canto.org/343162",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC359120",
+   "credit": {
+    "recordist": "Jarek Matusiak",
+    "url": "https://xeno-canto.org/359120",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 6
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC381359",
+   "credit": {
+    "recordist": "Romuald Mikusek",
+    "url": "https://xeno-canto.org/381359",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC406595",
+   "credit": {
+    "recordist": "Nils-Olof Jerling",
+    "url": "https://xeno-canto.org/406595",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC408255",
+   "credit": {
+    "recordist": "Miklos Heincz",
+    "url": "https://xeno-canto.org/408255",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC656389",
+   "credit": {
+    "recordist": "Wilhelm Dietrichson",
+    "url": "https://xeno-canto.org/656389",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC656594",
+   "credit": {
+    "recordist": "Uku Paal",
+    "url": "https://xeno-canto.org/656594",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 4
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC710165",
+   "credit": {
+    "recordist": "Dag Österlund",
+    "url": "https://xeno-canto.org/710165",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 1
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC750071",
+   "credit": {
+    "recordist": "Agris Celmins",
+    "url": "https://xeno-canto.org/750071",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+   },
+   "windows": 7
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC909754",
+   "credit": {
+    "recordist": "Johan Södercrantz",
+    "url": "https://xeno-canto.org/909754",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "Strix uralensis",
+   "dataset": "xeno-canto",
+   "recording": "XC961953",
+   "credit": {
+    "recordist": "Niclas Backstrom",
+    "url": "https://xeno-canto.org/961953",
+    "licence_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+   },
+   "windows": 12
+  },
+  {
+   "kind": "crowd babble",
+   "dataset": "synthetic",
+   "recording": "babble.wav",
+   "credit": {
+    "source": "make_babble.sh, macOS voices"
+   },
+   "windows": 10
+  },
+  {
+   "kind": "hall",
+   "dataset": "Forest Pulse",
+   "recording": "hall_background_30s.wav",
+   "credit": {
+    "source": "recorded in the hackathon hall"
+   },
+   "windows": 6
+  },
+  {
+   "kind": "hall",
+   "dataset": "Forest Pulse",
+   "recording": "hall_event_001.wav",
+   "credit": {
+    "source": "recorded in the hackathon hall"
+   },
+   "windows": 1
+  }
+ ]
+}

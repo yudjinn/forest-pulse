@@ -12,6 +12,7 @@ import { listSounds, switchSound } from "./sounds/sounds.ts";
 import { listSamples, sampleAudio } from "./player/player.ts";
 import { listPlan, placeOnCheckin, placeSensor, removeSensor } from "./sensors/plan.ts";
 import { clearEvents, listActivities } from "./activities/activities.ts";
+import { teachBackground, teachSound } from "./teach/teach.ts";
 import { listLocations, locateOnArrival } from "./location/location.ts";
 
 export const routes: Route[] = [
@@ -30,6 +31,8 @@ export const routes: Route[] = [
   { method: "DELETE", path: "/dashboard/api/sensors/:sensor", access: "researcher", handle: removeSensor },
   { method: "GET", path: "/dashboard/api/activities", access: "researcher", handle: listActivities },
   { method: "DELETE", path: "/dashboard/api/events", access: "researcher", handle: clearEvents },
+  { method: "POST", path: "/dashboard/api/teach", access: "researcher", handle: teachSound },
+  { method: "GET", path: "/dashboard/api/teach/background", access: "researcher", handle: teachBackground },
   { method: "GET", path: "/dashboard/api/locations", access: "researcher", handle: listLocations },
 ];
 
