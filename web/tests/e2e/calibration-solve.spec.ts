@@ -195,8 +195,9 @@ test("a triangle too flat, impossible, or whose bearings contradict the distance
   // fit fits worst holds a, here with b
   const offAtA = solve(trio(triangle, { angle: (l, e, t) => (l === "A" && e === "C" ? t + 40 : t) }));
   expect(offAtA).toEqual({ ok: false, sensors: ["a", "b"], reason: "bearings_disagree" });
-  // every board hears the other two from the same direction: neither side of the line fits better
-  expect(solve(trio(triangle, { angle: () => 0 }))).toMatchObject({ ok: false, reason: "bearings_disagree" });
+  // every board hears the other two from the same direction: neither side of the line fits better, and b-c, between
+  // the two largest angles, is fitted worst
+  expect(solve(trio(triangle, { angle: () => 0 }))).toEqual({ ok: false, sensors: ["b", "c"], reason: "bearings_disagree" });
   // c can never tell where b is
   expect(solve(trio(triangle, { angle: (l, e, t) => (l === "C" && e === "B" ? null : t) })))
     .toEqual({ ok: false, sensors: ["b", "c"], reason: "no_direction" });
