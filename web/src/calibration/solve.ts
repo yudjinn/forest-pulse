@@ -10,7 +10,9 @@
 // Facings come from the pair's mutual bearings (each board's angle of the other's beep, clockwise from its forward):
 // a's plan direction to b must be 90 (b is straight to its right) and b's to a 270, so
 //   facing_a = 90 - angle_a(b),  facing_b = 270 - angle_b(a)   (mod 360)
-// each the circular median over the board's valid rounds.
+// each the circular median over the board's valid rounds. Two sensors without both facings (too few bearings, or
+// scattered) still calibrate their distance: the solution then has no facings (null), and the run keeps the facings
+// set by hand and moves the second sensor along the plan's line from the first (calibration.ts).
 //
 // Three sensors: the three distances must make a triangle (the longest side shorter than the other two together) with
 // no angle under 10 degrees. Positions and facings are then one least-squares fit over the three distances and the six
@@ -25,7 +27,7 @@ export type FatalError = (typeof FATAL_ERRORS)[number];
 export const ROUND_PROBLEMS = ["break", "overrun", "clipped", "dropped"] as const;
 // A pair needs this many valid rounds, at least one in each order, and the two orders' medians this close.
 export const MIN_VALID_ROUNDS = 2;
-export const MAX_ORDER_DISAGREEMENT_M = 0.15;
+export const MAX_ORDER_DISAGREEMENT_M = 0.4;
 // Each way of a pair needs this many bearings, scattered (circular standard deviation) by at most this much.
 export const MIN_BEARINGS = 2;
 export const MAX_BEARING_SPREAD_DEG = 15;
@@ -80,15 +82,17 @@ export interface Distance {
   distance_m: number;
 }
 
-// Where a placed sensor stands and which way it faces (degrees clockwise from the plan's up, 0 to under 360).
+// Where a placed sensor stands and which way it faces (degrees clockwise from the plan's up, 0 to under 360; null:
+// not measured, the facing on the plan stays).
 export interface Placement {
   sensor_id: string;
   x_m: number;
   y_m: number;
-  facing_deg: number;
+  facing_deg: number | null;
 }
 
-// Every failure names a pair: not_repeatable its distance, no_direction its bearings (fewer than 2, or scattered);
+// Every failure names a pair: not_repeatable its distance, no_direction its bearings (fewer than 2, or scattered; three
+// sensors only);
 // with three sensors not_a_triangle the longest side, too_flat the side opposite the smallest angle, and
 // bearings_disagree (bearings against the distances, or unable to tell the mirror image) the pair the fit fits worst.
 export type SolveFailure = "not_repeatable" | "no_direction" | "not_a_triangle" | "too_flat" | "bearings_disagree";
@@ -110,9 +114,8 @@ export function solve(participants: Participant[]): Solution {
   const pair = [a.sensor_id, b.sensor_id];
   const distance = pairDistance(a, b);
   if (distance === null) return { ok: false, sensors: pair, reason: "not_repeatable" };
-  const facingA = facingFrom(bearings(a, b.role), 90);
-  const facingB = facingFrom(bearings(b, a.role), 270);
-  if (facingA === null || facingB === null) return { ok: false, sensors: pair, reason: "no_direction" };
+  const measured = [facingFrom(bearings(a, b.role), 90), facingFrom(bearings(b, a.role), 270)];
+  const [facingA, facingB] = measured.includes(null) ? [null, null] : measured;
   const d = round3(distance);
   return {
     ok: true,
@@ -350,7 +353,7 @@ function linearSolve(a: number[][], b: number[]): number[] {
 }
 
 // The pair's distance: the median over its valid rounds, or null when it is not repeatable (fewer than 2 valid
-// rounds, an order with none, or the orders' medians more than 15 cm apart, or not a positive distance).
+// rounds, an order with none, or the orders' medians more than 40 cm apart, or not a positive distance).
 export function pairDistance(a: Participant, b: Participant): number | null {
   const forward: number[] = [];
   const reverse: number[] = [];

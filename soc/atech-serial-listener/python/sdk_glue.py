@@ -263,6 +263,10 @@ class CalibrationHooks:
         return est
 
     def bearing(self, window, band_hz=None):
+        if self.tee is not None and self.tee.mono_mic is not None:
+            # one mic copied to all 3 channels: no direction to tell. The service then calibrates the distance only
+            # and keeps the facings set on the plan (a faked bearing would overwrite them).
+            return None
         fake = self.c.get("test_fake_bearing_deg")
         if fake is not None:  # TEST: see config.py
             return float(fake) % 360.0, 1.0

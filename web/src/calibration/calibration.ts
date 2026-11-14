@@ -18,15 +18,18 @@ import {
 export const MAX_PARTICIPANTS = 3;
 const ROLES = ["A", "B", "C"];
 // The sweeps, set by the service so they can be retuned without changing the boards: A rises, B falls, C rises then
-// falls, over 2.5 to 5 kHz, 150 ms. The Modulino Buzzer is nearly silent below 2.5 kHz and loudest near 4 kHz, so a
-// sweep reaching lower loses that part and with it the bandwidth that times the beep.
+// falls, over 3 to 5 kHz, 300 ms. The Modulino Buzzer is nearly silent below 2.5 kHz and loudest near 4 kHz, and the
+// hall's noise is mostly below 3 kHz, so the sweep stays around 4 kHz and is long for energy (timing needs only a
+// fraction of its bandwidth). A slot holds the sweep plus the boards' listening window around it (100 ms before,
+// 200 ms after: the library's), and the boards keep only their latest 20 s of stream, so three boards' 6 rounds
+// must end within that.
 const PATTERNS: Record<string, { f_start_hz: number; f_mid_hz: number; f_end_hz: number; duration_ms: number }> = {
-  A: { f_start_hz: 2500, f_mid_hz: 3750, f_end_hz: 5000, duration_ms: 150 },
-  B: { f_start_hz: 5000, f_mid_hz: 3750, f_end_hz: 2500, duration_ms: 150 },
-  C: { f_start_hz: 2500, f_mid_hz: 5000, f_end_hz: 2500, duration_ms: 150 },
+  A: { f_start_hz: 3000, f_mid_hz: 4000, f_end_hz: 5000, duration_ms: 300 },
+  B: { f_start_hz: 5000, f_mid_hz: 4000, f_end_hz: 3000, duration_ms: 300 },
+  C: { f_start_hz: 3000, f_mid_hz: 5000, f_end_hz: 3000, duration_ms: 300 },
 };
-const SLOT_MS = 500;
-const ROUND_GAP_MS = 1000;
+const SLOT_MS = 700;
+const ROUND_GAP_MS = 600;
 const ROUNDS = 6;
 const READY_WAIT_MS = 20_000;
 const START_AFTER_READY_MS = 4000;
@@ -295,12 +298,33 @@ async function advance(env: Env, run: Run, now: number): Promise<Run> {
       const solution = solve(taking.map((p) => ({ sensor_id: p.sensor_id, role: p.role, report: JSON.parse(p.report!) })));
       if (!solution.ok) return fail(db, run, solution.sensors, solution.reason, now);
       const { ok: _, ...result } = solution;
+      if (result.positions.some((p) => p.facing_deg === null)) result.positions = await alongPlan(db, result, now);
       const leftOut = run.participants.filter((p) => p.dropped).map((p) => p.sensor_id);
       return apply(db, run, { ...result, left_out: leftOut }, now);
     }
     if (now >= (run.report_deadline_at ?? Infinity)) return fail(db, run, [missing[0].sensor_id], "report_missing", now);
   }
   return run;
+}
+
+// Distance only (two sensors without facings): the first stays where it is on the plan and the second moves to the
+// measured distance along the line from the first to where it was placed, both keeping their facings; straight to the
+// right of the first when the two stood on one spot.
+async function alongPlan(db: D1Database, result: Result, now: number): Promise<Placement[]> {
+  const [a, b] = result.positions;
+  const plan = new Map((await readPlan(db, now, [a.sensor_id, b.sensor_id])).map((s) => [s.id, s]));
+  const pa = plan.get(a.sensor_id) ?? { x_m: 0, y_m: 0 };
+  const pb = plan.get(b.sensor_id) ?? { x_m: pa.x_m + 1, y_m: pa.y_m };
+  const dx = pb.x_m - pa.x_m;
+  const dy = pb.y_m - pa.y_m;
+  const length = Math.hypot(dx, dy);
+  const [ux, uy] = length > 1e-6 ? [dx / length, dy / length] : [1, 0];
+  const d = result.distances[0].distance_m;
+  const mm = (v: number) => Math.round(v * 1000) / 1000 + 0;
+  return [
+    { sensor_id: a.sensor_id, x_m: mm(pa.x_m), y_m: mm(pa.y_m), facing_deg: null },
+    { sensor_id: b.sensor_id, x_m: mm(pa.x_m + d * ux), y_m: mm(pa.y_m + d * uy), facing_deg: null },
+  ];
 }
 
 async function schedule(db: D1Database, run: Run, startAt: number, dropUnready: boolean, now: number) {
@@ -335,13 +359,14 @@ async function fail(db: D1Database, run: Run, sensors: string[], reason: Failure
   return (await loadRun(db, run.id))!;
 }
 
-// One batch: every placed sensor's position and facing, the measured layout, and the run as calibrated. Each
-// statement holds only while the run is still scheduled, so a second request applying it at once changes nothing.
+// One batch: every placed sensor's position and facing (unless it has none), the measured layout, and the run as
+// calibrated. Each statement holds only while the run is still scheduled, so a second request applying it at once
+// changes nothing.
 async function apply(db: D1Database, run: Run, solution: Result, now: number) {
   const still = "EXISTS (SELECT 1 FROM calibration_runs WHERE id = ?1 AND status = 'scheduled')";
   const replies = await db.batch([
     ...solution.positions.map((p) => db.prepare(
-      `UPDATE sensor_placements SET x_m = ?3, y_m = ?4, facing_deg = ?5 WHERE sensor_id = ?2 AND removed = 0
+      `UPDATE sensor_placements SET x_m = ?3, y_m = ?4, facing_deg = COALESCE(?5, facing_deg) WHERE sensor_id = ?2 AND removed = 0
          AND ${still}`,
     ).bind(run.id, p.sensor_id, p.x_m, p.y_m, p.facing_deg)),
     db.prepare(`DELETE FROM measured_layout WHERE ${still}`).bind(run.id),

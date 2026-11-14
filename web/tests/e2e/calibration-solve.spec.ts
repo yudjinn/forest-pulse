@@ -1,7 +1,7 @@
 // Focused test of solving a calibration run (no browser, no service): the rules no journey reaches. Weak detections
 // and invalid rounds never count, a pair needs two valid rounds with at least one in each order, and the two orders
-// must agree within 15 cm. Facings come from the mutual bearings: the circular median each way, across 0/360, from
-// at least two bearings that scatter by at most 15 degrees. Three sensors: the triangle's geometry (both mirror
+// must agree within 40 cm. Facings come from the mutual bearings: the circular median each way, across 0/360, from
+// at least two bearings that scatter by at most 15 degrees; two sensors without them calibrate the distance only. Three sensors: the triangle's geometry (both mirror
 // images, too flat, impossible, bearings against the distances) and an outlier round the median rejects.
 import { expect, test } from "@playwright/test";
 import { type Participant, type ReportRound, parseReport, solve } from "../../src/calibration/solve.ts";
@@ -63,9 +63,9 @@ test("weak detections and invalid rounds never count, and a pair needs two valid
   expect(solve(pair([{ d: 3 }, { d: 3, weak: true }, { d: 3 }, { d: 3, valid: false }]))).toEqual(notRepeatable);
 });
 
-test("the forward and reverse orders must agree within 15 cm", () => {
-  expect(solve(pair([{ d: 3 }, { d: 3.14 }, { d: 3 }, { d: 3.14 }])).ok).toBe(true);
-  expect(solve(pair([{ d: 3 }, { d: 3.16 }, { d: 3 }, { d: 3.16 }])))
+test("the forward and reverse orders must agree within 40 cm", () => {
+  expect(solve(pair([{ d: 3 }, { d: 3.39 }, { d: 3 }, { d: 3.39 }])).ok).toBe(true);
+  expect(solve(pair([{ d: 3 }, { d: 3.41 }, { d: 3 }, { d: 3.41 }])))
     .toEqual({ ok: false, sensors: ["a", "b"], reason: "not_repeatable" });
 });
 
@@ -87,16 +87,19 @@ test("facings turn each board's median bearing of the other onto the line betwee
     .toBe(true);
 });
 
-test("too few bearings either way, or bearings that disagree, fail the run naming the pair", () => {
-  const noDirection = { ok: false, sensors: ["a", "b"], reason: "no_direction" };
+test("two sensors without both facings, too few bearings or scattered ones, still get their distance", () => {
+  const distanceOnly = (solution: ReturnType<typeof solve>) => {
+    expect(solution.ok, JSON.stringify(solution)).toBe(true);
+    if (!solution.ok) return;
+    expect(solution.distances).toEqual([{ a: "a", b: "b", distance_m: 3 }]);
+    expect(solution.positions.map((p) => p.facing_deg)).toEqual([null, null]);
+  };
   // B could tell only once
-  expect(solve(pair([{ d: 3, angleB: null }, { d: 3, angleB: null }, { d: 3, angleB: null }, { d: 3, angleB: 10 }])))
-    .toEqual(noDirection);
+  distanceOnly(solve(pair([{ d: 3, angleB: null }, { d: 3, angleB: null }, { d: 3, angleB: null }, { d: 3, angleB: 10 }])));
   // A's bearings scatter by about 18 degrees
-  expect(solve(pair([{ d: 3, angleA: 35 }, { d: 3, angleA: 60 }, { d: 3, angleA: 85 }, { d: 3, angleA: 60 }])))
-    .toEqual(noDirection);
-  // a pair whose distance is not repeatable fails for that first
-  expect(solve(pair([{ d: 3, angleA: null }, { d: 3.3, angleA: null }, { d: 3 }, { d: 3.3 }])))
+  distanceOnly(solve(pair([{ d: 3, angleA: 35 }, { d: 3, angleA: 60 }, { d: 3, angleA: 85 }, { d: 3, angleA: 60 }])));
+  // a pair whose distance is not repeatable still fails
+  expect(solve(pair([{ d: 3, angleA: null }, { d: 3.5, angleA: null }, { d: 3 }, { d: 3.5 }])))
     .toEqual({ ok: false, sensors: ["a", "b"], reason: "not_repeatable" });
 });
 
@@ -154,7 +157,7 @@ function expectPlaced(solution: ReturnType<typeof solve>, at: Record<Roles, Spot
   for (const p of solution.positions) {
     const truth = at[p.sensor_id.toUpperCase() as Roles];
     expect(Math.hypot(p.x_m - truth.x, p.y_m - truth.y), JSON.stringify(p)).toBeLessThanOrEqual(metres);
-    expect(Math.abs((((p.facing_deg - truth.facing) % 360) + 540) % 360 - 180), JSON.stringify(p))
+    expect(Math.abs((((p.facing_deg! - truth.facing) % 360) + 540) % 360 - 180), JSON.stringify(p))
       .toBeLessThanOrEqual(degrees);
   }
 }

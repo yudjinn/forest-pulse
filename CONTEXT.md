@@ -11,7 +11,7 @@
 - **Wake**: the ESP32 wakes the Uno Q on any sound noticeably above the background level. Always-on for the demo.
 - **Researcher**: a person signed in to the dashboard.
 - **Angle**: the direction of a sound relative to its sensor's board, degrees clockwise from the board's marked forward (0 to 360). Sent by the sensor.
-- **Facing**: which way a sensor's forward points on the plan. Entered on the dashboard or set by a calibration run; plan direction = facing + angle.
+- **Facing**: which way a sensor's forward points on the plan. Entered on the dashboard or set by a calibration run whose sensors can tell direction (a distance-only run keeps it); plan direction = facing + angle.
 - **Hall background**: a recording of the demo venue that training mixes under every taught sound and uses as an example of what to ignore.
 - **Calibration run**: pressing Calibrate: 2 or 3 calibration-capable sensors beep their own sweep in scheduled slots over several rounds; the service turns what each heard into distances, facings and a relative layout. A participant that never gets ready is left out and the others calibrate without it.
 - **Calibration-capable sensor**: a sensor with a 3-mic array, a buzzer and a sensor library new enough to take part. A single-mic sensor or one without a buzzer is not.

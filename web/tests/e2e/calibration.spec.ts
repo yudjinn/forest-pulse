@@ -90,23 +90,32 @@ test("two sensors measure their distance and facings and appear as they stand; a
     await asPlaced();
 
     // With its buzzer working, its stream starting 5 s late and its bearing code unable to tell where a sound came
-    // from, the next run shows the boards getting ready and beeping, then fails naming the pair: the plan is as it
-    // was.
+    // from, the next run shows the boards getting ready and beeping, then calibrates the distance only: a stays
+    // where it was placed, b moves to the measured distance along the line from a to where b was placed, and both
+    // keep the facings set by hand.
     await sensors.send({ set: { id: b, muted: false, stream_delay_s: 5, bearing: "none" } });
     await expect(calibrate).toBeEnabled();
     await calibrate.click();
     await expect(page.getByText("Waiting for boards (1 of 2 ready)")).toBeVisible({ timeout: 8000 });
     await expect(page.getByText("Waiting for boards (2 of 2 ready)")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Beeping", { exact: true })).toBeVisible({ timeout: 8000 });
-    await expect(page.getByText(`Calibration failed: couldn't tell direction between ${nameA} and ${nameB}`))
-      .toBeVisible({ timeout: 40_000 });
-    await asPlaced();
+    await expect(page.getByText(/^Calibrated \d\d:\d\d$/)).toBeVisible({ timeout: 40_000 });
+    await expect(measured(page)).toHaveCount(1);
+    const [, only] = (await measured(page).getAttribute("aria-label"))!.match(/^Measured (\d+\.\d\d) m from /)!;
+    expect(Math.abs(Number(only) - 3)).toBeLessThanOrEqual(0.05);
+    await expect(position(page, a)).toHaveText("x -1.0 m, y 1.0 m", { timeout: 3000 });
+    // along (2, 1) from a, the direction to where b was placed
+    const along = (from: number, k: number) => (from + k * Number(only) / Math.sqrt(5)).toFixed(1);
+    await expect(position(page, b)).toHaveText(`x ${along(-1, 2)} m, y ${along(1, 1)} m`);
+    await expect(facing(page, a)).toHaveValue("45");
+    await expect(facing(page, b)).toHaveValue("135");
 
     // With its bearing working, the next run places b straight to the right of a at the measured distance and turns
     // both the way they really face.
     await sensors.send({ set: { id: b, stream_delay_s: 0, bearing: "simulated" } });
     await expect(calibrate).toBeEnabled();
     await calibrate.click();
+    await expect(page.getByText("Beeping", { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/^Calibrated \d\d:\d\d$/)).toBeVisible({ timeout: 40_000 });
     await expect(measured(page)).toHaveCount(1);
     const label = (await measured(page).getAttribute("aria-label"))!;

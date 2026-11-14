@@ -127,11 +127,11 @@ ends (or when the sensor was left out of it, below):
   "run_id": "8f1c...",
   "role": "A",                                  // this sensor's role
   "order": ["A", "B"],                          // the roles taking part, in slot order
-  "patterns": {"A": {"f_start_hz": 2500, "f_mid_hz": 3750, "f_end_hz": 5000, "duration_ms": 150},
-               "B": {"f_start_hz": 5000, "f_mid_hz": 3750, "f_end_hz": 2500, "duration_ms": 150}},
+  "patterns": {"A": {"f_start_hz": 3000, "f_mid_hz": 4000, "f_end_hz": 5000, "duration_ms": 300},
+               "B": {"f_start_hz": 5000, "f_mid_hz": 4000, "f_end_hz": 3000, "duration_ms": 300}},
   "start_at": "2026-11-14T12:00:09.500Z",       // the first slot, service clock; absent until scheduled
-  "slot_ms": 500,
-  "round_gap_ms": 1000,
+  "slot_ms": 700,
+  "round_gap_ms": 600,
   "rounds": 6
 }
 ```
@@ -200,17 +200,22 @@ stream (`position / fs`), c the two sensors' mean `speed_of_sound` and s their `
 d = c/2 * [(t_i(j) - t_i(i)) - (t_j(j) - t_j(i))] + (s_i + s_j)/2
 
 A pair's distance is the median over its valid rounds (both sensors' rounds valid, all four detections whole). It
-needs 2 or more valid rounds, at least one in each order, and the forward and reverse medians within 15 cm. When
+needs 2 or more valid rounds, at least one in each order, and the forward and reverse medians within 40 cm. When
 every check passes the plan becomes a measured layout: the first participant at the origin, the second straight to
-its right at that distance.
+its right at that distance (with facings), or along the plan's line from the first (without them, below).
 
 ### Facings
 
 Each sensor's facing comes from its bearings of the other's beep (`angle_deg` on the other's detections). The second
 sensor is straight to the right of the first, so the first faces 90 - its angle of the second, and the second faces
 270 - its angle of the first (degrees, 0 to 360), each the circular median over its valid rounds. Each way needs at
-least 2 bearings (from whole detections in valid rounds) with a circular standard deviation of at most 15 degrees;
-otherwise the run fails for that pair and nothing changes. Positions and facings are written together.
+least 2 bearings (from whole detections in valid rounds) with a circular standard deviation of at most 15 degrees.
+Positions and facings are written together.
+
+Without both facings, two sensors calibrate the distance only: the first stays where it is on the plan, the second
+moves to the measured distance along the line from the first to where it was placed (straight to the right when both
+stood on one spot), and both keep the facings set on the plan. A sensor that cannot tell direction, such as one with a
+single mic, answers its bearing hook with None for this.
 
 The bearing hook gets a window of 40 ms from 5 ms before the detected first path, within the pattern's band, so the
 direct sound fills it before most echoes arrive.
