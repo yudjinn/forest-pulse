@@ -1,5 +1,8 @@
 // Sensor plan journey: sensors join the plan when they first check in, researchers place and turn them, and the plan
 // shows each sensor's health. Runs on its own fresh service, so the first sensor here is the first one ever.
+import { mkdtempSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { signIn } from "../fixtures/dashboard.ts";
 import { replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
@@ -48,10 +51,11 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(cardB.getByLabel("Facing")).toHaveValue("270");
     await expect(page.getByText("No sensors yet. Sensors appear here when they first check in.")).toBeHidden();
 
-    // Each card shows the sensor's health: online, its last check-in and its versions.
+    // Each card shows the sensor's health: online, its last check-in and its versions. A sensor that stopped before
+    // checking in with a sound list has none to report yet; the sound-list version is proven on c below.
     await expect(cardA.getByText("Online", { exact: true })).toBeVisible();
     await expect(cardA.getByText(/^\d{2}:\d{2}:\d{2}$/)).toBeVisible();
-    await expect(cardA.getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list \d+$/)).toBeVisible();
+    await expect(cardA.getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list (\d+|unknown)$/)).toBeVisible();
 
     // A second researcher watches the same plan.
     const other = await context.newPage();
@@ -98,12 +102,16 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(cardB.getByLabel("Facing")).toHaveValue("270");
 
     // Two running devices under one name: the sensor warns that its name is shared.
+    // c's two runs share one state folder, so the second starts with the sound list the first fetched and its first
+    // check-in reports that list's version.
     const c = uniqueSensorId("plan-c");
-    await replay({ sensorId: c, wavs: [silence], serverUrl: service.url });
+    const cState = path.join(mkdtempSync(path.join(os.tmpdir(), "fp-plan-c-")), "state");
+    await replay({ sensorId: c, wavs: [silence], serverUrl: service.url, stateDir: cState });
     await expect(card(page, c)).toHaveCount(1, { timeout: 3000 });
     await expect(card(page, c).getByText("Two devices share this name")).toBeHidden();
-    await replay({ sensorId: c, wavs: [silence], serverUrl: service.url });
+    await replay({ sensorId: c, wavs: [silence], serverUrl: service.url, stateDir: cState });
     await expect(card(page, c).getByText("Two devices share this name")).toBeVisible({ timeout: 3000 });
+    await expect(card(page, c).getByText(/^Library \d+\.\d+\.\d+, model mn10_as, sound list \d+$/)).toBeVisible();
     await expect(cardA.getByText("Two devices share this name")).toBeHidden();
 
     // a stopped checking in; 30 s later it shows offline.
