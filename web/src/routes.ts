@@ -8,7 +8,7 @@ import { signIn, signInPage } from "./auth/signin.ts";
 import { checkin, soundList } from "./api/checkin.ts";
 import { postEvents } from "./api/events.ts";
 import { listEvents } from "./eventlog.ts";
-import { deleteSound, listSounds, switchSound } from "./sounds/sounds.ts";
+import { deleteSound, listSounds, setSensitivity, switchSound } from "./sounds/sounds.ts";
 import { listSamples, sampleAudio } from "./player/player.ts";
 import { listPlan, placeOnCheckin, placeSensor, removeSensor } from "./sensors/plan.ts";
 import { clearEvents, listActivities } from "./activities/activities.ts";
@@ -39,6 +39,7 @@ export const routes: Route[] = [
   { method: "GET", path: "/dashboard/api/calibration", access: "researcher", handle: calibrationState },
   { method: "POST", path: "/dashboard/api/calibration", access: "researcher", handle: startCalibration },
   { method: "POST", path: "/api/v1/sensors/:sensor/calibration", access: "sensor", handle: postReport },
+  { method: "PATCH", path: "/dashboard/api/sounds", access: "researcher", handle: setSensitivity },
 ];
 
 // Run after a check-in (or first contact) is stored, and after a request's accepted events are stored.

@@ -20,6 +20,11 @@
           <h2 id="sounds-title">Sounds</h2>
           <a class="teach-link" href="/dashboard/teach/">Teach a new sound</a>
         </div>
+        <div class="sensitivity" hidden>
+          <label for="sensitivity">Report sounds at <span class="sensitivity-value">50%</span> confidence or more</label>
+          <input id="sensitivity" type="range" min="20" max="90" step="5" value="50">
+          <p class="error" role="alert" hidden></p>
+        </div>
         <ul class="sound-list"></ul>
         <dialog class="sound-confirm" aria-labelledby="delete-title">
           <h2 id="delete-title"></h2>

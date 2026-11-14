@@ -1,12 +1,13 @@
-// Sounds journey: a researcher reads the sound list, sees a failed save flip back, and switches Chainsaw off and on
-// while a real sensor (the library's replay) picks each change up at its next check-in.
-// It runs on its own fresh service: switching a sound off applies to every sensor, so the shared service never sees it.
-import { mkdtempSync } from "node:fs";
+// Sounds journey: a researcher reads the sound list, sees a failed save flip back, switches Chainsaw off and on, and
+// moves the sensitivity, while a real sensor (the library's replay) picks each change up at its next check-in and a
+// second researcher's page follows. It runs on its own fresh service: switching a sound off or moving the sensitivity
+// applies to every sensor, so the shared service never sees it.
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { devVars, signIn } from "../fixtures/dashboard.ts";
-import { referenceClip, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
+import { asSensor, referenceClip, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { soundsServicePorts } from "../ports.ts";
 
@@ -29,8 +30,29 @@ function fetchedList(out: string, version: number): string[] {
   return line![1].split(", ");
 }
 
-test("a researcher switches Chainsaw off and on; a sensor follows at its next check-in and history stays", async ({ page, context }) => {
-  test.setTimeout(240_000);
+// The chainsaw reference clip at 0.6% volume, a distant chainsaw. The full clip is heard at 0.98, above the
+// sensitivity's 90% top, so no setting could silence it; at this volume every window scores between 0.4 and about
+// 0.6, so the sensor reports it once at 50% and never at 70%.
+function distantChainsaw(): string {
+  const wav = readFileSync(referenceClip("chainsaw.wav"));
+  let at = 12;
+  while (wav.toString("ascii", at, at + 4) !== "data") at += 8 + wav.readUInt32LE(at + 4) + (wav.readUInt32LE(at + 4) & 1);
+  const end = at + 8 + wav.readUInt32LE(at + 4);
+  const out = Buffer.from(wav);
+  for (let i = at + 8; i < end; i += 2) out.writeInt16LE(Math.trunc(wav.readInt16LE(i) * 0.006), i);
+  const file = path.join(mkdtempSync(path.join(os.tmpdir(), "fp-distant-")), "distant-chainsaw.wav");
+  writeFileSync(file, out);
+  return file;
+}
+
+// The confidence a replay's sensor heard Chainsaw at, from its own log line, or null when it heard none.
+function heardChainsaw(out: string): number | null {
+  const line = out.match(/heard Chainsaw \((\d\.\d+)\)/);
+  return line ? Number(line[1]) : null;
+}
+
+test("a researcher switches Chainsaw off and on and moves the sensitivity; a sensor follows at its next check-in", async ({ page, context, browser }) => {
+  test.setTimeout(300_000);
   const service = new SecondService(soundsServicePorts);
   await service.start();
   try {
@@ -47,6 +69,19 @@ test("a researcher switches Chainsaw off and on; a sensor follows at its next ch
       await expect(row).toContainText(category);
       await expect(row).toContainText(kind);
     }
+
+    // The sensitivity starts at 50%. A save of it that fails puts the slider back and says so.
+    const sensitivity = page.getByRole("slider");
+    await expect(sensitivity).toHaveValue("50");
+    await expect(page.getByText("Report sounds at 50% confidence or more")).toBeVisible();
+    await page.route(`${origin}/dashboard/api/sounds`, (route) =>
+      route.request().method() === "PATCH" ? route.fulfill({ status: 500, body: "{}" }) : route.continue());
+    await sensitivity.fill("60");
+    await expect(page.getByRole("alert")).toHaveText("Couldn't save, try again");
+    await expect(sensitivity).toHaveValue("50");
+    await expect(page.getByText("Report sounds at 50% confidence or more")).toBeVisible();
+    await page.unroute(`${origin}/dashboard/api/sounds`);
+    expect((await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()).sensitivity).toBe(0.5);
 
     // A save that fails flips the switch back and says so.
     await page.route(`${origin}/dashboard/api/sounds/*`, (route) =>
@@ -106,6 +141,49 @@ test("a researcher switches Chainsaw off and on; a sensor follows at its next ch
     const on = await replay({ sensorId, wavs: [referenceClip("chainsaw.wav")], stateDir, serverUrl: origin });
     expect(on).toContain("0 event(s) still queued");
     await expect(rows.filter({ hasText: "Chainsaw" })).toHaveCount(2, { timeout: 3000 });
+
+    // Another researcher has the page open when the sensitivity moves to 70%; their page follows at its next poll.
+    const other = await browser.newContext();
+    const otherPage = await other.newPage();
+    await signIn(otherPage, "/dashboard/sounds/", origin);
+    await expect(otherPage.getByRole("slider")).toHaveValue("50");
+    await sensitivity.fill("70");
+    await expect(page.getByText("Report sounds at 70% confidence or more")).toBeVisible();
+    await expect(page.getByRole("alert")).toBeHidden();
+    await expect.poll(async () => (await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()))
+      .toMatchObject({ sensitivity: 0.7, version: start + 3 });
+    await expect(otherPage.getByRole("slider")).toHaveValue("70");
+    await expect(otherPage.getByText("Report sounds at 70% confidence or more")).toBeVisible();
+    await other.close();
+
+    // Every sound a sensor fetches now carries 0.7 as its threshold, and a distant chainsaw is no longer reported.
+    const [list] = await asSensor(sensorId, [{ call: "sounds" }], undefined, origin);
+    expect(list.version).toBe(start + 3);
+    expect(list.sounds.map((s: { name: string }) => s.name)).toContain("Chainsaw");
+    for (const s of list.sounds) expect(s.threshold, s.name).toBe(0.7);
+    const distant = distantChainsaw();
+    expect(fetchedList(await replay({ sensorId, wavs: [silentWav()], stateDir, serverUrl: origin }), start + 3))
+      .toContain("Chainsaw");
+    const quiet = await replay({ sensorId, wavs: [distant], stateDir, serverUrl: origin });
+    expect(heardChainsaw(quiet)).toBeNull();
+    expect(quiet).toContain("0 event(s) still queued");
+    await log.waitForTimeout(2500); // one more poll of the log
+    await expect(rows.filter({ hasText: "Chainsaw" })).toHaveCount(2);
+
+    // Back at 50%, the same replay is heard below 70% and reported once.
+    await sensitivity.fill("50");
+    await expect(page.getByText("Report sounds at 50% confidence or more")).toBeVisible();
+    await expect.poll(async () => (await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()))
+      .toMatchObject({ sensitivity: 0.5, version: start + 4 });
+    expect(fetchedList(await replay({ sensorId, wavs: [silentWav()], stateDir, serverUrl: origin }), start + 4))
+      .toContain("Chainsaw");
+    const heard = await replay({ sensorId, wavs: [distant], stateDir, serverUrl: origin });
+    const confidence = heardChainsaw(heard);
+    expect(confidence, "the distant chainsaw's logged confidence").not.toBeNull();
+    expect(confidence!).toBeGreaterThanOrEqual(0.5);
+    expect(confidence!).toBeLessThan(0.7);
+    expect(heard).toContain("0 event(s) still queued");
+    await expect(rows.filter({ hasText: "Chainsaw" })).toHaveCount(3, { timeout: 3000 });
   } finally {
     await service.stop();
   }

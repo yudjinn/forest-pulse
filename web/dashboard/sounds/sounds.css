@@ -24,6 +24,45 @@
   text-decoration: none;
 }
 
+/* The sensitivity: its sentence over a full-width slider, above the list. */
+.sensitivity {
+  display: grid;
+  gap: 4px;
+  padding: 4px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sensitivity[hidden] {
+  display: none;
+}
+
+.sensitivity label {
+  font-weight: inherit;
+}
+
+.sensitivity-value {
+  font-weight: 600;
+}
+
+.sensitivity input[type="range"] {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  accent-color: var(--evergreen);
+  cursor: pointer;
+}
+
+.sensitivity input[type="range"]:focus-visible {
+  outline: 2px solid var(--evergreen);
+  outline-offset: 2px;
+}
+
+.sensitivity .error {
+  font-size: 14px;
+}
+
 .sound-list {
   margin: 0;
   padding: 0;

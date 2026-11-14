@@ -1,5 +1,6 @@
-// The Sounds page: every sound sensors can report, each with its switch, and a Delete for each taught sound behind a
-// confirmation. The list follows the shell's 2 s poll; a switch saves at once and flips back if the save fails.
+// The Sounds page: the sensitivity every sound must reach, then every sound sensors can report, each with its switch,
+// and a Delete for each taught sound behind a confirmation. The page follows the shell's 2 s poll; a switch or the
+// sensitivity saves at once and goes back to the saved value if the save fails.
 import { poll } from "/dashboard/shell.js";
 
 const CATEGORY = /** @type {Record<string, string>} */ ({
@@ -135,10 +136,76 @@ async function save(id, row) {
   }
 }
 
-/** @param {{ version: number, sounds: Sound[] }} data */
+// The sensitivity, shown and set in whole percent. `saved` is the value the service last reported. While the slider
+// is being dragged or saved, polls update `saved` but leave the slider where the researcher put it.
+const sensitivity = /** @type {HTMLElement} */ (document.querySelector("#sounds .sensitivity"));
+const slider = /** @type {HTMLInputElement} */ (sensitivity.querySelector("input"));
+const sliderValue = /** @type {HTMLElement} */ (sensitivity.querySelector(".sensitivity-value"));
+const sliderError = /** @type {HTMLElement} */ (sensitivity.querySelector(".error"));
+let saved = 50;
+let moving = false;
+let savingSensitivity = false;
+
+/** @param {number} percent */
+function showSensitivity(percent) {
+  slider.value = String(percent);
+  sliderValue.textContent = `${percent}%`;
+  slider.setAttribute("aria-valuetext", `${percent}%`);
+}
+
+// Saves whatever the slider shows, one save at a time: a value picked while a save is on its way is sent after it,
+// so this page's saves reach the service in the order they were made.
+async function saveSensitivity() {
+  if (savingSensitivity) return;
+  savingSensitivity = true;
+  sliderError.hidden = true;
+  try {
+    for (let percent = Number(slider.value); percent !== saved; percent = Number(slider.value)) {
+      const res = await fetch("/dashboard/api/sounds", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sensitivity: percent / 100 }),
+      });
+      if (res.status === 401) {
+        location.assign(`/dashboard/signin?next=${encodeURIComponent(location.pathname)}`);
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const reply = /** @type {{ sensitivity: number, version: number }} */ (await res.json());
+      version = Math.max(version, reply.version);
+      saved = Math.round(reply.sensitivity * 100);
+    }
+  } catch {
+    sliderError.textContent = "Couldn't save, try again";
+    sliderError.hidden = false;
+  } finally {
+    savingSensitivity = false;
+    if (!moving) showSensitivity(saved);
+  }
+}
+
+slider.addEventListener("input", () => {
+  moving = true;
+  showSensitivity(Number(slider.value));
+});
+slider.addEventListener("change", () => {
+  moving = false;
+  saveSensitivity();
+});
+// A drag let go where it started fires no change: the slider is free for polls again.
+for (const type of ["pointerup", "blur"]) {
+  slider.addEventListener(type, () => {
+    if (Number(slider.value) === saved) moving = false;
+  });
+}
+
+/** @param {{ version: number, sensitivity: number, sounds: Sound[] }} data */
 function render(data) {
   if (data.version < version) return;
   version = data.version;
+  saved = Math.round(data.sensitivity * 100);
+  if (!moving && !savingSensitivity) showSensitivity(saved);
+  sensitivity.hidden = false;
   const seen = new Set();
   const items = data.sounds.map((s) => {
     seen.add(s.id);

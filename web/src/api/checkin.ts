@@ -39,22 +39,24 @@ interface SoundRow {
   name: string;
   category: string;
   kind: "detector" | "label";
-  threshold: number;
   label: string | null;
   weights: string | null;
   bias: number | null;
 }
 
+// Every sound carries the one sensitivity researchers set as its threshold; the stored per-sound threshold is not
+// served. The list and its version are read in one batch, so a sensor never gets a newer version with older contents.
 export async function soundList(_request: Request, { env, params }: RouteContext): Promise<Response> {
   if (params.sensor.length > MAX_SENSOR_ID) return badRequest("sensor_id is too long", undefined);
-  const [version, rows] = await Promise.all([
-    soundListVersion(env.DB),
+  const [list, rows] = await env.DB.batch([
+    env.DB.prepare("SELECT version, sensitivity FROM sound_list WHERE id = 1"),
     env.DB.prepare(
-      "SELECT id, name, category, kind, threshold, label, weights, bias FROM sounds WHERE enabled = 1 ORDER BY rowid",
-    ).all<SoundRow>(),
+      "SELECT id, name, category, kind, label, weights, bias FROM sounds WHERE enabled = 1 ORDER BY rowid",
+    ),
   ]);
-  const sounds = rows.results.map((s) => {
-    const base = { id: s.id, name: s.name, category: s.category, kind: s.kind, threshold: s.threshold };
+  const { version, sensitivity } = list.results[0] as { version: number; sensitivity: number };
+  const sounds = (rows.results as SoundRow[]).map((s) => {
+    const base = { id: s.id, name: s.name, category: s.category, kind: s.kind, threshold: sensitivity };
     return s.kind === "detector"
       ? { ...base, weights: JSON.parse(s.weights ?? "[]") as number[], bias: s.bias }
       : { ...base, label: s.label };
