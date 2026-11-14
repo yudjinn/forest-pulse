@@ -37,29 +37,32 @@ export async function locateOnArrival(env: Env, events: AcceptedEvent[]): Promis
     db.prepare("UPDATE events SET line_x_m = ?2, line_y_m = ?3, line_deg = ?4 WHERE id = ?1")
       .bind(l.event.id, l.x_m, l.y_m, l.deg)));
 
+  // One query per line and one write per crossing, each set in a single batch, so a backlog delivery of many
+  // events costs two round trips rather than two per event.
   const online = JSON.stringify(plan.filter((s) => s.online).map((s) => s.id));
-  for (const l of lines) {
-    if (!l.online) continue;
+  const pairing = lines.filter((l) => l.online);
+  if (!pairing.length) return;
+  const found = await db.batch<StoredLine>(pairing.map(({ event: e }) => db.prepare(
+    `SELECT id, sensor_id, angle_confidence, occurred_at, line_x_m, line_y_m, line_deg FROM events
+     WHERE sound_id = ?1 AND sensor_id != ?2 AND line_deg IS NOT NULL AND occurred_at BETWEEN ?3 AND ?4
+       AND sensor_id IN (SELECT value FROM json_each(?5))`,
+  ).bind(e.sound_id, e.sensor_id, e.occurred_at - PAIR_WINDOW_MS, e.occurred_at + PAIR_WINDOW_MS, online)));
+  const located = pairing.flatMap((l, i) => {
     const e = l.event;
-    const candidates = await db.prepare(
-      `SELECT id, sensor_id, angle_confidence, occurred_at, line_x_m, line_y_m, line_deg FROM events
-       WHERE sound_id = ?1 AND sensor_id != ?2 AND line_deg IS NOT NULL AND occurred_at BETWEEN ?3 AND ?4
-         AND sensor_id IN (SELECT value FROM json_each(?5))`,
-    ).bind(e.sound_id, e.sensor_id, e.occurred_at - PAIR_WINDOW_MS, e.occurred_at + PAIR_WINDOW_MS, online)
-      .all<StoredLine>();
-    const partner = choosePartner(candidates.results);
-    if (!partner) continue;
+    const partner = choosePartner(found[i].results);
+    if (!partner) return [];
     const point = crossing(l, { x_m: partner.line_x_m, y_m: partner.line_y_m, deg: partner.line_deg });
     logLine("event_located", {
       event: e.id, sensor: e.sensor_id, partner: partner.id, partner_sensor: partner.sensor_id, crossed: point !== null,
     });
-    if (!point) continue;
-    await db.prepare(
+    if (!point) return [];
+    return [db.prepare(
       `UPDATE events SET location_x_m = ?2, location_y_m = ?3, location_partner_id = ?4, location_partner_sensor = ?5,
          location_distance_m = ?6, location_partner_distance_m = ?7 WHERE id = ?1`,
     ).bind(e.id, round(point.x_m, 3), round(point.y_m, 3), partner.id, partner.sensor_id,
-      round(point.distance_a_m, 3), round(point.distance_b_m, 3)).run();
-  }
+      round(point.distance_a_m, 3), round(point.distance_b_m, 3))];
+  });
+  if (located.length) await db.batch(located);
 }
 
 interface ShownRow {

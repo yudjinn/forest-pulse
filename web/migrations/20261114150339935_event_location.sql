@@ -17,5 +17,6 @@ ALTER TABLE events ADD COLUMN location_partner_sensor TEXT;
 ALTER TABLE events ADD COLUMN location_distance_m REAL;
 ALTER TABLE events ADD COLUMN location_partner_distance_m REAL;
 
--- Pairing looks up recent events of one sound by corrected time.
+-- Pairing looks up recent events of one sound by corrected time; the plan reads the lines of the last 15 s.
 CREATE INDEX events_sound_time ON events (sound_id, occurred_at);
+CREATE INDEX events_line_time ON events (occurred_at) WHERE line_deg IS NOT NULL;
