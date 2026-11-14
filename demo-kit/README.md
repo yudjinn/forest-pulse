@@ -58,11 +58,14 @@ sensor library's replay report both player boreal owls and never the tawny owl. 
 owls minus the player's recordists, the held-out recordings and no-derivatives licences, one recording per recordist
 first, songs before calls, longer before shorter; each clip is the recording's first 60 s.
 
+The page mixes each recording over the hall at random, so every size is taught with five different mixes and works
+only if it works with all five. Scores are the detector's top confidence on each player sample (threshold 0.5).
+
 | Size | Boreal owl 1 | Boreal owl 2 | Tawny owl | Chainsaws | Result |
 |---|---|---|---|---|---|
-| 10 | heard (1.00) | heard (0.82) | not heard | not heard | works, chosen |
-| 15 | heard (1.00) | heard (0.87) | not heard | not heard | works |
-| 20 | heard (1.00) | heard (0.94) | heard (0.61) | not heard | fails: the tawny owl is heard |
+| 10 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.56 to 0.89) | not heard | not heard | works, chosen |
+| 15 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.82 to 0.97) | not heard | not heard | works |
+| 20 | heard in 5 of 5 (1.00) | heard in 5 of 5 (0.94 to 0.99) | heard in 3 of 5 (0.59 to 0.65) | not heard | fails |
 
 | Clip | Recordist | Source | Licence |
 |---|---|---|---|
@@ -78,7 +81,7 @@ first, songs before calls, longer before shorter; each clip is the recording's f
 | boreal-owl-XC782854.wav | Teet Sirotkin | [xeno-canto XC782854](https://xeno-canto.org/782854) | [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) |
 
 Rebuild from the repository root, after `experiments/efficientat-chainsaw/setup.sh` has fetched the recordings (with
-`XC_KEY`); the script itself needs no network and takes about a minute:
+`XC_KEY`); the script itself needs no network and takes about three minutes:
 
 ```
 uv run --project experiments/efficientat-chainsaw python demo-kit/teaching_pack.py

@@ -32,7 +32,7 @@ test("the teaching pack teaches Boreal owl on stage: the player's boreal owls ar
         const sensorId = uniqueSensorId(`rehearsal-${sample.replace(".wav", "")}`);
         const output = await replay({ sensorId, wavs: [playerSample(sample)], serverUrl: origin });
         expect(output).toMatch(new RegExp(`sound list ${sounds.version}: .*Boreal owl`));
-        expect(output).toContain("0 event(s) still queued");
+        expect(output).toMatch(/^done: 0 event\(s\) still queued$/m);
         heard[sample] = sensorId;
       }
       for (const sample of ["boreal-owl-1.wav", "boreal-owl-2.wav"]) {

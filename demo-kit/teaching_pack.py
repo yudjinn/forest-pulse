@@ -7,7 +7,8 @@ Each size is tried exactly as the dashboard teaches:
 - clips: the first 60 s of each recording, written as 32 kHz mono 16-bit WAV (the pack's files);
 - summaries: those files in the teach page's windows (first 60 s, 5 s each), each clean and once mixed over the hall
   background at -3 to +15 dB, with the sensor library's own model (the windows and the mix are the ones the stored
-  other-sounds library was built with, imported from its build script);
+  other-sounds library was built with, imported from its build script). The page draws its mix at random, so each
+  size is tried with five different mixes and works only if it works with all of them;
 - training: the teach request's own training function (web/src/teach/train.ts, run from Node), against every row
   of the stored other-sounds library (web/bucket/teach/other-sounds.f32);
 - detection: the sensor library's replay command plays each player sample to a local stand-in server whose sound list
@@ -19,7 +20,8 @@ recordist first, songs before calls, longer before shorter. The sizes are nested
 
 Writes demo-kit/teaching_pack.json (every size tried, with the detections, and the chosen pack's credits) and, only
 when a size works, the pack folder: the chosen clips and nothing else, so the presenter can drop the whole folder's
-contents. If no size works it says which player samples were missed and makes no pack.
+contents. A rebuild replaces the clips in it, and refuses a folder that holds anything else. If no size works it says
+which player samples were missed and makes no pack.
 
 usage (from the repository root, after experiments/efficientat-chainsaw/setup.sh has fetched the recordings with
 XC_KEY; no other network is needed):
@@ -29,6 +31,7 @@ The pack folder defaults to $FP_TEACHING_PACK, else ~/Desktop/Boreal owl teachin
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -47,10 +50,13 @@ from forestpulse_sensor.model import EMBEDDING_DIM, MODEL_ID, MODEL_RATE, Model,
 
 SIZES = (10, 15, 20)
 FIRST_SECONDS = 60
-SEED = 11
+# The page mixes each window over the hall at a random level and stretch, so a size works only if it works for
+# every one of these mixes.
+SEEDS = (11, 12, 13, 14, 15)
 OTHER_SOUNDS = os.path.join(ROOT, "web", "bucket", "teach", "other-sounds.f32")
 PLAYER = os.path.join(ROOT, "web", "bucket", "player")
 REPORT = os.path.join(HERE, "teaching_pack.json")
+CLIP = re.compile(r"boreal-owl-XC\d+\.wav")
 DEFAULT_PACK = os.path.join(os.path.expanduser("~"), "Desktop", "Boreal owl teaching pack")
 SOUND = {"id": "boreal-owl", "name": "Boreal owl", "category": "wildlife", "kind": "detector", "threshold": 0.5}
 KEY = "teaching-pack"
@@ -92,10 +98,14 @@ def write_clip(c, folder):
     return name, round(len(audio) / MODEL_RATE, 2)
 
 
-def summaries(model, path, background, rng):
-    """A pack file as the teach page summarises it: one clean row per window, then one mixed row per window."""
-    ws = library.windows(library.read_wav(path), MODEL_RATE)
-    return [model.run(w)[1] for w in ws] + [model.run(library.mix(w, background, rng))[1] for w in ws]
+def pack_folder(out):
+    """The pack folder, refused when it holds anything but a pack's clips: rebuilding replaces the clips in it."""
+    if os.path.exists(out):
+        other = [f for f in os.listdir(out) if not f.startswith(".") and not CLIP.fullmatch(f)]
+        if not os.path.isdir(out) or other:
+            sys.exit(f"{out} is not a teaching pack folder (it holds {', '.join(other[:3]) or 'a file'}); "
+                     "choose another with --out")
+    return out
 
 
 def train(rows, work):
@@ -125,7 +135,7 @@ def detections(detector, samples, work):
             replay = subprocess.run([sys.executable, "-m", "forestpulse_sensor.replay", "--config",
                                      f"{folder}/sensor.toml", f"{PLAYER}/{s['file']}"],
                                     env=env, capture_output=True, text=True)
-            if replay.returncode or "0 event(s) still queued" not in replay.stdout:
+            if replay.returncode or not re.search(r"^done: 0 event\(s\) still queued$", replay.stdout, re.M):
                 sys.exit(f"replay of {s['file']} failed:\n{replay.stdout}{replay.stderr}")
             with state.lock:
                 heard = [e for e in state.events if e["sensor_id"] == sensor_id]
@@ -140,7 +150,7 @@ def main():
     ap.add_argument("--samples", default=f"{EXPERIMENT}/samples", help="the experiment's samples/ folder")
     ap.add_argument("--out", default=os.environ.get("FP_TEACHING_PACK") or DEFAULT_PACK, help="the pack folder")
     args = ap.parse_args()
-    out = os.path.abspath(os.path.expanduser(args.out))
+    out = pack_folder(os.path.abspath(os.path.expanduser(args.out)))
     if not os.path.exists(f"{args.samples}/owls/meta.json"):
         sys.exit(f"no owl recordings in {args.samples}: run experiments/efficientat-chainsaw/setup.sh with XC_KEY")
     ranked = candidates(args.samples)
@@ -152,42 +162,52 @@ def main():
 
     model = Model(threads=4)
     background = library.read_wav(library.HALL_BACKGROUND)
-    rng = np.random.default_rng(SEED)
     work = tempfile.mkdtemp(prefix="teaching-pack-")
     staging = os.path.join(work, "clips")
     os.makedirs(staging)
     try:
-        clips, rows = [], []
+        # Per clip, as the teach page summarises a file: its windows clean, and the same windows mixed (per seed).
+        clips, clean, mixed = [], [], {seed: [] for seed in SEEDS}
+        rngs = {seed: np.random.default_rng(seed) for seed in SEEDS}
         for c in ranked[:max(SIZES)]:
             name, secs = write_clip(c, staging)
             clips.append({"file": name, "recording": c["recording"], "recordist": c["recordist"],
                           "country": c["country"], "type": c["type"], "url": c["url"],
                           "licence_url": c["licence_url"], "seconds": secs})
-            rows.append(summaries(model, os.path.join(staging, name), background, rng))
-            print(f"{len(clips):2d} {name}: {c['recordist']}, {c['type']}, {secs:.0f} s, {len(rows[-1]) // 2} windows",
-                  flush=True)
+            ws = library.windows(library.read_wav(os.path.join(staging, name)), MODEL_RATE)
+            clean.append([model.run(w)[1] for w in ws])
+            for seed in SEEDS:
+                mixed[seed].append([model.run(library.mix(w, background, rngs[seed]))[1] for w in ws])
+            print(f"{len(clips):2d} {name}: {c['recordist']}, {c['type']}, {secs:.0f} s, {len(ws)} windows", flush=True)
 
         tried, chosen = [], None
         for size in SIZES:
-            detector = train([r for clip in rows[:size] for r in clip], work)
-            assert len(detector["weights"]) == EMBEDDING_DIM
-            heard = detections({"weights": detector["weights"], "bias": detector["bias"]}, player, work)
-            results = [{"file": s["file"], "kind": s["kind"], "detections": heard[s["file"]][0],
-                        "top_confidence": heard[s["file"]][1]} for s in player]
-            missed = [r["file"] for r in results if r["kind"] == "boreal owl" and not r["detections"]]
-            false_alarms = [r["file"] for r in results if r["kind"] == "tawny owl" and r["detections"]]
-            passed = not missed and not false_alarms
-            tried.append({"size": size, "passed": passed, "missed": missed, "false_alarms": false_alarms,
-                          "training_iterations": detector["iterations"], "samples": results})
-            print(f"size {size}: {'works' if passed else 'fails'}; " + ", ".join(
-                f"{r['file']} {r['detections']} ({r['top_confidence'] or 0:.2f})" for r in results), flush=True)
+            runs = []
+            for seed in SEEDS:
+                rows = [r for i in range(size) for r in clean[i] + mixed[seed][i]]
+                detector = train(rows, work)
+                assert len(detector["weights"]) == EMBEDDING_DIM
+                heard = detections({"weights": detector["weights"], "bias": detector["bias"]}, player, work)
+                results = [{"file": s["file"], "kind": s["kind"], "detections": heard[s["file"]][0],
+                            "top_confidence": heard[s["file"]][1]} for s in player]
+                missed = [r["file"] for r in results if r["kind"] == "boreal owl" and not r["detections"]]
+                false_alarms = [r["file"] for r in results if r["kind"] == "tawny owl" and r["detections"]]
+                runs.append({"seed": seed, "passed": not missed and not false_alarms, "missed": missed,
+                             "false_alarms": false_alarms, "training_iterations": detector["iterations"],
+                             "samples": results})
+                print(f"size {size}, mix {seed}: {'works' if runs[-1]['passed'] else 'fails'}; " + ", ".join(
+                    f"{r['file']} {r['detections']} ({r['top_confidence'] or 0:.2f})" for r in results), flush=True)
+            passed = all(r["passed"] for r in runs)
+            tried.append({"size": size, "passed": passed, "recordings": [c["recording"] for c in clips[:size]],
+                          "missed": sorted({f for r in runs for f in r["missed"]}),
+                          "false_alarms": sorted({f for r in runs for f in r["false_alarms"]}), "mixes": runs})
             if passed and chosen is None:
                 chosen = size
 
         report = {"species": "Boreal owl (Aegolius funereus)", "source": "xeno-canto", "first_seconds": FIRST_SECONDS,
-                  "sizes_tried": list(SIZES), "chosen_size": chosen, "seed": SEED,
+                  "sizes_tried": list(SIZES), "chosen_size": chosen, "mix_seeds": list(SEEDS),
                   "how": "summaries with the sensor library's model, trained with web/src/teach/train.ts against "
-                         "web/bucket/teach/other-sounds.f32, replayed through the sensor library at threshold 0.5",
+                         "web/bucket/teach/other-sounds.f32, replayed through the sensor library at threshold 0.5; a size works only if it works for every mix seed",
                   "sizes": tried, "pack": clips[:chosen] if chosen else []}
         with open(REPORT, "w") as f:
             json.dump(report, f, indent=1, ensure_ascii=False)
@@ -198,9 +218,10 @@ def main():
                 print(f"  size {t['size']}: missed {', '.join(t['missed']) or 'none'}; "
                       f"false alarms {', '.join(t['false_alarms']) or 'none'}")
             sys.exit(1)
-        if os.path.exists(out):
-            shutil.rmtree(out)
-        os.makedirs(out)
+        os.makedirs(out, exist_ok=True)
+        for f in os.listdir(out):
+            if CLIP.fullmatch(f):
+                os.remove(os.path.join(out, f))
         for c in clips[:chosen]:
             shutil.move(os.path.join(staging, c["file"]), os.path.join(out, c["file"]))
         print(f"pack of {chosen} -> {out}; report -> {os.path.relpath(REPORT, ROOT)}")

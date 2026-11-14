@@ -8,143 +8,770 @@
   20
  ],
  "chosen_size": 10,
- "seed": 11,
- "how": "summaries with the sensor library's model, trained with web/src/teach/train.ts against web/bucket/teach/other-sounds.f32, replayed through the sensor library at threshold 0.5",
+ "mix_seeds": [
+  11,
+  12,
+  13,
+  14,
+  15
+ ],
+ "how": "summaries with the sensor library's model, trained with web/src/teach/train.ts against web/bucket/teach/other-sounds.f32, replayed through the sensor library at threshold 0.5; a size works only if it works for every mix seed",
  "sizes": [
   {
    "size": 10,
    "passed": true,
+   "recordings": [
+    "XC1097665",
+    "XC560096",
+    "XC625748",
+    "XC632037",
+    "XC762214",
+    "XC801369",
+    "XC985318",
+    "XC312639",
+    "XC356978",
+    "XC782854"
+   ],
    "missed": [],
    "false_alarms": [],
-   "training_iterations": 61,
-   "samples": [
+   "mixes": [
     {
-     "file": "chainsaw-1.wav",
-     "kind": "chainsaw",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 11,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 61,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9995
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.8158
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     },
     {
-     "file": "chainsaw-2.wav",
-     "kind": "chainsaw",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 12,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 64,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9993
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.5577
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     },
     {
-     "file": "chainsaw-3.wav",
-     "kind": "chainsaw",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 13,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 58,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9997
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.6468
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     },
     {
-     "file": "boreal-owl-1.wav",
-     "kind": "boreal owl",
-     "detections": 1,
-     "top_confidence": 0.9995
+     "seed": 14,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 66,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9982
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.5891
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     },
     {
-     "file": "boreal-owl-2.wav",
-     "kind": "boreal owl",
-     "detections": 1,
-     "top_confidence": 0.8158
-    },
-    {
-     "file": "tawny-owl.wav",
-     "kind": "tawny owl",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 15,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 63,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9997
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.8945
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     }
    ]
   },
   {
    "size": 15,
    "passed": true,
+   "recordings": [
+    "XC1097665",
+    "XC560096",
+    "XC625748",
+    "XC632037",
+    "XC762214",
+    "XC801369",
+    "XC985318",
+    "XC312639",
+    "XC356978",
+    "XC782854",
+    "XC307650",
+    "XC638436",
+    "XC325180",
+    "XC343176",
+    "XC234260"
+   ],
    "missed": [],
    "false_alarms": [],
-   "training_iterations": 66,
-   "samples": [
+   "mixes": [
     {
-     "file": "chainsaw-1.wav",
-     "kind": "chainsaw",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 11,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 66,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9997
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.8748
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     },
     {
-     "file": "chainsaw-2.wav",
-     "kind": "chainsaw",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 12,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 67,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9996
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.8845
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     },
     {
-     "file": "chainsaw-3.wav",
-     "kind": "chainsaw",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 13,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 58,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9998
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.8733
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     },
     {
-     "file": "boreal-owl-1.wav",
-     "kind": "boreal owl",
-     "detections": 1,
-     "top_confidence": 0.9997
+     "seed": 14,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 65,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9989
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.8192
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     },
     {
-     "file": "boreal-owl-2.wav",
-     "kind": "boreal owl",
-     "detections": 1,
-     "top_confidence": 0.8748
-    },
-    {
-     "file": "tawny-owl.wav",
-     "kind": "tawny owl",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 15,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 69,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9998
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9739
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     }
    ]
   },
   {
    "size": 20,
    "passed": false,
+   "recordings": [
+    "XC1097665",
+    "XC560096",
+    "XC625748",
+    "XC632037",
+    "XC762214",
+    "XC801369",
+    "XC985318",
+    "XC312639",
+    "XC356978",
+    "XC782854",
+    "XC307650",
+    "XC638436",
+    "XC325180",
+    "XC343176",
+    "XC234260",
+    "XC728530",
+    "XC278784",
+    "XC820315",
+    "XC754334",
+    "XC800432"
+   ],
    "missed": [],
    "false_alarms": [
     "tawny-owl.wav"
    ],
-   "training_iterations": 76,
-   "samples": [
+   "mixes": [
     {
-     "file": "chainsaw-1.wav",
-     "kind": "chainsaw",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 11,
+     "passed": false,
+     "missed": [],
+     "false_alarms": [
+      "tawny-owl.wav"
+     ],
+     "training_iterations": 76,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9999
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9426
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 1,
+       "top_confidence": 0.6113
+      }
+     ]
     },
     {
-     "file": "chainsaw-2.wav",
-     "kind": "chainsaw",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 12,
+     "passed": false,
+     "missed": [],
+     "false_alarms": [
+      "tawny-owl.wav"
+     ],
+     "training_iterations": 82,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9999
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9616
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 1,
+       "top_confidence": 0.5878
+      }
+     ]
     },
     {
-     "file": "chainsaw-3.wav",
-     "kind": "chainsaw",
-     "detections": 0,
-     "top_confidence": null
+     "seed": 13,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 78,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 1.0
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9601
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     },
     {
-     "file": "boreal-owl-1.wav",
-     "kind": "boreal owl",
-     "detections": 1,
-     "top_confidence": 0.9999
+     "seed": 14,
+     "passed": false,
+     "missed": [],
+     "false_alarms": [
+      "tawny-owl.wav"
+     ],
+     "training_iterations": 69,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9997
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9602
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 1,
+       "top_confidence": 0.65
+      }
+     ]
     },
     {
-     "file": "boreal-owl-2.wav",
-     "kind": "boreal owl",
-     "detections": 1,
-     "top_confidence": 0.9426
-    },
-    {
-     "file": "tawny-owl.wav",
-     "kind": "tawny owl",
-     "detections": 1,
-     "top_confidence": 0.6113
+     "seed": 15,
+     "passed": true,
+     "missed": [],
+     "false_alarms": [],
+     "training_iterations": 95,
+     "samples": [
+      {
+       "file": "chainsaw-1.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-2.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "chainsaw-3.wav",
+       "kind": "chainsaw",
+       "detections": 0,
+       "top_confidence": null
+      },
+      {
+       "file": "boreal-owl-1.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9999
+      },
+      {
+       "file": "boreal-owl-2.wav",
+       "kind": "boreal owl",
+       "detections": 1,
+       "top_confidence": 0.9882
+      },
+      {
+       "file": "tawny-owl.wav",
+       "kind": "tawny owl",
+       "detections": 0,
+       "top_confidence": null
+      }
+     ]
     }
    ]
   }
