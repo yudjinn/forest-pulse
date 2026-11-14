@@ -5,6 +5,7 @@
 /** @type {{ href: string, label: string }[]} */
 const NAV = [
   { href: "/dashboard/", label: "Live" },
+  { href: "/dashboard/sounds/", label: "Sounds" },
 ];
 
 const POLL_MS = 2000;
