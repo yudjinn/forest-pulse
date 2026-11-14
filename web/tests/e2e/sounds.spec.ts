@@ -37,6 +37,8 @@ test("a researcher switches Chainsaw off and on; a sensor follows at its next ch
     const origin = service.url;
     await signIn(page, "/dashboard/sounds/", origin);
     await expect(page.getByRole("link", { name: "Sounds" })).toHaveAttribute("aria-current", "page");
+    // Each switch moves the list's version on by one from wherever this fresh service starts.
+    const start: number = (await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()).version;
 
     // Every seeded sound, by name, with its category and kind, switched on.
     for (const [name, category, kind] of SEEDED) {
@@ -63,7 +65,7 @@ test("a researcher switches Chainsaw off and on; a sensor follows at its next ch
     const stateDir = path.join(mkdtempSync(path.join(os.tmpdir(), "fp-sounds-")), "state");
     const rows = log.getByRole("row").filter({ hasText: sensorId });
     const first = await replay({ sensorId, wavs: [referenceClip("chainsaw.wav")], stateDir, serverUrl: origin });
-    expect(fetchedList(first, 1)).toContain("Chainsaw");
+    expect(fetchedList(first, start)).toContain("Chainsaw");
     expect(first).toContain("0 event(s) still queued");
     await expect(rows.filter({ hasText: "Chainsaw" })).toHaveCount(1, { timeout: 3000 });
     const before = await rows.count();
@@ -78,7 +80,7 @@ test("a researcher switches Chainsaw off and on; a sensor follows at its next ch
     await expect(soundSwitch(page, "Chainsaw")).not.toBeChecked();
     await expect(soundSwitch(page, "Gunshot")).toBeChecked();
     const checkin = await replay({ sensorId, wavs: [silentWav()], stateDir, serverUrl: origin });
-    expect(fetchedList(checkin, 2)).not.toContain("Chainsaw");
+    expect(fetchedList(checkin, start + 1)).not.toContain("Chainsaw");
 
     // A chainsaw now adds nothing, and the earlier chainsaw row is still there.
     const off = await replay({ sensorId, wavs: [referenceClip("chainsaw.wav")], stateDir, serverUrl: origin });
@@ -92,7 +94,7 @@ test("a researcher switches Chainsaw off and on; a sensor follows at its next ch
     await expect(soundSwitch(page, "Chainsaw")).toBeChecked();
     await expect(soundSwitch(page, "Chainsaw")).toBeEnabled();
     const back = await replay({ sensorId, wavs: [silentWav()], stateDir, serverUrl: origin });
-    expect(fetchedList(back, 3)).toContain("Chainsaw");
+    expect(fetchedList(back, start + 2)).toContain("Chainsaw");
     const on = await replay({ sensorId, wavs: [referenceClip("chainsaw.wav")], stateDir, serverUrl: origin });
     expect(on).toContain("0 event(s) still queued");
     await expect(rows.filter({ hasText: "Chainsaw" })).toHaveCount(2, { timeout: 3000 });
