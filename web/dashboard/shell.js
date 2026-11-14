@@ -1,6 +1,8 @@
 // The dashboard shell, shared by every researcher page: the header with its navigation, and live polling with
-// the connection-lost banner. A page loads this module and builds its own content in <main>.
+// the connection-lost banner, and the alert banner while logging goes on (activities/warnings.js). A page loads this
+// module and builds its own content in <main>.
 // Additive only: add a navigation entry, never reorder or rewrite one (docs/agents/ownership.md).
+import { alertBanner } from "/dashboard/activities/warnings.js";
 
 /** @type {{ href: string, label: string }[]} */
 const NAV = [
@@ -112,3 +114,8 @@ export function refresh() {
 }
 
 mountHeader();
+
+// The alert banner, under the connection banner, refreshed by the activities reply.
+const alerts = alertBanner();
+banner.after(alerts.element);
+poll("/dashboard/api/activities", alerts.render);

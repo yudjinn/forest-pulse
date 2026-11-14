@@ -160,3 +160,57 @@ button {
     padding: 12px;
   }
 }
+
+/* The alert banner: logging going on that nobody has warned about or dismissed. */
+
+.shell-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  background: var(--alert-bg);
+  color: var(--alert);
+  border-bottom: 1px solid var(--alert);
+}
+
+.shell-alert[hidden] {
+  display: none;
+}
+
+.shell-alert-text {
+  margin: 0;
+  font-weight: 600;
+}
+
+.shell-alert-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shell-alert button {
+  padding: 6px 12px;
+  background: var(--alert);
+  color: #fff;
+}
+
+.shell-alert button.secondary {
+  background: #fff;
+  color: var(--evergreen);
+  border: 1px solid var(--line);
+}
+
+.shell-alert button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.shell-alert .error {
+  flex-basis: 100%;
+  font-size: 14px;
+}
+
+.shell-alert .error[hidden] {
+  display: none;
+}
