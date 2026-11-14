@@ -14,7 +14,7 @@ def main():
     (DIST / "brand").mkdir(parents=True)
     for name in ("index.html", "styles.css", "_headers"):
         shutil.copy2(ROOT / name, DIST / name)
-    shutil.copytree(ROOT / "dashboard", DIST / "dashboard", ignore=shutil.ignore_patterns("tsconfig.json"))
+    shutil.copytree(ROOT / "dashboard", DIST / "dashboard", ignore=shutil.ignore_patterns("tsconfig.json", "*.md"))
     for file in BRAND.glob("*.svg"):
         if file.name != "preview.svg":
             shutil.copy2(file, DIST / "brand" / file.name)

@@ -39,7 +39,8 @@ export interface AcceptedEvent {
 }
 
 // Called after the change is stored, in registration order, before the sensor gets its reply. A hook that throws
-// is logged and skipped: the sensor's delivery stands either way.
+// is logged and skipped: the sensor's delivery stands either way. Hooks must not depend on each other's side
+// effects (the table is append-only, so their order is landing order); each reads what it needs from D1.
 export interface IntakeHooks {
   sensorCheckedIn: Array<(env: Env, checkin: SensorCheckin) => Promise<void>>;
   eventsAccepted: Array<(env: Env, events: AcceptedEvent[]) => Promise<void>>;
@@ -55,7 +56,7 @@ export async function runHooks<T>(hooks: Array<(env: Env, arg: T) => Promise<voi
   }
 }
 
-export const MAX_SENSOR_ID = 100;
+export const MAX_SENSOR_ID = 253; // a full hostname, the library's default id
 
 export function badRequest(reason: string, sensor: string | undefined): Response {
   logLine("sensor_request", { decision: "rejected", sensor, reason });

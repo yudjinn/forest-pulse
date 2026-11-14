@@ -15,6 +15,10 @@ test("a researcher signs in and sees a replayed chainsaw arrive in the live log"
   await expect(page).toHaveURL(/\/dashboard\/signin$/);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   expect((await request.get("/dashboard/api/events")).status()).toBe(401);
+  // Dashboard pages, the rewritten sign-in page included, carry the dashboard's own script policy.
+  const policy = (await request.get("/dashboard/signin")).headers()["content-security-policy"];
+  expect(policy).toContain("script-src 'self'");
+  expect(policy).not.toContain("form-action 'none'");
 
   // A wrong password is refused and stays on the sign-in page.
   await page.getByLabel("Password").fill("not-the-password");
@@ -27,6 +31,7 @@ test("a researcher signs in and sees a replayed chainsaw arrive in the live log"
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/dashboard\/$/);
   await expect(page.getByRole("heading", { name: "Event log" })).toBeVisible();
+  expect((await page.request.get("/dashboard/")).headers()["content-security-policy"]).toContain("script-src 'self'");
   const signedInAt = Date.now() / 1000;
   const [cookie] = (await context.cookies()).filter((c) => c.name === "fp_session");
   expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: "Lax", path: "/dashboard" });

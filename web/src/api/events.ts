@@ -117,7 +117,8 @@ function validate(raw: unknown): ValidEvent | { event_id: string | null; reason:
   const e = raw as Record<string, unknown>;
   const id = typeof e.event_id === "string" && e.event_id.length > 0 && e.event_id.length <= MAX_EVENT_ID
     ? e.event_id : null;
-  const bad = (reason: string) => ({ event_id: id ?? (typeof e.event_id === "string" ? e.event_id.slice(0, MAX_EVENT_ID) : null), reason });
+  // Echo the id exactly as sent, so the sensor can match the result to its queued event.
+  const bad = (reason: string) => ({ event_id: typeof e.event_id === "string" ? e.event_id : null, reason });
   if (id === null) return bad(`event_id missing or longer than ${MAX_EVENT_ID} characters`);
   const detected = parseTime(e.detected_at);
   if (detected === null) return bad("detected_at missing or not a UTC time");

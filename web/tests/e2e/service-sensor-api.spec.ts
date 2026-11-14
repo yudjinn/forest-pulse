@@ -13,6 +13,11 @@ const seedSounds = JSON.parse(readFileSync(
   path.join(webRoot, "..", "sensor-sdk", "forestpulse_sensor", "data", "seed_sounds.json"), "utf8"));
 
 const iso = (ms: number) => new Date(ms).toISOString();
+const pad = (n: number) => String(n).padStart(2, "0");
+const clockTime = (ms: number) => {
+  const d = new Date(ms);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
 
 async function logRows(page: Page, sensorId: string) {
   const res = await page.request.get("/dashboard/api/events");
@@ -89,7 +94,13 @@ test("sensors get the contract's replies: sound list, duplicates, dropped, rejec
   });
   expect(await res.json()).toEqual({ results: [{ event_id: "late-1", status: "accepted" }], sound_list_version: 1 });
   const [late] = await logRows(page, lateId);
-  expect(Math.abs(Date.parse(late.occurred_at) - (Date.now() - 2000))).toBeLessThan(3000);
+  const expected = Date.now() - 2000;
+  expect(Math.abs(Date.parse(late.occurred_at) - expected)).toBeLessThan(3000);
+  // The visible row shows the corrected time, not the sensor's clock.
+  const times = [-2000, -1000, 0, 1000, 2000].map((d) => clockTime(expected + d));
+  const lateRow = page.getByRole("row").filter({ hasText: lateId });
+  await expect(lateRow).toHaveCount(1, { timeout: 3000 });
+  expect(times).toContain((await lateRow.getByRole("cell").first().textContent()) ?? "");
 });
 
 test("a replay with a wrong key is refused, then delivered once the key is fixed", async ({ page }) => {
