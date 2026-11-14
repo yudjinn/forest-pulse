@@ -7,7 +7,7 @@ The Linux side of a sensor node. It:
 - estimates the **bearing** (the direction the sound comes from, relative to the board);
 - uploads results to the server over Wi-Fi.
 
-Status: **not started**. This document records the requirements and design decisions agreed so far.
+Status: **receiver running.** [`atech-serial-listener/`](atech-serial-listener/) is an Arduino App Lab app for the Uno Q. It reads the USB stream, validates and parses the packets, tracks events, and logs the notify line on header pin D7. Classification, bearing and uplink are not started. This document records the requirements and design decisions agreed so far.
 For the system picture, see the [repo README](../README.md).
 
 ## Responsibilities
@@ -34,7 +34,7 @@ For the system picture, see the [repo README](../README.md).
 ### Notify line
 - **What it is:** ATech port 6 D1 (ESP32 GPIO13), **3.3 V logic**. HIGH from trigger until the event's END packet.
 - **Optional:** the packet stream alone is enough to detect events. The line is useful for waking processing or for LEDs.
-- **TODO, wiring:** decide which Uno Q pin to connect it to.
+- **Wiring:** connected to Uno Q STM32 header pin **D7** (3.3 V, no level shifter). The sketch in `atech-serial-listener/` reports each edge to Linux over the bridge.
   - The Uno Q's STM32 header pins are 3.3 V.
   - The Linux SoC's own GPIOs are 1.8 V, so they **need a level shifter**.
   - Through the STM32 side, the Linux app gets the state over the Arduino App Lab bridge/RPC.
@@ -162,7 +162,7 @@ For each analysis window (0.25–0.5 s, 50% overlap) that the classifier accepts
 
 ## TODO
 
-- [ ] Choose the Uno Q pin for the notify line (STM32 3.3 V header vs Linux 1.8 V GPIO + level shifter).
+- [x] Choose the Uno Q pin for the notify line: STM32 header D7.
 - [ ] Receiver service: reuse `mcu/tools/fe_protocol.py`; run as a systemd service; reconnect on USB re-enumeration.
 - [ ] Measure the real mic sound-port positions (±1 mm); put them in a geometry config.
 - [ ] Implement GCC-PHAT + SRP-PHAT; validate with claps at known angles.

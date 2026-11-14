@@ -1,0 +1,6 @@
+name: Atech Serial Listener
+description: "Listens on a serial TTY on the Linux (SoC) side via a device-mapped helper container and forwards each line to the MCU."
+ports: []
+bricks:
+- serial_bridge: {}
+icon: 📡

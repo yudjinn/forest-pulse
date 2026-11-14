@@ -1,0 +1,62 @@
+# Helper container that owns the serial port.
+#
+# Why: the App's main Python container is not given /dev/tty* devices, and
+# app.yaml has no way to add them. A custom Brick's compose file *can* map
+# devices, so this container opens the TTY and serves it as raw TCP on port
+# 5000 inside the App's Docker network. main.py connects to serial-bridge:5000.
+#
+# EDIT THESE TWO THINGS:
+#   1. The host-side device path (left of the colon). Prefer the stable
+#      /dev/serial/by-id/... name - run `ls -l /dev/serial/by-id/` over SSH.
+#   2. The baud rate (b115200) to match the atech board.
+
+services:
+  serial-bridge:
+    image: alpine/socat:latest
+    restart: always
+    devices:
+      # ESP32 (Espressif USB JTAG/serial, 303a:1001). Its by-id name contains
+      # ':' (MAC address), which the short devices syntax can't take, so use
+      # ttyACM0 - the only USB-serial device on this board.
+      - "/dev/ttyACM0:/dev/atech"
+    expose:
+      - "5000"
+    # No 'fork': exactly one client owns the port at a time, so two readers
+    # never split the byte stream. When the client disconnects socat exits and
+    # 'restart: always' brings it back for the next connection.
+    command:
+      - "-d"
+      - "-d"
+      - "-b"
+      - "65536"            # ESP32 bursts ~768 KB/s at event start
+      - "TCP-LISTEN:5000,reuseaddr"
+      # noctty: never become the controlling terminal; rawer: no line discipline.
+      # Without them 0x03/0x1C bytes from the board SIGINT/SIGQUIT socat.
+      # DTR/RTS: the kernel asserts both together on open (the ESP32 needs
+      # DTR=RTS=1; DTR=0 + RTS=1 resets it). hupcl=0 keeps them asserted when
+      # socat closes the port between client connections.
+      # Baud is ignored by the ESP32's USB CDC port.
+      - "/dev/atech,noctty,rawer,echo=0,hupcl=0,b115200"
+
+# --- Hot-plug variant ------------------------------------------------------
+# With 'devices:' the container cannot start if the TTY is missing at launch,
+# and it loses the port if the cable is pulled. If that bites you during the
+# demo, replace the service above with this one (it bind-mounts /dev and
+# whitelists the USB-serial device classes, then waits for the port to appear):
+#
+#  serial-bridge:
+#    image: alpine/socat:latest
+#    restart: always
+#    volumes:
+#      - /dev:/dev
+#    device_cgroup_rules:
+#      - "c 188:* rmw"   # /dev/ttyUSB*  (FTDI, CH340, CP210x)
+#      - "c 166:* rmw"   # /dev/ttyACM*  (CDC-ACM boards)
+#    expose:
+#      - "5000"
+#    entrypoint: ["/bin/sh", "-c"]
+#    command:
+#      - |
+#        DEV=/dev/ttyACM0
+#        until [ -e "$$DEV" ]; do echo "waiting for $$DEV"; sleep 1; done
+#        exec socat -d -d -b 65536 TCP-LISTEN:5000,reuseaddr "$$DEV",noctty,rawer,echo=0,hupcl=0,b115200

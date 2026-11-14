@@ -1,0 +1,4 @@
+id: serial_bridge
+name: Serial Bridge
+description: "Exposes a host serial TTY (e.g. /dev/ttyUSB0) to the App's Python container as a TCP stream on serial-bridge:5000."
+category: miscellaneous
