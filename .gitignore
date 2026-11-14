@@ -1,2 +1,4 @@
 secrets-and-prerequisites.md
 .DS_Store
+.dev-secrets.local
+.dev.vars
