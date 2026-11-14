@@ -44,84 +44,8 @@ SECRETS = {"python/forestpulse.toml"}
 FW_FILES = ("bootloader/bootloader.bin", "partition_table/partition-table.bin", "acoustic_frontend.bin")
 SDK_URL = "forestpulse-sensor @ https://github.com/yudjinn/forest-pulse/archive/refs/heads/main.zip#subdirectory=sensor-sdk"
 START_TIMEOUT_S = 45 * 60  # first start on a fresh board: ~0.9 GB image pull over venue Wi-Fi + package installs
-NODES_FILE = Path(__file__).resolve().parent / "nodes.txt"
-SSH = ["ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=15"]
-
-
-# ---------------------------------------------------------------------------------------------- discovery
-
-def read_nodes(path: Path = NODES_FILE) -> list[tuple[str, str]]:
-    """[(mac, name)] from nodes.txt."""
-    out = []
-    for line in path.read_text().splitlines():
-        parts = line.split("#")[0].split()
-        if len(parts) >= 2:
-            out.append((parts[0].lower(), parts[1]))
-    return out
-
-
-def neighbours() -> dict[str, str]:
-    """mac -> IPv4 from the kernel's neighbour table (entries that aren't FAILED / INCOMPLETE)."""
-    out = subprocess.run(["ip", "-4", "neigh", "show"], capture_output=True, text=True).stdout
-    found = {}
-    for line in out.splitlines():
-        f = line.split()
-        if "lladdr" in f and not ({"FAILED", "INCOMPLETE"} & set(f)):
-            found[f[f.index("lladdr") + 1].lower()] = f[0]
-    return found
-
-
-def local_subnets() -> list:
-    """IPv4 networks of the laptop's up interfaces with a default route (e.g. wlan0's /20)."""
-    import ipaddress
-    routes = subprocess.run(["ip", "-4", "route", "show", "default"], capture_output=True, text=True).stdout
-    devs = {r.split(" dev ")[1].split()[0] for r in routes.splitlines() if " dev " in r}
-    nets = []
-    for dev in devs:
-        addrs = subprocess.run(["ip", "-4", "-o", "addr", "show", "dev", dev], capture_output=True, text=True).stdout
-        for line in addrs.splitlines():
-            cidr = line.split(" inet ")[1].split()[0]
-            nets.append(ipaddress.ip_interface(cidr).network)
-    return nets
-
-
-def sweep(nets, workers: int = 256) -> None:
-    """One ping to every address (in parallel) so the neighbour table learns who is on the subnet."""
-    from concurrent.futures import ThreadPoolExecutor
-    hosts = [str(h) for n in nets if n.num_addresses <= 4096 for h in n.hosts()]
-    with ThreadPoolExecutor(workers) as ex:
-        list(ex.map(lambda h: subprocess.run(["ping", "-c", "1", "-W", "1", h], capture_output=True), hosts))
-
-
-def resolve(wanted: list[str]) -> list[tuple[str, str]]:
-    """[(host, name)] for the requested nodes (names / MACs from nodes.txt, or plain hosts), finding IPs by MAC."""
-    known = read_nodes()
-    targets = []  # (mac or None, name, host or None)
-    for w in wanted or [name for _, name in known]:
-        hit = next(((m, n) for m, n in known if w.lower() in (m, n.lower())), None)
-        if hit:
-            targets.append((hit[0], hit[1], None))
-        elif ":" in w and len(w) == 17:
-            targets.append((w.lower(), w.lower(), None))
-        else:
-            targets.append((None, w, w))  # an explicit host / IP
-    table = neighbours()
-    if any(mac and mac not in table for mac, _, _ in targets):
-        nets = local_subnets()
-        print(f"discovery: pinging {', '.join(map(str, nets))} to find "
-              + ", ".join(n for m, n, _ in targets if m and m not in table) + " ...", flush=True)
-        sweep(nets)
-        table = neighbours()
-    out = []
-    for mac, name, host in targets:
-        if host:
-            out.append((host, name))
-        elif mac in table:
-            print(f"discovery: {name} ({mac}) is at {table[mac]}", flush=True)
-            out.append((table[mac], name))
-        else:
-            print(f"discovery: {name} ({mac}) NOT FOUND on this network (off, or on another network)", flush=True)
-    return out
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from fp_nodes import SSH, read_nodes, resolve  # noqa: E402  (MAC-based discovery, shared)
 
 
 # ---------------------------------------------------------------------------------------------- local payloads
