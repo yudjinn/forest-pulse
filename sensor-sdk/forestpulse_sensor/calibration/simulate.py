@@ -123,14 +123,14 @@ class SimulatedHooks:
         fn = self.board.bearing_fn
         if fn is not None:
             return fn(window, band_hz)
-        lo = self._locate(window)
-        if lo is None:
+        w = np.asarray(window)
+        if w.ndim != 2 or w.shape[1] != 3 or not len(w):
             return None
-        hi = lo + len(window)
         with self._lock:
+            blocks = list(self._history)
             arrivals = list(self._arrivals)
         for first, angle in arrivals:
-            if lo <= first < hi:
+            if self._streamed_at(blocks, w, first) is not None:
                 noise = float(self._noise.normal(0.0, self.board.bearing_noise_deg))
                 return (angle + noise) % 360.0, BEARING_QUALITY
         return None
@@ -162,19 +162,20 @@ class SimulatedHooks:
                 self._pending.append((first, audio))
                 self._arrivals.append((direct, angle))
 
-    def _locate(self, window) -> int | None:
-        """Where in this board's latest stream the window starts (it is a copy of what was fed), or None."""
-        w = np.asarray(window)
-        if w.ndim != 2 or w.shape[1] != 3 or not len(w):
+    @staticmethod
+    def _streamed_at(blocks, w, first: float) -> int | None:
+        """Where the board streamed w (a copy of what it fed) so that it covers the sample `first`, or None. Only the
+        stretch such a window could span is searched, so a call stays far inside the hook's time limit."""
+        n = len(w)
+        lo, hi = int(math.floor(first)) - n, int(math.ceil(first)) + n
+        near = [(k, b) for k, b in blocks if k < hi and k + len(b) > lo]
+        if not near:
             return None
-        with self._lock:
-            blocks = list(self._history)
-        if not blocks:
-            return None
-        history = np.concatenate([b for _, b in blocks])
-        for at in np.flatnonzero((history == w[0]).all(axis=1)):
-            if at + len(w) <= len(history) and np.array_equal(history[at:at + len(w)], w):
-                return blocks[0][0] + int(at)
+        start = near[0][0]
+        piece = np.concatenate([b for _, b in near])
+        for at in np.flatnonzero((piece == w[0]).all(axis=1)):
+            if start + at <= first < start + at + n and at + n <= len(piece) and np.array_equal(piece[at:at + n], w):
+                return start + int(at)
         return None
 
     def _run(self, t0: float, stop: threading.Event):
