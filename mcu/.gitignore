@@ -1,0 +1,10 @@
+# ESP-IDF build output
+build/
+sdkconfig.old
+managed_components/
+
+# Host tools (uv)
+tools/.venv/
+__pycache__/
+*.pyc
+tools/events/

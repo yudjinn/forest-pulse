@@ -25,13 +25,20 @@ def open_port(port: str = DEFAULT_PORT, timeout: float = 1.0) -> serial.Serial:
 
 
 def info(s: serial.Serial) -> dict[str, str]:
-    s.reset_input_buffer()
-    s.write(b"I")
-    # Skip any ROM/bootloader text the chip mirrors to USB after a reset.
-    for _ in range(100):
-        line = s.readline().decode(errors="replace").strip()
-        if line.startswith("INFO "):
-            return dict(kv.split("=", 1) for kv in line[5:].split())
-        if not line:
-            break
-    raise RuntimeError("no INFO reply from device")
+    old_timeout = s.timeout
+    s.timeout = 1.0
+    try:
+        # Retry: right after a flash/reset the chip may still be booting
+        # (ROM/bootloader text is mirrored to USB and is skipped here).
+        for _attempt in range(3):
+            s.reset_input_buffer()
+            s.write(b"I")
+            for _ in range(200):
+                line = s.readline().decode(errors="replace").strip()
+                if line.startswith("INFO "):
+                    return dict(kv.split("=", 1) for kv in line[5:].split())
+                if not line:
+                    break
+        raise RuntimeError("no INFO reply from device")
+    finally:
+        s.timeout = old_timeout
