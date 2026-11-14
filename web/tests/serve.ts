@@ -4,6 +4,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { mirrorBucket } from "../scripts/deploy-bucket.ts";
 import { appPort, inspectorPort, stateDir, webRoot } from "./ports.ts";
 
 const wrangler = path.join(webRoot, "node_modules", ".bin", "wrangler");
@@ -28,6 +29,10 @@ const seedSteps: { name: string; run(): void }[] = [
   {
     name: "apply the D1 migrations",
     run: () => run(wrangler, ["d1", "migrations", "apply", "DB", "--local", "--persist-to", stateDir]),
+  },
+  {
+    name: "mirror the committed bucket data into local storage",
+    run: () => mirrorBucket({ localStateDir: stateDir }),
   },
 ];
 for (const step of seedSteps) {
