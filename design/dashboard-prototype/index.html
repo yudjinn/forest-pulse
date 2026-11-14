@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forest Pulse</title>
+<style>
+:root {
+  color-scheme: dark;
+  --evergreen: #0b4827;
+  --ivory: #fbf7ef;
+  --night: #06301a;
+  --deep: #03190d;
+  --panel: #062b18;
+  --ember: #ff6a3c;
+  --amber: #f6b93b;
+  --rose: #f0457c;
+  --moon: #8fe3d0;
+  --soft: rgba(251, 247, 239, 0.7);
+  --faint: rgba(251, 247, 239, 0.44);
+  --hair: rgba(251, 247, 239, 0.16);
+  font-family: "Avenir Next", Avenir, "Nunito Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.35;
+  color: var(--ivory);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  overflow: hidden;
+  background: radial-gradient(120% 95% at 50% 46%, #0b4428 0%, var(--night) 46%, var(--deep) 100%);
+  font-variant-numeric: tabular-nums;
+}
+.c-logging { --c: var(--ember); }
+.c-vehicle { --c: var(--amber); }
+.c-poaching { --c: var(--rose); }
+.c-wildlife { --c: var(--moon); }
+h2, h3, p, ul, ol { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--ivory); outline-offset: 2px; }
+[hidden] { display: none !important; }
+svg.ico { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* The map */
+.stage { position: fixed; inset: 0; }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.stage canvas.moving { cursor: grabbing; }
+.stage::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  box-shadow: inset 0 0 22vmin 4vmin rgba(255, 106, 60, 0.34);
+  transition: opacity 0.6s;
+}
+.alarm .stage::after { opacity: 1; animation: breathe 2.2s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: 0.45; } }
+#tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.tag {
+  position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px 7px 9px; border-radius: 999px; background: var(--c); color: #04200f;
+  font-weight: 600; font-size: 17px; white-space: nowrap; will-change: transform;
+  box-shadow: 0 0 28px color-mix(in srgb, var(--c) 55%, transparent);
+}
+.tag svg.ico { width: 22px; height: 22px; stroke-width: 2; }
+.tag span { font-weight: 500; }
+
+/* Top bar */
+.top { position: fixed; inset: 0 0 auto 0; display: flex; align-items: center; justify-content: space-between; padding: 22px 32px; pointer-events: none; }
+.top > * { pointer-events: auto; }
+.logo svg { display: block; height: 38px; width: auto; }
+.tools { display: flex; gap: 10px; }
+.icon-btn {
+  position: relative; display: grid; place-items: center; width: 42px; height: 42px; padding: 0;
+  border: 1px solid var(--hair); border-radius: 50%; background: rgba(4, 32, 17, 0.6); color: var(--soft);
+}
+.icon-btn:hover, .icon-btn[aria-expanded="true"] { color: var(--ivory); border-color: var(--faint); background: var(--panel); }
+.icon-btn.on::after { content: ""; position: absolute; top: 1px; right: 1px; width: 10px; height: 10px; border-radius: 50%; background: var(--ivory); animation: breathe 1.2s infinite; }
+
+/* What was heard */
+.heard { position: fixed; left: 0; top: 76px; width: 374px; padding: 24px 32px; max-height: calc(100vh - 170px); overflow: auto; scrollbar-width: none; }
+.status { display: flex; align-items: center; gap: 10px; color: var(--soft); font-size: 15px; }
+.status i { width: 8px; height: 8px; border-radius: 50%; background: #5fd28d; box-shadow: 0 0 0 0 rgba(95, 210, 141, 0.6); animation: ping 3s infinite; }
+.status.short i { background: var(--amber); animation: none; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(95, 210, 141, 0.55); } 40%, 100% { box-shadow: 0 0 0 9px rgba(95, 210, 141, 0); } }
+#feed-empty { margin-top: 10px; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+#feed { margin-top: 22px; display: grid; gap: 18px; }
+.act { display: grid; grid-template-columns: auto 1fr; gap: 0 14px; align-items: start; }
+.act .badge { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--c); border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); }
+.act .badge svg.ico { width: 19px; height: 19px; }
+.act h3 { font-size: 17px; font-weight: 600; line-height: 34px; }
+.act p { grid-column: 2; font-size: 14px; color: var(--soft); }
+.act.live .badge { width: 48px; height: 48px; background: var(--c); border: 0; color: #04200f; box-shadow: 0 0 30px color-mix(in srgb, var(--c) 50%, transparent); }
+.act.live .badge svg.ico { width: 27px; height: 27px; stroke-width: 2; }
+.act.live h3 { font-size: 30px; letter-spacing: -0.02em; line-height: 48px; }
+.act.live p { font-size: 16px; }
+.act.live p.where { color: var(--ivory); font-weight: 500; }
+.act .acts { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 12px; }
+.btn { padding: 10px 20px; border: 1px solid var(--faint); border-radius: 999px; background: transparent; font-weight: 600; font-size: 15px; }
+.btn:hover { border-color: var(--ivory); }
+.btn.warn { border: 0; background: var(--ember); color: #04200f; padding: 12px 24px; font-size: 16px; }
+.btn.warn:hover { background: #ff825a; }
+.btn.fill { border: 0; background: var(--ivory); color: var(--evergreen); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.link { padding: 4px 0; border: 0; background: none; color: var(--soft); font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.link:hover { color: var(--ivory); }
+.link.danger { color: #ff9b7b; }
+
+/* What the sensors listen for */
+.listen { position: fixed; right: 0; top: 76px; width: 328px; padding: 24px 32px; max-height: calc(100vh - 170px); overflow: auto; scrollbar-width: none; }
+.listen h2 { font-size: 15px; font-weight: 500; color: var(--soft); margin-bottom: 8px; }
+.sound { display: flex; align-items: center; gap: 12px; padding: 7px 10px; margin: 0 -10px; border-radius: 10px; font-size: 16px; font-weight: 500; }
+.sound svg.ico { width: 20px; height: 20px; color: var(--c); }
+.sound .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sound.off .name { color: var(--faint); }
+.sound.off svg.ico { color: var(--faint); }
+.sound .del { border: 0; background: none; padding: 2px; color: var(--faint); display: grid; opacity: 0; }
+.sound:hover .del, .sound .del:focus-visible { opacity: 1; }
+.sound .del:hover { color: var(--ivory); }
+.sound .del svg.ico { width: 16px; height: 16px; }
+.sw { appearance: none; flex: none; margin: 0; width: 36px; height: 21px; border-radius: 11px; background: rgba(251, 247, 239, 0.18); position: relative; cursor: pointer; transition: background 0.15s; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%; background: var(--ivory); transition: transform 0.15s; }
+.sw:checked { background: #2f9a5e; }
+.sw:checked::after { transform: translateX(15px); }
+#btn-teach { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 9px 18px 9px 12px; }
+#btn-teach svg.ico { width: 18px; height: 18px; }
+#reach { margin-top: 12px; font-size: 14px; color: var(--soft); }
+
+/* The pulse: every sensor check-in is a beat, every sound a spike */
+.pulse { position: fixed; inset: auto 0 0 0; height: 78px; padding: 0; border: 0; background: none; display: block; width: 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%); mask-image: linear-gradient(90deg, transparent, #000 22%); }
+.pulse canvas { display: block; width: 100%; height: 100%; }
+
+/* Panels that open over the map */
+.popover, .drawer, dialog { background: var(--panel); border: 1px solid var(--hair); color: var(--ivory); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5); }
+.popover { position: fixed; top: 76px; right: 84px; width: 300px; padding: 8px; border-radius: 16px; }
+.sample { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 10px; border: 0; border-radius: 10px; background: none; text-align: left; }
+.sample:hover { background: rgba(251, 247, 239, 0.07); }
+.sample .pp { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--faint); flex: none; }
+.sample .pp svg { width: 12px; height: 12px; fill: currentColor; }
+.sample.playing .pp { background: var(--ivory); color: var(--evergreen); border-color: var(--ivory); }
+.sample b { display: block; font-weight: 600; font-size: 15px; }
+.sample small { display: block; font-size: 12px; color: var(--faint); }
+
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(400px, 100vw); display: flex; flex-direction: column; border-width: 0 0 0 1px; border-radius: 22px 0 0 22px; }
+.drawer-head { display: flex; align-items: center; gap: 4px; padding: 20px 20px 0 24px; }
+.tab { padding: 8px 12px; border: 0; border-bottom: 2px solid transparent; background: none; font-size: 17px; font-weight: 600; color: var(--faint); }
+.tab[aria-selected="true"] { color: var(--ivory); border-bottom-color: var(--ivory); }
+.drawer-head .icon-btn { margin-left: auto; border: 0; background: none; }
+.drawer-body { flex: 1; overflow: auto; padding: 18px 24px 24px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cal { padding-bottom: 18px; border-bottom: 1px solid var(--hair); }
+.cal p { font-size: 14px; color: var(--soft); }
+.device { padding: 18px 0; border-bottom: 1px solid var(--hair); }
+.device h3 { font-size: 18px; font-weight: 600; }
+.device .state { font-size: 14px; font-weight: 600; color: #5fd28d; }
+.device .state.warn { color: var(--amber); }
+.device dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 16px; margin: 10px 0 12px; font-size: 13px; }
+.device dt { color: var(--faint); }
+.device dd { margin: 0; color: var(--soft); overflow-wrap: anywhere; }
+.device label, .tune label { font-size: 14px; font-weight: 600; }
+.device input { width: 68px; padding: 6px 8px; border: 1px solid var(--hair); border-radius: 8px; background: rgba(0, 0, 0, 0.25); }
+.tune { padding: 18px 0; border-bottom: 1px solid var(--hair); }
+.tune input[type="range"] { width: 100%; margin-top: 10px; accent-color: var(--ivory); }
+.drawer-foot { padding-top: 18px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-weight: 600; color: var(--faint); padding: 0 8px 8px 0; }
+td { padding: 6px 8px 6px 0; border-top: 1px solid var(--hair); color: var(--soft); }
+td:nth-child(3) { color: var(--ivory); }
+
+dialog { width: min(460px, calc(100vw - 32px)); padding: 28px; border-radius: 22px; }
+dialog::backdrop { background: rgba(2, 16, 9, 0.62); backdrop-filter: blur(3px); }
+dialog h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 18px; }
+dialog form { display: grid; gap: 16px; }
+dialog label.field { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+dialog input[type="text"] { padding: 11px 12px; border: 1px solid var(--hair); border-radius: 8px; background: rgba(0, 0, 0, 0.25); font-size: 16px; }
+.cats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.cats label { display: grid; justify-items: center; gap: 4px; padding: 10px 4px; border: 1px solid var(--hair); border-radius: 12px; font-size: 13px; font-weight: 600; color: var(--soft); cursor: pointer; }
+.cats input { position: absolute; opacity: 0; }
+.cats label:has(:checked) { border-color: var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); }
+.cats label:has(:focus-visible) { outline: 2px solid var(--ivory); outline-offset: 2px; }
+.drop { display: grid; place-items: center; gap: 4px; min-height: 108px; padding: 16px; border: 1.5px dashed var(--faint); border-radius: 14px; background: none; font-size: 16px; font-weight: 600; text-align: center; }
+.drop small { font-size: 13px; font-weight: 400; color: var(--faint); }
+.drop.over, .drop:hover { border-color: var(--ivory); background: rgba(251, 247, 239, 0.05); }
+.progress { height: 4px; border-radius: 2px; background: var(--hair); overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--ivory); transition: width 0.2s linear; }
+#teach-state { font-size: 14px; color: var(--soft); }
+#teach-state:empty { display: none; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+@media (max-width: 900px) {
+  body { overflow: auto; }
+  .stage { position: relative; inset: auto; height: 54svh; }
+  .top { padding: 14px 16px; }
+  .logo svg { height: 30px; }
+  .heard, .listen { position: static; width: auto; max-height: none; padding: 8px 16px 20px; overflow: visible; }
+  .pulse { position: static; }
+  .popover { right: 16px; top: 64px; }
+  .drawer { border-radius: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .alarm .stage::after, .status i, .icon-btn.on::after { animation: none; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logging" viewBox="0 0 24 24"><circle cx="7" cy="16.5" r="4.5"/><circle cx="17" cy="16.5" r="4.5"/><circle cx="12" cy="7.5" r="4.5"/><circle cx="7" cy="16.5" r="1.2"/><circle cx="17" cy="16.5" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/></symbol>
+  <symbol id="i-wildlife" viewBox="0 0 24 24"><path d="M6 4.5l2.4 2.7a6.5 6.5 0 0 1 7.2 0L18 4.5V14a6 6 0 0 1-12 0z"/><circle cx="9.5" cy="11" r="1.8"/><circle cx="14.5" cy="11" r="1.8"/><path d="M11.2 13.6l.8 1.4.8-1.4"/></symbol>
+  <symbol id="i-vehicle" viewBox="0 0 24 24"><path d="M4.5 17H2.5V7h11v10"/><path d="M13.5 10h4l3 3.5V17h-1.5"/><path d="M8.5 17h6"/><circle cx="6.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/></symbol>
+  <symbol id="i-poaching" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5"/></symbol>
+  <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6M18 6.7a7.5 7.5 0 0 1 0 10.6"/></symbol>
+  <symbol id="i-devices" viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.6"/><circle cx="8" cy="17" r="2.6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+</svg>
+
+<div class="stage"><canvas id="scene" role="img" aria-label="Map of the sensors and the sounds they hear"></canvas><div id="tags"></div></div>
+
+<header class="top">
+  <div class="logo"><svg xmlns="http://www.w3.org/2000/svg" width="840" height="190" viewBox="0 0 840 190" role="img" aria-label="Forest Pulse"><g transform="translate(112.5 95) scale(0.264) translate(-762.5 -427.5)"><path fill="#FBF7EF" d="M 505 553 C 522 359 643 263 800 250 C 915 240 1019 237 1075 180 C 1070 480 1001 564 888 612 C 791 659 707 633 624 605 C 538 569 509 610 483 675 H 450 C 469 607 534 516 599 486 C 628 471 659 470 678 468 C 704 461 707 511 728 517 C 752 526 760 452 773 409 C 784 368 796 419 807 454 C 819 499 831 519 850 486 C 867 454 872 429 892 439 C 923 464 972 447 1037 416 C 981 437 943 437 931 434 C 908 431 900 410 886 406 C 865 395 855 438 846 452 C 831 475 824 425 811 390 C 794 329 775 333 762 377 C 750 410 743 461 733 463 C 719 471 709 424 687 431 C 670 436 666 449 632 459 C 579 477 541 500 505 553 Z"/></g><g fill="#FBF7EF" transform="translate(240 133) scale(.65)"><path d="M 12.48 -113.28 L 85.6 -113.28 L 85.6 -95.68 L 32.64 -95.68 L 32.64 -64.64 L 82.56 -64.64 L 82.56 -47.68 L 32.64 -47.68 L 32.64 -0 L 12.48 -0 Z"/><path d="M 91.04 -38.72 Q 91.04 -47.84 94.32 -55.28 Q 97.6 -62.72 103.2 -68 Q 108.8 -73.28 116.48 -76.16 Q 124.16 -79.04 132.8 -79.04 Q 141.44 -79.04 149.12 -76.16 Q 156.8 -73.28 162.4 -68 Q 168 -62.72 171.28 -55.28 Q 174.56 -47.84 174.56 -38.72 Q 174.56 -29.6 171.28 -22.08 Q 168 -14.56 162.4 -9.2 Q 156.8 -3.84 149.12 -0.8 Q 141.44 2.24 132.8 2.24 Q 124.16 2.24 116.48 -0.8 Q 108.8 -3.84 103.2 -9.2 Q 97.6 -14.56 94.32 -22.08 Q 91.04 -29.6 91.04 -38.72 Z M 110.56 -38.72 Q 110.56 -34.24 111.92 -29.76 Q 113.28 -25.28 116 -21.76 Q 118.72 -18.24 122.88 -16 Q 127.04 -13.76 132.8 -13.76 Q 138.56 -13.76 142.72 -16 Q 146.88 -18.24 149.6 -21.76 Q 152.32 -25.28 153.68 -29.76 Q 155.04 -34.24 155.04 -38.72 Q 155.04 -43.2 153.68 -47.6 Q 152.32 -52 149.6 -55.52 Q 146.88 -59.04 142.72 -61.2 Q 138.56 -63.36 132.8 -63.36 Q 127.04 -63.36 122.88 -61.2 Q 118.72 -59.04 116 -55.52 Q 113.28 -52 111.92 -47.6 Q 110.56 -43.2 110.56 -38.72 Z"/><path d="M 193.12 -76.8 L 211.52 -76.8 L 211.52 -64 L 211.84 -64 Q 215.04 -70.72 220.8 -74.88 Q 226.56 -79.04 234.24 -79.04 Q 235.36 -79.04 236.64 -78.96 Q 237.92 -78.88 238.88 -78.56 L 238.88 -60.96 Q 236.96 -61.44 235.6 -61.6 Q 234.24 -61.76 232.96 -61.76 Q 226.4 -61.76 222.4 -59.36 Q 218.4 -56.96 216.16 -53.6 Q 213.92 -50.24 213.12 -46.72 Q 212.32 -43.2 212.32 -41.12 L 212.32 -0 L 193.12 -0 Z"/><path d="M 302.56 -46.08 Q 302.56 -49.76 301.52 -53.12 Q 300.48 -56.48 298.24 -59.04 Q 296 -61.6 292.56 -63.12 Q 289.12 -64.64 284.48 -64.64 Q 275.84 -64.64 269.84 -59.44 Q 263.84 -54.24 263.2 -46.08 Z M 321.76 -37.44 Q 321.76 -36.16 321.76 -34.88 Q 321.76 -33.6 321.6 -32.32 L 263.2 -32.32 Q 263.52 -28.16 265.36 -24.72 Q 267.2 -21.28 270.24 -18.8 Q 273.28 -16.32 277.12 -14.88 Q 280.96 -13.44 285.12 -13.44 Q 292.32 -13.44 297.28 -16.08 Q 302.24 -18.72 305.44 -23.36 L 318.24 -13.12 Q 306.88 2.24 285.28 2.24 Q 276.32 2.24 268.8 -0.56 Q 261.28 -3.36 255.76 -8.48 Q 250.24 -13.6 247.12 -21.04 Q 244 -28.48 244 -37.92 Q 244 -47.2 247.12 -54.8 Q 250.24 -62.4 255.68 -67.76 Q 261.12 -73.12 268.56 -76.08 Q 276 -79.04 284.64 -79.04 Q 292.64 -79.04 299.44 -76.4 Q 306.24 -73.76 311.2 -68.56 Q 316.16 -63.36 318.96 -55.6 Q 321.76 -47.84 321.76 -37.44 Z"/><path d="M 382.4 -56.32 Q 379.84 -59.68 375.36 -62.16 Q 370.88 -64.64 365.6 -64.64 Q 360.96 -64.64 357.12 -62.72 Q 353.28 -60.8 353.28 -56.32 Q 353.28 -51.84 357.52 -50 Q 361.76 -48.16 369.92 -46.24 Q 374.24 -45.28 378.64 -43.68 Q 383.04 -42.08 386.64 -39.44 Q 390.24 -36.8 392.48 -32.88 Q 394.72 -28.96 394.72 -23.36 Q 394.72 -16.32 392.08 -11.44 Q 389.44 -6.56 385.04 -3.52 Q 380.64 -0.48 374.8 0.88 Q 368.96 2.24 362.72 2.24 Q 353.76 2.24 345.28 -1.04 Q 336.8 -4.32 331.2 -10.4 L 343.84 -22.24 Q 347.04 -18.08 352.16 -15.36 Q 357.28 -12.64 363.52 -12.64 Q 365.6 -12.64 367.76 -13.12 Q 369.92 -13.6 371.76 -14.64 Q 373.6 -15.68 374.72 -17.44 Q 375.84 -19.2 375.84 -21.76 Q 375.84 -26.56 371.44 -28.64 Q 367.04 -30.72 358.24 -32.8 Q 353.92 -33.76 349.84 -35.28 Q 345.76 -36.8 342.56 -39.28 Q 339.36 -41.76 337.44 -45.44 Q 335.52 -49.12 335.52 -54.56 Q 335.52 -60.96 338.16 -65.6 Q 340.8 -70.24 345.12 -73.2 Q 349.44 -76.16 354.88 -77.6 Q 360.32 -79.04 366.08 -79.04 Q 374.4 -79.04 382.32 -76.16 Q 390.24 -73.28 394.88 -67.36 Z"/><path d="M 400.32 -61.44 L 400.32 -76.8 L 413.76 -76.8 L 413.76 -99.04 L 432.64 -99.04 L 432.64 -76.8 L 451.84 -76.8 L 451.84 -61.44 L 432.64 -61.44 L 432.64 -25.76 Q 432.64 -20.64 434.48 -17.28 Q 436.32 -13.92 442.72 -13.92 Q 444.64 -13.92 446.88 -14.32 Q 449.12 -14.72 450.88 -15.52 L 451.52 -0.48 Q 448.96 0.48 445.44 1.04 Q 441.92 1.6 438.72 1.6 Q 431.04 1.6 426.24 -0.56 Q 421.44 -2.72 418.64 -6.48 Q 415.84 -10.24 414.8 -15.12 Q 413.76 -20 413.76 -25.6 L 413.76 -61.44 Z"/><path d="M 506.72 -113.28 L 543.68 -113.28 Q 553.44 -113.28 561.28 -111.52 Q 569.12 -109.76 574.72 -105.76 Q 580.32 -101.76 583.36 -95.52 Q 586.4 -89.28 586.4 -80.48 Q 586.4 -71.04 582.88 -64.64 Q 579.36 -58.24 573.36 -54.32 Q 567.36 -50.4 559.36 -48.64 Q 551.36 -46.88 542.4 -46.88 L 526.88 -46.88 L 526.88 -0 L 506.72 -0 Z M 540.96 -63.84 Q 545.92 -63.84 550.4 -64.56 Q 554.88 -65.28 558.4 -67.12 Q 561.92 -68.96 564 -72.16 Q 566.08 -75.36 566.08 -80.48 Q 566.08 -85.44 564 -88.56 Q 561.92 -91.68 558.48 -93.44 Q 555.04 -95.2 550.64 -95.76 Q 546.24 -96.32 541.6 -96.32 L 526.88 -96.32 L 526.88 -63.84 Z"/><path d="M 666.4 -0 L 648.16 -0 L 648.16 -12.32 L 647.84 -12.32 Q 645.28 -6.56 638.96 -2.16 Q 632.64 2.24 624 2.24 Q 616.48 2.24 611.12 -0.4 Q 605.76 -3.04 602.32 -7.36 Q 598.88 -11.68 597.28 -17.28 Q 595.68 -22.88 595.68 -28.8 L 595.68 -76.8 L 614.88 -76.8 L 614.88 -34.24 Q 614.88 -30.88 615.36 -27.2 Q 615.84 -23.52 617.44 -20.56 Q 619.04 -17.6 621.84 -15.68 Q 624.64 -13.76 629.28 -13.76 Q 633.76 -13.76 637.2 -15.6 Q 640.64 -17.44 642.8 -20.32 Q 644.96 -23.2 646.08 -26.96 Q 647.2 -30.72 647.2 -34.56 L 647.2 -76.8 L 666.4 -76.8 Z"/><path d="M 689.76 -120.96 L 708.96 -120.96 L 708.96 -0 L 689.76 -0 Z"/><path d="M 774.4 -56.32 Q 771.84 -59.68 767.36 -62.16 Q 762.88 -64.64 757.6 -64.64 Q 752.96 -64.64 749.12 -62.72 Q 745.28 -60.8 745.28 -56.32 Q 745.28 -51.84 749.52 -50 Q 753.76 -48.16 761.92 -46.24 Q 766.24 -45.28 770.64 -43.68 Q 775.04 -42.08 778.64 -39.44 Q 782.24 -36.8 784.48 -32.88 Q 786.72 -28.96 786.72 -23.36 Q 786.72 -16.32 784.08 -11.44 Q 781.44 -6.56 777.04 -3.52 Q 772.64 -0.48 766.8 0.88 Q 760.96 2.24 754.72 2.24 Q 745.76 2.24 737.28 -1.04 Q 728.8 -4.32 723.2 -10.4 L 735.84 -22.24 Q 739.04 -18.08 744.16 -15.36 Q 749.28 -12.64 755.52 -12.64 Q 757.6 -12.64 759.76 -13.12 Q 761.92 -13.6 763.76 -14.64 Q 765.6 -15.68 766.72 -17.44 Q 767.84 -19.2 767.84 -21.76 Q 767.84 -26.56 763.44 -28.64 Q 759.04 -30.72 750.24 -32.8 Q 745.92 -33.76 741.84 -35.28 Q 737.76 -36.8 734.56 -39.28 Q 731.36 -41.76 729.44 -45.44 Q 727.52 -49.12 727.52 -54.56 Q 727.52 -60.96 730.16 -65.6 Q 732.8 -70.24 737.12 -73.2 Q 741.44 -76.16 746.88 -77.6 Q 752.32 -79.04 758.08 -79.04 Q 766.4 -79.04 774.32 -76.16 Q 782.24 -73.28 786.88 -67.36 Z"/><path d="M 857.44 -46.08 Q 857.44 -49.76 856.4 -53.12 Q 855.36 -56.48 853.12 -59.04 Q 850.88 -61.6 847.44 -63.12 Q 844 -64.64 839.36 -64.64 Q 830.72 -64.64 824.72 -59.44 Q 818.72 -54.24 818.08 -46.08 Z M 876.64 -37.44 Q 876.64 -36.16 876.64 -34.88 Q 876.64 -33.6 876.48 -32.32 L 818.08 -32.32 Q 818.4 -28.16 820.24 -24.72 Q 822.08 -21.28 825.12 -18.8 Q 828.16 -16.32 832 -14.88 Q 835.84 -13.44 840 -13.44 Q 847.2 -13.44 852.16 -16.08 Q 857.12 -18.72 860.32 -23.36 L 873.12 -13.12 Q 861.76 2.24 840.16 2.24 Q 831.2 2.24 823.68 -0.56 Q 816.16 -3.36 810.64 -8.48 Q 805.12 -13.6 802 -21.04 Q 798.88 -28.48 798.88 -37.92 Q 798.88 -47.2 802 -54.8 Q 805.12 -62.4 810.56 -67.76 Q 816 -73.12 823.44 -76.08 Q 830.88 -79.04 839.52 -79.04 Q 847.52 -79.04 854.32 -76.4 Q 861.12 -73.76 866.08 -68.56 Q 871.04 -63.36 873.84 -55.6 Q 876.64 -47.84 876.64 -37.44 Z"/></g></svg></div>
+  <div class="tools">
+    <button id="btn-play" class="icon-btn" aria-label="Play sounds" title="Play sounds" aria-expanded="false"><svg class="ico"><use href="#i-speaker"/></svg></button>
+    <button id="btn-devices" class="icon-btn" aria-label="Devices" title="Devices" aria-expanded="false"><svg class="ico"><use href="#i-devices"/></svg></button>
+  </div>
+</header>
+
+<section class="heard" aria-label="Heard">
+  <p class="status"><i></i><span id="status-text"></span></p>
+  <p id="feed-empty">Nothing heard yet</p>
+  <ol id="feed"></ol>
+</section>
+
+<section class="listen" aria-labelledby="listen-title">
+  <h2 id="listen-title">Listening for</h2>
+  <ul id="sound-list"></ul>
+  <button id="btn-teach" class="btn"><svg class="ico"><use href="#i-plus"/></svg>Teach a new sound</button>
+  <p id="reach" hidden></p>
+</section>
+
+<button class="pulse" id="btn-pulse" aria-label="Open event log" title="Open event log"><canvas id="pulse"></canvas></button>
+
+<div id="player" class="popover" hidden></div>
+
+<aside id="drawer" class="drawer" aria-label="Devices" hidden>
+  <div class="drawer-head" role="tablist">
+    <button class="tab" role="tab" data-tab="devices" aria-selected="true">Devices</button>
+    <button class="tab" role="tab" data-tab="log" aria-selected="false">Event log</button>
+    <button class="icon-btn" id="drawer-close" aria-label="Close"><svg class="ico"><use href="#i-close"/></svg></button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+
+<dialog id="teach" aria-labelledby="teach-title">
+  <h2 id="teach-title">Teach a new sound</h2>
+  <form method="dialog" id="teach-form">
+    <label class="field">Name<input type="text" id="teach-name" maxlength="60" autocomplete="off" required></label>
+    <div class="cats" role="radiogroup" aria-label="Category">
+      <label class="c-wildlife"><input type="radio" name="cat" value="wildlife" checked><svg class="ico"><use href="#i-wildlife"/></svg>Wildlife</label>
+      <label class="c-logging"><input type="radio" name="cat" value="logging"><svg class="ico"><use href="#i-logging"/></svg>Logging</label>
+      <label class="c-vehicle"><input type="radio" name="cat" value="vehicle"><svg class="ico"><use href="#i-vehicle"/></svg>Vehicle</label>
+      <label class="c-poaching"><input type="radio" name="cat" value="poaching"><svg class="ico"><use href="#i-poaching"/></svg>Poaching</label>
+    </div>
+    <button type="button" class="drop" id="teach-drop">Drop recordings here<small>or choose files</small></button>
+    <div class="progress" id="teach-bar" hidden><i></i></div>
+    <p id="teach-state" role="status"></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn" id="teach-cancel">Cancel</button>
+      <button type="submit" class="btn fill" id="teach-go">Teach</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const pad = (n) => String(n).padStart(2, "0");
+const FONT = '"Avenir Next", Avenir, "Nunito Sans", "Segoe UI", system-ui, sans-serif';
+const COLOR = { logging: "#ff6a3c", vehicle: "#f6b93b", poaching: "#f0457c", wildlife: "#8fe3d0" };
+const IVORY = "251,247,239";
+const SHOW_MS = 12000;
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const rgba = (hex, a) => `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
+const wall = (t) => new Date(Date.now() - (performance.now() - t));
+const hhmm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const hms = (d) => `${hhmm(d)}:${pad(d.getSeconds())}`;
+const names = (ns) => { const a = [...ns].sort(); return "Sensor " + (a.length < 2 ? a.join("") : `${a.slice(0, -1).join(", ")} and ${a.at(-1)}`); };
+
+/* ---------- Stand-in data (the real page reads all of this from the service) ---------- */
+const sensors = [
+  { n: 1, id: "fp-unoq-3fa2c1", x: -0.55, y: -0.22, facing: 35 },
+  { n: 2, id: "fp-unoq-9be407", x: 0.6, y: -0.3, facing: 330 },
+  { n: 3, id: "fp-unoq-c41d7a", x: 0.02, y: 0.58, facing: 180 },
+].map((s, i) => ({ ...s, tx: s.x, ty: s.y, online: true, sdk: "0.7.0", model: "mn10_as", list: 3, rpm: 3 + i, floor: -52 + i * 2,
+  trig: 2.2 + i * 0.3, next: 700 + i * 950, last: -1e9, alarmUntil: 0, heardAt: -1e9, heardCat: "logging" }));
+let listVersion = 3;
+let sensitivity = 0.5;
+const sounds = [
+  { id: "chainsaw", name: "Chainsaw", category: "logging" }, { id: "tools", name: "Tools", category: "logging" },
+  { id: "power-tool", name: "Power tool", category: "logging" }, { id: "vehicle", name: "Vehicle", category: "vehicle" },
+  { id: "engine", name: "Engine", category: "vehicle" }, { id: "aircraft", name: "Aircraft", category: "vehicle" },
+  { id: "gunshot", name: "Gunshot", category: "poaching" },
+].map((s) => ({ ...s, enabled: true, taught: false }));
+// Where the stand-in speaker is for each sample, and which sensors are close enough to hear it.
+const samples = [
+  { id: "chainsaw-1", name: "Chainsaw 1", sound: "chainsaw", credit: "UncleSigmund, CC BY-NC 3.0", at: [1.5, 1.9], hear: [1, 2, 3] },
+  { id: "chainsaw-2", name: "Chainsaw 2", sound: "chainsaw", credit: "Benboncan, CC BY-NC 3.0", at: [-6.4, 5.6], hear: [1, 3] },
+  { id: "chainsaw-3", name: "Chainsaw 3", sound: "chainsaw", credit: "fkurz, CC BY-NC 3.0", at: [3.1, -2.0], hear: [2] },
+  { id: "boreal-owl-1", name: "Boreal owl 1", sound: "taught", credit: "Johan Lundgren, CC BY-NC-SA 4.0", at: [-2.3, 2.4], hear: [1, 2, 3] },
+  { id: "boreal-owl-2", name: "Boreal owl 2", sound: "taught", credit: "Stein Ø. Nilsen, CC BY-NC-SA 4.0", at: [4.4, 3.2], hear: [2, 3] },
+  { id: "tawny-owl", name: "Tawny owl", sound: null, credit: "Mark Plummer, CC BY-NC-SA 4.0", at: [0, 3], hear: [] },
+];
+const events = [];       // { t, n, sound, category, conf, angle }
+const beats = [];        // { t } one per sensor check-in
+const activities = [];   // newest first
+const fixes = new Map(); // category -> a located sound
+const bearings = new Map(); // category:n -> a direction from one sensor
+const chirps = [];       // calibration sweeps { n, t }
+let playing = null, nextHear = 0, calib = null, calibratedAt = null, deviceMode = false, touched = false;
+
+/* ---------- Camera and projection ---------- */
+const cv = $("#scene"), g = cv.getContext("2d");
+const HOME = { az: -0.42, el: 0.6 };
+const camera = { az: HOME.az, el: HOME.el, azT: HOME.az, elT: HOME.el, lr: Math.log(2.2), side: 0 };
+let W = 0, H = 0, DPR = 1, cx = 0, cy = 0, slabPx = 0, C = null;
+
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = cv.clientWidth; H = cv.clientHeight;
+  if (cv.width !== W * DPR || cv.height !== H * DPR) { cv.width = W * DPR; cv.height = H * DPR; }
+  const wide = innerWidth > 900;
+  const room = 1 - 0.2 * camera.side;
+  slabPx = (wide ? Math.min(W * 0.265, H * 0.5) : Math.min(W * 0.47, H * 0.6)) * room;
+  cx = W / 2 - (wide ? 200 * camera.side : 0); cy = H * (wide ? 0.455 : 0.5);
+  const pc = $("#pulse"), pw = pc.clientWidth * DPR, ph = pc.clientHeight * DPR;
+  if (pc.width !== pw || pc.height !== ph) { pc.width = pw; pc.height = ph; }
+}
+function setupCam() {
+  const range = Math.exp(camera.lr), d = range * 3.4;
+  const ce = Math.cos(camera.el), se = Math.sin(camera.el), sa = Math.sin(camera.az), ca = Math.cos(camera.az);
+  const f = [-ce * sa, ce * ca, -se], r = [ca, sa, 0];
+  const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+  C = { range, pos: [d * ce * sa, -d * ce * ca, d * se], f, r, u, focal: slabPx * 3.4, squash: se, camAngle: Math.atan2(-ca, sa) };
+}
+/** Plan metres (x right, y up, z height) to screen pixels, with the pixels one metre covers there. */
+function P(x, y, z = 0) {
+  const vx = x - C.pos[0], vy = y - C.pos[1], vz = z - C.pos[2];
+  const k = C.focal / (vx * C.f[0] + vy * C.f[1] + vz * C.f[2]);
+  return [cx + (vx * C.r[0] + vy * C.r[1]) * k, cy - (vx * C.u[0] + vy * C.u[1] + vz * C.u[2]) * k, k];
+}
+function unproject(px, py) {
+  const dx = px - cx, dy = cy - py;
+  const dir = [0, 1, 2].map((i) => C.f[i] * C.focal + C.r[i] * dx + C.u[i] * dy);
+  const t = -C.pos[2] / dir[2];
+  return [C.pos[0] + dir[0] * t, C.pos[1] + dir[1] * t];
+}
+function ringPath(x, y, rad, a0 = 0, a1 = TAU, z = 0) {
+  g.beginPath();
+  const n = Math.max(12, Math.round(80 * (a1 - a0) / TAU));
+  for (let i = 0; i <= n; i++) {
+    const a = a0 + (a1 - a0) * i / n, p = P(x + rad * Math.cos(a), y + rad * Math.sin(a), z);
+    i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]);
+  }
+}
+function glowLine(a, b, color, alpha, width = 1.6) {
+  g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]);
+  g.strokeStyle = rgba(color, alpha * 0.16); g.lineWidth = width * 5; g.stroke();
+  g.strokeStyle = rgba(color, alpha * 0.75); g.lineWidth = width; g.stroke();
+}
+function label(text, x, y, size = 13, alpha = 0.9) {
+  g.font = `600 ${size}px ${FONT}`; g.textAlign = "center"; g.textBaseline = "middle";
+  g.lineWidth = 4; g.strokeStyle = "rgba(4,32,17,.9)"; g.strokeText(text, x, y);
+  g.fillStyle = `rgba(${IVORY},${alpha})`; g.fillText(text, x, y);
+}
+
+/* ---------- The map ---------- */
+const trees = Array.from({ length: 46 }, (_, i) => {
+  const r = (n) => { const v = Math.sin(i * 127.1 + n * 311.7) * 43758.5453; return v - Math.floor(v); };
+  return { a: (i / 46) * TAU + r(1) * 0.1, rr: 0.9 + r(2) * 0.085, h: 0.13 + r(3) * 0.13, tone: r(4) };
+});
+
+function drawSlab() {
+  const R = C.range, t = R * 0.075, n = 96;
+  const under = P(0, 0, -t * 4);
+  g.save(); g.translate(under[0], under[1]); g.scale(1, C.squash);
+  let gr = g.createRadialGradient(0, 0, slabPx * 0.5, 0, 0, slabPx * 1.5);
+  gr.addColorStop(0, "rgba(0,0,0,.5)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, slabPx * 1.5, 0, TAU); g.fill(); g.restore();
+  for (let i = 0; i < n; i++) {
+    const a0 = i / n * TAU, a1 = (i + 1.05) / n * TAU, am = (a0 + a1) / 2;
+    if (Math.cos(am - C.camAngle) < -0.12) continue;
+    const sh = 0.25 + 0.75 * Math.max(0, Math.cos(am - C.camAngle + 0.9));
+    const p0 = P(R * Math.cos(a0), R * Math.sin(a0)), p1 = P(R * Math.cos(a1), R * Math.sin(a1));
+    const q0 = P(R * Math.cos(a0), R * Math.sin(a0), -t), q1 = P(R * Math.cos(a1), R * Math.sin(a1), -t);
+    g.fillStyle = `rgb(${3 + 6 * sh | 0},${24 + 30 * sh | 0},${13 + 16 * sh | 0})`;
+    g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.lineTo(q1[0], q1[1]); g.lineTo(q0[0], q0[1]); g.fill();
+  }
+  ringPath(0, 0, R);
+  gr = g.createLinearGradient(0, cy - slabPx * C.squash, 0, cy + slabPx * C.squash * 1.2);
+  gr.addColorStop(0, "#0a4126"); gr.addColorStop(1, "#136a3d");
+  g.fillStyle = gr; g.fill();
+  g.strokeStyle = `rgba(${IVORY},.34)`; g.lineWidth = 1.25; g.stroke();
+}
+function drawRings() {
+  const R = C.range;
+  for (const step of [0.5, 1, 2, 5, 10, 20, 50]) {
+    const count = R / step, w = clamp(count - 1.6, 0, 1) * clamp((7.5 - count) / 2.5, 0, 1);
+    if (w <= 0.02) continue;
+    for (let r = step; r < R * 0.985; r += step) {
+      ringPath(0, 0, r);
+      g.strokeStyle = `rgba(${IVORY},${0.17 * w})`; g.lineWidth = 1; g.stroke();
+      if (w > 0.55) {
+        const a = C.camAngle + 0.62, p = P(r * Math.cos(a), r * Math.sin(a));
+        label(`${r} m`, p[0], p[1], 12, 0.6 * w);
+      }
+    }
+  }
+  const c = P(0, 0);
+  g.save(); g.translate(c[0], c[1]); g.scale(1, C.squash);
+  const gr = g.createRadialGradient(0, 0, 0, 0, 0, slabPx * 0.7);
+  gr.addColorStop(0, "rgba(60,170,105,.22)"); gr.addColorStop(1, "rgba(60,170,105,0)");
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, slabPx * 0.7, 0, TAU); g.fill(); g.restore();
+}
+function drawTrees() {
+  const R = C.range;
+  const back = trees.map((t) => ({ t, d: Math.cos(t.a - C.camAngle) })).filter((o) => o.d < 0.2).sort((a, b) => a.d - b.d);
+  for (const { t, d } of back) {
+    const al = clamp((0.2 - d) / 0.35, 0, 1), p = P(R * t.rr * Math.cos(t.a), R * t.rr * Math.sin(t.a));
+    const h = t.h * R * p[2], x = p[0], y = p[1];
+    g.globalAlpha = al;
+    g.fillStyle = "#06301a"; g.fillRect(x - h * 0.025, y - h * 0.12, h * 0.05, h * 0.12);
+    for (let i = 0; i < 3; i++) {
+      const base = y - h * (0.1 + i * 0.24), top = base - h * (0.46 - i * 0.03), half = h * (0.23 - i * 0.05);
+      g.fillStyle = `rgb(${12 + t.tone * 8 | 0},${74 + t.tone * 26 | 0},${44 + t.tone * 14 | 0})`;
+      g.beginPath(); g.moveTo(x, top); g.lineTo(x - half, base); g.lineTo(x, base); g.fill();
+      g.fillStyle = `rgb(${24 + t.tone * 10 | 0},${104 + t.tone * 30 | 0},${62 + t.tone * 16 | 0})`;
+      g.beginPath(); g.moveTo(x, top); g.lineTo(x + half, base); g.lineTo(x, base); g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+}
+const life = (item, now) => clamp((SHOW_MS - (now - item.at)) / 1500, 0, 1) * clamp((now - item.born) / 400, 0, 1);
+
+function drawSound(now) {
+  g.globalCompositeOperation = "lighter";
+  for (const fx of fixes.values()) {
+    const al = life(fx, now), col = COLOR[fx.category];
+    const heard = fx.from.map((f) => sensors.find((s) => s.n === f.n)).filter(Boolean);
+    const maxR = Math.max(...heard.map((s) => Math.hypot(s.x - fx.x, s.y - fx.y)), 0.6) * 1.12;
+    const phase = reduced ? 0.5 : (now / 2300) % 1;
+    for (let i = 0; i < 3; i++) {
+      const u = (phase + i / 3) % 1, a = al * Math.pow(1 - u, 1.3);
+      ringPath(fx.x, fx.y, u * maxR);
+      g.strokeStyle = rgba(col, a * 0.14); g.lineWidth = 7; g.stroke();
+      g.strokeStyle = rgba(col, a * 0.85); g.lineWidth = 1.6; g.stroke();
+    }
+    const src = P(fx.x, fx.y);
+    for (const s of heard) {
+      const sp = P(s.x, s.y);
+      glowLine(src, sp, col, al * 0.75);
+      if (!reduced) {
+        g.setLineDash([9, 30]); g.lineDashOffset = -(now / 26) % 39;
+        g.beginPath(); g.moveTo(src[0], src[1]); g.lineTo(sp[0], sp[1]);
+        g.strokeStyle = rgba(col, al); g.lineWidth = 2.6; g.stroke(); g.setLineDash([]);
+      }
+    }
+    g.save(); g.translate(src[0], src[1]); g.scale(1, C.squash);
+    const rad = Math.max(26, 0.4 * src[2]), gr = g.createRadialGradient(0, 0, 0, 0, 0, rad);
+    gr.addColorStop(0, rgba(col, 0.75 * al)); gr.addColorStop(1, rgba(col, 0));
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rad, 0, TAU); g.fill(); g.restore();
+  }
+  for (const b of bearings.values()) {
+    const s = sensors.find((x) => x.n === b.n); if (!s) continue;
+    const al = life(b, now), col = COLOR[b.category], far = C.range * 1.05, th = b.dir * Math.PI / 180, half = 0.13;
+    const sp = P(s.x, s.y), at = (a, r) => P(s.x + Math.sin(a) * r, s.y + Math.cos(a) * r);
+    const end = at(th, far), gr = g.createLinearGradient(sp[0], sp[1], end[0], end[1]);
+    gr.addColorStop(0, rgba(col, 0.5 * al)); gr.addColorStop(1, rgba(col, 0));
+    g.fillStyle = gr; g.beginPath(); g.moveTo(sp[0], sp[1]);
+    for (let i = 0; i <= 8; i++) { const p = at(th - half + 2 * half * i / 8, far); g.lineTo(p[0], p[1]); }
+    g.fill();
+    const phase = reduced ? 0.4 : (now / 2000) % 1;
+    for (let i = 0; i < 3; i++) {
+      const u = 1 - (phase + i / 3) % 1, r = far * 0.85 * u;
+      g.beginPath();
+      for (let j = 0; j <= 8; j++) { const p = at(th - half + 2 * half * j / 8, r); j ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }
+      g.strokeStyle = rgba(col, al * 0.8 * (1 - u)); g.lineWidth = 2; g.stroke();
+    }
+  }
+  g.globalCompositeOperation = "source-over";
+}
+function drawBaselines(now) {
+  for (const c of chirps) {
+    const s = sensors.find((x) => x.n === c.n), u = (now - c.t) / 700;
+    if (!s || u < 0 || u > 1) continue;
+    ringPath(s.x, s.y, 0.15 + u * 1.1);
+    g.strokeStyle = `rgba(${IVORY},${0.8 * (1 - u)})`; g.lineWidth = 2; g.stroke();
+  }
+  if (!deviceMode) return;
+  for (let i = 0; i < sensors.length; i++) for (let j = i + 1; j < sensors.length; j++) {
+    const a = sensors[i], b = sensors[j], pa = P(a.x, a.y), pb = P(b.x, b.y);
+    g.setLineDash([4, 5]); g.beginPath(); g.moveTo(pa[0], pa[1]); g.lineTo(pb[0], pb[1]);
+    g.strokeStyle = `rgba(${IVORY},.5)`; g.lineWidth = 1.2; g.stroke(); g.setLineDash([]);
+    label(`${Math.hypot(a.x - b.x, a.y - b.y).toFixed(2)} m`, (pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2 - 9, 12, 0.85);
+  }
+}
+function drawSensor(s, now) {
+  const p = P(s.x, s.y), rx = clamp(0.095 * p[2], 11, 25), ry = rx * C.squash, h = rx * 0.42, al = s.online ? 1 : 0.35;
+  const el = (y, r, k = 1) => { g.beginPath(); g.ellipse(p[0], y, r, r * C.squash * k, 0, 0, TAU); };
+  // Which way its forward points.
+  const fr = s.facing * Math.PI / 180, len = rx / p[2], fwd = [Math.sin(fr), Math.cos(fr)], side = [fwd[1], -fwd[0]];
+  const tip = P(s.x + fwd[0] * len * 2.5, s.y + fwd[1] * len * 2.5);
+  const l = P(s.x + fwd[0] * len * 1.75 + side[0] * len * 0.5, s.y + fwd[1] * len * 1.75 + side[1] * len * 0.5);
+  const r = P(s.x + fwd[0] * len * 1.75 - side[0] * len * 0.5, s.y + fwd[1] * len * 1.75 - side[1] * len * 0.5);
+  g.globalAlpha = al;
+  g.fillStyle = `rgba(${IVORY},.8)`; g.beginPath(); g.moveTo(tip[0], tip[1]); g.lineTo(l[0], l[1]); g.lineTo(r[0], r[1]); g.fill();
+  if (s.online) {
+    const b = (now - s.last) / 900;
+    if (b < 1 && !reduced) { el(p[1], rx * (1.2 + 1.3 * b)); g.strokeStyle = `rgba(${IVORY},${0.4 * (1 - b)})`; g.lineWidth = 1.5; g.stroke(); }
+    const hd = (now - s.heardAt) / 2400;
+    if (hd < 1) { el(p[1], rx * (1.35 + 0.9 * hd)); g.strokeStyle = rgba(COLOR[s.heardCat], 1 - hd); g.lineWidth = 3; g.stroke(); }
+    if (now < s.alarmUntil) {
+      const hi = Math.floor(now / 150) % 2;
+      el(p[1], rx * (hi ? 1.7 : 2.4)); g.strokeStyle = rgba(COLOR.logging, 0.95); g.lineWidth = hi ? 4 : 2.5; g.stroke();
+      for (let i = 0; i < 2; i++) { const u = (now / 700 + i / 2) % 1; ringPath(s.x, s.y, 0.1 + u * 0.9); g.strokeStyle = rgba(COLOR.logging, 0.7 * (1 - u)); g.lineWidth = 2; g.stroke(); }
+    }
+  }
+  g.fillStyle = "rgba(0,0,0,.35)"; el(p[1] + 2, rx * 1.12); g.fill();
+  g.fillStyle = "#b5ad98"; el(p[1], rx); g.fill(); g.fillRect(p[0] - rx, p[1] - h, rx * 2, h);
+  g.fillStyle = "#fbf7ef"; el(p[1] - h, rx); g.fill();
+  g.fillStyle = "#0b4827"; g.font = `700 ${rx * 1.02}px ${FONT}`; g.textAlign = "center"; g.textBaseline = "middle";
+  g.save(); g.translate(p[0], p[1] - h + 0.5); g.scale(1, clamp(C.squash + 0.28, 0.7, 1)); g.fillText(String(s.n), 0, 0); g.restore();
+  if (s.online && s.list < listVersion) { g.fillStyle = COLOR.vehicle; g.beginPath(); g.arc(p[0] + rx * 0.8, p[1] - h - ry * 0.9, 5, 0, TAU); g.fill(); }
+  if (deviceMode && drag?.sensor === s) { el(p[1], rx * 1.5); g.setLineDash([3, 4]); g.strokeStyle = `rgba(${IVORY},.9)`; g.lineWidth = 1.5; g.stroke(); g.setLineDash([]); }
+  g.globalAlpha = 1;
+}
+const tagEls = new Map();
+function tag(key, category, name, detail, x, y, alpha) {
+  let el = tagEls.get(key);
+  if (!el) {
+    el = document.createElement("div"); el.className = `tag c-${category}`;
+    el.innerHTML = `<svg class="ico"><use href="#i-${category}"/></svg><b></b><span></span>`;
+    $("#tags").append(el); tagEls.set(key, el);
+  }
+  if (el.children[1].textContent !== name) el.children[1].textContent = name;
+  if (el.children[2].textContent !== detail) el.children[2].textContent = detail;
+  el.style.opacity = alpha; el.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`;
+  el.dataset.seen = "1";
+}
+function drawPillar(fx, now) {
+  const al = life(fx, now), col = COLOR[fx.category], p = P(fx.x, fx.y), top = p[1] - Math.max(70, slabPx * 0.24);
+  const gr = g.createLinearGradient(0, p[1], 0, top);
+  gr.addColorStop(0, rgba(col, al)); gr.addColorStop(1, rgba(col, 0.35 * al));
+  g.strokeStyle = gr; g.lineWidth = 2; g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(p[0], top); g.stroke();
+  g.fillStyle = rgba(col, al); g.beginPath(); g.ellipse(p[0], p[1], 6, 6 * C.squash, 0, 0, TAU); g.fill();
+  const near = fx.from.reduce((a, b) => (a.d < b.d ? a : b));
+  tag(fx.category, fx.category, fx.name, `${near.d.toFixed(1)} m`, p[0], top, al);
+  for (const f of fx.from) {
+    const s = sensors.find((x) => x.n === f.n); if (!s || fx.from.length < 2) continue;
+    const sp = P(s.x, s.y);
+    label(`${f.d.toFixed(1)} m`, sp[0] + (p[0] - sp[0]) * 0.38, sp[1] + (p[1] - sp[1]) * 0.38 - 10, 12, 0.85 * al);
+  }
+}
+function targetRange(now) {
+  let ext = 0; for (const s of sensors) ext = Math.max(ext, Math.hypot(s.x, s.y));
+  let r = Math.max(1.7, ext * 2.3);
+  for (const fx of fixes.values()) if (now - fx.at < SHOW_MS) r = Math.max(r, Math.hypot(fx.tx, fx.ty) * 1.22 + 0.4);
+  for (const b of bearings.values()) if (now - b.at < SHOW_MS) r = Math.max(r, 3);
+  return r;
+}
+
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  simulate(now);
+  const k = reduced ? 1 : 1 - Math.exp(-dt * 3.4);
+  camera.az += (camera.azT - camera.az) * k; camera.el += (camera.elT - camera.el) * k;
+  camera.side += ((deviceMode ? 1 : 0) - camera.side) * k; resize();
+  camera.lr += (Math.log(targetRange(now)) - camera.lr) * (reduced ? 1 : 1 - Math.exp(-dt * 2));
+  for (const s of sensors) { s.x += (s.tx - s.x) * k; s.y += (s.ty - s.y) * k; }
+  for (const fx of fixes.values()) { fx.x += (fx.tx - fx.x) * k; fx.y += (fx.ty - fx.y) * k; }
+  for (const [key, v] of fixes) if (now - v.at > SHOW_MS) fixes.delete(key);
+  for (const [key, v] of bearings) if (now - v.at > SHOW_MS) bearings.delete(key);
+  setupCam();
+  g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, W, H);
+  drawSlab();
+  g.save(); ringPath(0, 0, C.range); g.clip();
+  drawRings(); drawSound(now); drawBaselines(now);
+  g.restore();
+  drawTrees();
+  for (const el of tagEls.values()) el.dataset.seen = "";
+  const things = [...sensors.map((s) => ({ k: P(s.x, s.y)[2], draw: () => drawSensor(s, now) })),
+    ...[...fixes.values()].map((fx) => ({ k: P(fx.x, fx.y)[2], draw: () => drawPillar(fx, now) }))];
+  things.sort((a, b) => a.k - b.k).forEach((t) => t.draw());
+  for (const b of bearings.values()) {
+    const s = sensors.find((x) => x.n === b.n); if (!s) continue;
+    const th = b.dir * Math.PI / 180, r = C.range * 0.6, p = P(s.x + Math.sin(th) * r, s.y + Math.cos(th) * r);
+    tag(`${b.category}:${b.n}`, b.category, b.name, "direction only", p[0], p[1] - 14, life(b, now));
+  }
+  for (const [key, el] of tagEls) if (!el.dataset.seen) { el.remove(); tagEls.delete(key); }
+  drawPulse(now);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- The pulse strip ---------- */
+function drawPulse(now) {
+  const pc = $("#pulse"), c = pc.getContext("2d"), w = pc.width / DPR, h = pc.height / DPR, mid = h * 0.56, span = 90000;
+  c.setTransform(DPR, 0, 0, DPR, 0, 0); c.clearRect(0, 0, w, h);
+  const end = w - 34, x = (t) => end - (now - t) / span * end;
+  const bx = beats.map((b) => x(b.t)), ex = events.filter((e, i) => now - e.t < span && events[i - 1]?.t !== e.t).map((e) => ({ x: x(e.t), e }));
+  const path = new Path2D();
+  for (let px = 0; px <= end; px += 2) {
+    let y = 0;
+    for (const b of bx) { const u = (px - b) / 3; if (u > -3 && u < 3) y += 4 * Math.exp(-u * u); }
+    for (const o of ex) { const u = (px - o.x) / 13; if (u > -2 && u < 2) y += o.e.conf * h * 0.44 * Math.exp(-2.25 * u * u) * Math.cos(u * 3.6); }
+    px ? path.lineTo(px, mid - y) : path.moveTo(px, mid - y);
+  }
+  c.lineJoin = "round"; c.lineWidth = 1.5; c.strokeStyle = `rgba(${IVORY},.4)`; c.stroke(path);
+  for (const o of ex) {
+    c.save(); c.beginPath(); c.rect(o.x - 24, 0, 48, h); c.clip();
+    c.shadowColor = COLOR[o.e.category]; c.shadowBlur = 10; c.strokeStyle = COLOR[o.e.category]; c.lineWidth = 2; c.stroke(path); c.restore();
+  }
+  c.fillStyle = "#fbf7ef"; c.shadowColor = "#fbf7ef"; c.shadowBlur = 12; c.beginPath(); c.arc(end, mid, 3.5, 0, TAU); c.fill(); c.shadowBlur = 0;
+}
+
+/* ---------- Stand-in sensors: check-ins, hearing, activities ---------- */
+function simulate(now) {
+  for (const s of sensors) {
+    if (!s.online || now < s.next) continue;
+    s.next = now + 3000; s.last = now; s.list = listVersion; beats.push({ t: now });
+    renderReach();
+  }
+  while (beats.length && now - beats[0].t > 95000) beats.shift();
+  if (playing && now >= nextHear) {
+    nextHear = now + 2400;
+    const sound = playing.sound === "taught" ? sounds.find((s) => s.taught) : sounds.find((s) => s.id === playing.sound);
+    if (sound?.enabled) hear(now, sound, playing);
+  }
+}
+function hear(now, sound, sample) {
+  const [x, y] = sample.at, heard = [];
+  for (const n of sample.hear) {
+    const s = sensors.find((v) => v.n === n);
+    if (!s || !s.online || now < s.alarmUntil || s.list < listVersion) continue;
+    const d = Math.hypot(x - s.x, y - s.y), conf = clamp(0.95 - d * 0.03 - Math.random() * 0.07, 0, 1);
+    if (conf < sensitivity) continue;
+    const dir = (Math.atan2(x - s.x, y - s.y) * 180 / Math.PI + 360) % 360;
+    heard.push({ s, d, dir });
+    events.unshift({ t: now, n, sound: sound.name, category: sound.category, conf, angle: (dir - s.facing + 360) % 360 });
+    s.heardAt = now; s.heardCat = sound.category;
+  }
+  if (!heard.length) return;
+  events.length = Math.min(events.length, 200);
+  let a = activities.find((v) => v.category === sound.category);
+  if (!a || now - a.last > 60000) { a = { category: sound.category, sounds: new Set(), sensors: new Set(), first: now, last: now, count: 0, location: null, warning: null, dismissed: false }; activities.unshift(a); }
+  a.last = now; a.count += heard.length; a.sounds.add(sound.name); heard.forEach((o) => a.sensors.add(o.s.n));
+  if (heard.length > 1) {
+    const jx = x + (Math.random() - 0.5) * 0.14, jy = y + (Math.random() - 0.5) * 0.14;
+    const from = heard.map((o) => ({ n: o.s.n, d: Math.hypot(jx - o.s.x, jy - o.s.y) }));
+    const fx = fixes.get(sound.category);
+    if (fx) Object.assign(fx, { tx: jx, ty: jy, at: now, from, name: sound.name });
+    else fixes.set(sound.category, { category: sound.category, name: sound.name, x: jx, y: jy, tx: jx, ty: jy, at: now, born: now, from });
+    a.location = from.reduce((p, q) => (p.d < q.d ? p : q));
+  } else {
+    const o = heard[0], key = `${sound.category}:${o.s.n}`, b = bearings.get(key);
+    a.location = null;
+    if (b) Object.assign(b, { dir: o.dir, at: now }); else bearings.set(key, { category: sound.category, name: sound.name, n: o.s.n, dir: o.dir, at: now, born: now });
+  }
+  const row = $(`#sound-list [data-id="${sound.id}"]`);
+  row?.animate([{ background: rgba(COLOR[sound.category], 0.3) }, { background: "transparent" }], { duration: 1800 });
+  renderFeed(); renderLog();
+}
+
+/* ---------- Heard ---------- */
+let lastFeed = "";
+function renderFeed() {
+  const now = performance.now(), online = sensors.filter((s) => s.online).length;
+  $("#status-text").textContent = online === sensors.length ? `${online} sensor${online === 1 ? "" : "s"} listening` : `${online} of ${sensors.length} sensors listening`;
+  $(".status").classList.toggle("short", online < sensors.length);
+  let alarm = false;
+  const html = activities.slice(0, 6).map((a, i) => {
+    const live = now - a.last < SHOW_MS, f = hhmm(wall(a.first)), l = hhmm(wall(a.last));
+    const where = a.location ? `${a.location.d.toFixed(1)} m from Sensor ${a.location.n}` : "Direction only";
+    const w = a.warning, busy = w && w.state !== "played";
+    const canWarn = a.category === "logging" && now - a.last < 300000;
+    const alert = canWarn && now - a.last < 60000 && !w && !a.dismissed;
+    if (live && a.category === "logging" && !w) alarm = true;
+    let acts = "";
+    if (w) acts = `<p>${w.state === "sending" ? "Sending warning" : `${w.state === "sounding" ? "Alarm sounding on" : "Warning played on"} ${names(w.sensors)}`}</p>`;
+    if (alert) acts += `<div class="acts"><button class="btn warn" data-warn="${i}">Send warning</button><button class="link" data-dismiss="${i}">Dismiss</button></div>`;
+    else if (canWarn && !busy) acts += `<div class="acts"><button class="link" data-warn="${i}">${w ? "Send again" : "Send warning"}</button></div>`;
+    const big = live || alert || busy;
+    return `<li class="act c-${a.category}${big ? " live" : ""}"><span class="badge"><svg class="ico"><use href="#i-${a.category}"/></svg></span>
+      <h3>${[...a.sounds].join(", ")}</h3>
+      ${big ? `<p class="where">${where}</p><p>${f === l ? f : `${f} to ${l}`}, heard by ${names(a.sensors)}</p>` : `<p>${l}, ${where.toLowerCase().replace("sensor", "Sensor")}</p>`}${acts}</li>`;
+  }).join("");
+  if (html !== lastFeed) { $("#feed").innerHTML = html; lastFeed = html; }
+  $("#feed-empty").hidden = activities.length > 0;
+  document.body.classList.toggle("alarm", alarm);
+}
+$("#feed").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.dismiss) activities[+b.dataset.dismiss].dismissed = true;
+  if (b.dataset.warn) {
+    const a = activities[+b.dataset.warn], targets = [...a.sensors].filter((n) => sensors.find((s) => s.n === n)?.online);
+    a.warning = { state: "sending", sensors: targets };
+    setTimeout(() => { a.warning.state = "sounding"; const t = performance.now(); sensors.forEach((s) => { if (targets.includes(s.n)) s.alarmUntil = t + 5000; }); renderFeed(); }, 1100);
+    setTimeout(() => { a.warning.state = "played"; renderFeed(); }, 6100);
+  }
+  renderFeed();
+});
+
+/* ---------- Listening for ---------- */
+function renderSounds() {
+  $("#sound-list").innerHTML = sounds.map((s, i) => `<li class="sound c-${s.category}${s.enabled ? "" : " off"}" data-id="${s.id}">
+    <svg class="ico"><use href="#i-${s.category}"/></svg><span class="name" id="sn-${i}">${s.name}</span>
+    ${s.taught ? `<button class="del" data-del="${i}" aria-label="Delete ${s.name}" title="Delete"><svg class="ico"><use href="#i-close"/></svg></button>` : ""}
+    <input class="sw" type="checkbox" role="switch" aria-labelledby="sn-${i}" data-i="${i}"${s.enabled ? " checked" : ""}></li>`).join("");
+}
+let reachShown = false;
+function listChanged() { listVersion++; reachShown = true; renderReach(); }
+function renderReach() {
+  $("#reach").hidden = !reachShown;
+  $("#reach").textContent = `Reached ${sensors.filter((s) => s.list === listVersion).length} of ${sensors.length} sensors`;
+  if (deviceMode && tab === "devices") renderDrawer();
+}
+$("#sound-list").addEventListener("change", (e) => { const s = sounds[+e.target.dataset.i]; s.enabled = e.target.checked; e.target.closest("li").classList.toggle("off", !s.enabled); listChanged(); });
+$("#sound-list").addEventListener("click", (e) => { const b = e.target.closest("[data-del]"); if (!b) return; sounds.splice(+b.dataset.del, 1); renderSounds(); listChanged(); });
+
+/* ---------- Teach a new sound ---------- */
+const teach = $("#teach");
+let clips = 0, teaching = false;
+function setClips(n) { clips = n; $("#teach-drop").firstChild.textContent = n ? `${n} recordings` : "Drop recordings here"; $("#teach-drop small").textContent = n ? "Drop more to add them" : "or choose files"; }
+$("#btn-teach").addEventListener("click", () => { $("#teach-form").reset(); setClips(0); $("#teach-state").textContent = ""; $("#teach-bar").hidden = true; teach.showModal(); });
+$("#teach-cancel").addEventListener("click", () => teach.close());
+$("#teach-drop").addEventListener("click", () => setClips(clips + 15));
+for (const type of ["dragover", "dragleave", "drop"]) $("#teach-drop").addEventListener(type, (e) => {
+  e.preventDefault(); e.currentTarget.classList.toggle("over", type === "dragover");
+  if (type === "drop") setClips(clips + (e.dataTransfer?.files.length || 15));
+});
+$("#teach-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (teaching) return;
+  if (!clips) { $("#teach-state").textContent = "Add recordings of the sound first"; return; }
+  teaching = true; $("#teach-go").disabled = true; $("#teach-bar").hidden = false;
+  let done = 0;
+  const step = setInterval(() => {
+    done++;
+    $("#teach-bar i").style.width = `${Math.min(100, done / (clips + 4) * 100)}%`;
+    $("#teach-state").textContent = done <= clips ? `Listening to recording ${done} of ${clips}` : "Training the detector";
+    if (done < clips + 4) return;
+    clearInterval(step); teaching = false; $("#teach-go").disabled = false; $("#teach-bar i").style.width = "0";
+    const name = $("#teach-name").value.trim(), category = new FormData($("#teach-form")).get("cat");
+    sounds.push({ id: `taught-${Date.now()}`, name, category, enabled: true, taught: true });
+    teach.close(); renderSounds(); listChanged();
+    $("#sound-list").lastElementChild.animate([{ background: rgba(COLOR[category], 0.4) }, { background: "transparent" }], { duration: 2600 });
+  }, 130);
+});
+
+/* ---------- Play sounds ---------- */
+function renderPlayer() {
+  $("#player").innerHTML = samples.map((s) => `<button class="sample${playing === s ? " playing" : ""}" data-id="${s.id}" aria-pressed="${playing === s}">
+    <span class="pp"><svg viewBox="0 0 12 12">${playing === s ? '<rect x="2" y="2" width="8" height="8" rx="1"/>' : '<path d="M3 1.5v9l8-4.5z"/>'}</svg></span>
+    <span><b>${s.name}</b><small>${s.credit}</small></span></button>`).join("");
+  $("#btn-play").classList.toggle("on", !!playing);
+}
+function play(sample) { playing = playing === sample ? null : sample; nextHear = performance.now() + 900; renderPlayer(); }
+$("#player").addEventListener("click", (e) => { const b = e.target.closest(".sample"); if (b) { touched = true; play(samples.find((s) => s.id === b.dataset.id)); } });
+$("#btn-play").addEventListener("click", () => { touched = true; const p = $("#player"); p.hidden = !p.hidden; $("#btn-play").setAttribute("aria-expanded", String(!p.hidden)); });
+
+/* ---------- Devices and the event log ---------- */
+let tab = "devices";
+function openDrawer(which) {
+  tab = which; deviceMode = true; $("#drawer").hidden = false; $("#player").hidden = true;
+  $("#btn-devices").setAttribute("aria-expanded", "true"); camera.elT = 1.08; renderDrawer();
+}
+function closeDrawer() { deviceMode = false; $("#drawer").hidden = true; $("#btn-devices").setAttribute("aria-expanded", "false"); camera.elT = HOME.el; }
+function renderDrawer() {
+  for (const t of document.querySelectorAll(".tab")) t.setAttribute("aria-selected", String(t.dataset.tab === tab));
+  if (document.activeElement?.closest("#drawer-body")) return; // never redraw under a field being typed in
+  if (tab === "log") return renderLog(true);
+  const now = performance.now();
+  $("#drawer-body").innerHTML = `<div class="cal row"><p>${calib ? `Calibrating, round ${calib.round} of 3` : calibratedAt ? `Calibrated at ${hhmm(calibratedAt)}` : "Drag a sensor on the map, or let them measure it"}</p>
+    <button class="btn" id="btn-cal"${calib ? " disabled" : ""}>Calibrate</button></div>` + sensors.map((s) => {
+    const behind = s.list < listVersion, state = !s.online ? "Offline" : behind ? "Updating" : "Online";
+    return `<div class="device"><div class="row"><h3>Sensor ${s.n}</h3><span class="state${state === "Online" ? "" : " warn"}">${state}</span></div>
+      <dl><dt>Device</dt><dd>${s.id}</dd><dt>Checked in</dt><dd>${Math.max(0, Math.round((now - s.last) / 1000))} s ago</dd>
+      <dt>Software</dt><dd>Library ${s.sdk}, ${s.model}, sound list ${s.list}</dd>
+      <dt>Trigger</dt><dd>${s.rpm} recordings a minute, noise floor ${s.floor} dB, level ${s.trig.toFixed(1)}</dd>
+      <dt>Position</dt><dd>x ${s.tx.toFixed(2)} m, y ${s.ty.toFixed(2)} m</dd></dl>
+      <div class="row"><label>Facing <input type="number" min="0" max="359" value="${Math.round(s.facing)}" data-facing="${s.n}"> °</label>
+      <button class="link danger" data-remove="${s.n}">Remove</button></div></div>`;
+  }).join("") + `<div class="tune"><label for="sens">Sensitivity ${Math.round(sensitivity * 100)}%</label>
+    <input id="sens" type="range" min="20" max="90" step="5" value="${Math.round(sensitivity * 100)}"></div>
+    <div class="drawer-foot"><button class="link">Sign out</button></div>`;
+}
+function renderLog(force) {
+  if (!deviceMode || tab !== "log") return;
+  $("#drawer-body").innerHTML = `<div class="row" style="margin-bottom:16px"><p style="color:var(--soft);font-size:14px">${events.length ? `${events.length} events` : "No events yet"}</p>
+    <button class="link danger" id="btn-clear"${events.length ? "" : " disabled"}>Clear events</button></div>` + (events.length ? `<table><thead><tr><th>Time</th><th>Sensor</th><th>Sound</th><th>Confidence</th><th>Angle</th></tr></thead><tbody>
+    ${events.slice(0, 80).map((e) => `<tr><td>${hms(wall(e.t))}</td><td>Sensor ${e.n}</td><td>${e.sound}</td><td>${Math.round(e.conf * 100)}%</td><td>${Math.round(e.angle)}°</td></tr>`).join("")}</tbody></table>` : "");
+}
+$("#btn-devices").addEventListener("click", () => (deviceMode ? closeDrawer() : openDrawer("devices")));
+$("#btn-pulse").addEventListener("click", () => openDrawer("log"));
+$("#drawer-close").addEventListener("click", closeDrawer);
+$(".drawer-head").addEventListener("click", (e) => { const t = e.target.closest(".tab"); if (t) { tab = t.dataset.tab; document.activeElement.blur(); renderDrawer(); } });
+$("#drawer-body").addEventListener("input", (e) => {
+  if (e.target.dataset.facing) { const s = sensors.find((v) => v.n === +e.target.dataset.facing); s.facing = ((+e.target.value % 360) + 360) % 360; }
+  if (e.target.id === "sens") { sensitivity = e.target.value / 100; e.target.previousElementSibling.textContent = `Sensitivity ${e.target.value}%`; }
+});
+$("#drawer-body").addEventListener("change", (e) => { if (e.target.id === "sens") listChanged(); });
+$("#drawer-body").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.remove) { sensors.splice(sensors.findIndex((s) => s.n === +b.dataset.remove), 1); renderFeed(); }
+  if (b.id === "btn-clear") { events.length = 0; activities.length = 0; fixes.clear(); bearings.clear(); renderFeed(); }
+  if (b.id === "btn-cal") calibrate();
+  b.blur(); renderDrawer();
+});
+function calibrate() {
+  const t0 = performance.now(); calib = { round: 1 };
+  for (let r = 0; r < 3; r++) {
+    setTimeout(() => { calib.round = r + 1; renderDrawer(); }, r * sensors.length * 480);
+    sensors.forEach((s, i) => chirps.push({ n: s.n, t: t0 + (r * sensors.length + i) * 480 }));
+  }
+  setTimeout(() => {
+    sensors.forEach((s, i) => { s.tx = s.tx * 1.12 + (i - 1) * 0.04; s.ty = s.ty * 1.12; s.facing = (Math.atan2(-s.tx, -s.ty) * 180 / Math.PI + 360) % 360; });
+    calib = null; calibratedAt = new Date(); chirps.length = 0; renderDrawer();
+  }, 3 * sensors.length * 480 + 500);
+}
+
+/* ---------- Turning the map, and moving a sensor while Devices is open ---------- */
+let drag = null;
+cv.addEventListener("pointerdown", (e) => {
+  touched = true;
+  const b = cv.getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top;
+  const hit = deviceMode && sensors.find((s) => { const p = P(s.x, s.y); return Math.hypot(p[0] - x, p[1] - y) < 30; });
+  drag = { x: e.clientX, y: e.clientY, sensor: hit || null };
+  cv.setPointerCapture(e.pointerId); cv.classList.add("moving");
+});
+cv.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  if (drag.sensor) {
+    const b = cv.getBoundingClientRect(), [wx, wy] = unproject(e.clientX - b.left, e.clientY - b.top);
+    const lim = C.range * 0.85, d = Math.hypot(wx, wy), f = d > lim ? lim / d : 1;
+    drag.sensor.tx = drag.sensor.x = Math.round(wx * f * 20) / 20; drag.sensor.ty = drag.sensor.y = Math.round(wy * f * 20) / 20;
+    calibratedAt = null;
+  } else {
+    camera.az = camera.azT = camera.azT - (e.clientX - drag.x) * 0.006;
+    camera.el = camera.elT = clamp(camera.elT + (e.clientY - drag.y) * 0.004, 0.32, 1.35);
+  }
+  drag.x = e.clientX; drag.y = e.clientY;
+});
+const endDrag = () => { if (drag?.sensor) renderDrawer(); drag = null; cv.classList.remove("moving"); };
+cv.addEventListener("pointerup", endDrag); cv.addEventListener("pointercancel", endDrag);
+cv.addEventListener("dblclick", () => { camera.azT = HOME.az; camera.elT = deviceMode ? 1.08 : HOME.el; });
+addEventListener("keydown", (e) => { if (e.key === "Escape") { if (!$("#player").hidden) $("#btn-play").click(); else if (deviceMode) closeDrawer(); } });
+
+addEventListener("resize", resize);
+resize(); renderSounds(); renderPlayer(); renderFeed();
+setInterval(() => { renderFeed(); if (deviceMode && tab === "devices") renderDrawer(); }, 1000);
+// The prototype opens on a chainsaw so the first look shows the map at work; any touch cancels it.
+setTimeout(() => { if (touched) return; play(samples[0]); setTimeout(() => { if (playing === samples[0] && !touched) play(samples[0]); }, 30000); }, 2600);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
