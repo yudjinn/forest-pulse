@@ -58,7 +58,8 @@ test("a researcher teaches Boreal owl; sensors then report a new boreal owl and 
       ...clips.slice(0, 4).map(asFile),
       { name: "field-notes.wav", mimeType: "audio/wav", buffer: Buffer.from("these are notes, not a recording") },
     ]);
-    await expect(clipRow(page, "field-notes.wav")).toContainText("Couldn't be read");
+    // Recordings are read in turn, so the file's verdict comes after the four before it are summarised.
+    await expect(clipRow(page, "field-notes.wav")).toContainText("Couldn't be read", { timeout: 60_000 });
     for (const clip of clips.slice(0, 4)) {
       await expect(clipRow(page, path.basename(clip))).toContainText("Ready", { timeout: 60_000 });
     }

@@ -100,8 +100,7 @@ function addClip(file) {
   remove.addEventListener("click", () => {
     clip.removed = true;
     item.remove();
-    takeChosenFiles(); // files chosen before this module finished loading
-refresh();
+    refresh();
   });
   return clip;
 }
@@ -127,8 +126,7 @@ function addFiles(files) {
     clips.push(clip);
   }
   clips = live();
-  takeChosenFiles(); // files chosen before this module finished loading
-refresh();
+  refresh();
 }
 
 /** @param {Clip} clip */
@@ -136,22 +134,19 @@ async function summariseClip(clip) {
   if (clip.removed) return;
   clip.state = "working";
   setStatus(clip, "Reading");
-  takeChosenFiles(); // files chosen before this module finished loading
-refresh();
+  refresh();
   let parts;
   try {
     const { audio, rate } = await decode(await clip.file.arrayBuffer());
     parts = windows(audio, rate);
   } catch {
     skip(clip, "Couldn't be read");
-    takeChosenFiles(); // files chosen before this module finished loading
-refresh();
+    refresh();
     return;
   }
   if (parts.length === 0) {
     skip(clip, "Shorter than 1 s");
-    takeChosenFiles(); // files chosen before this module finished loading
-refresh();
+    refresh();
     return;
   }
   try {
@@ -168,15 +163,13 @@ refresh();
   } catch {
     skip(clip, "Not summarised");
     showError(FAILED);
-    takeChosenFiles(); // files chosen before this module finished loading
-refresh();
+    refresh();
     return;
   }
   clip.state = "ready";
   clip.progress.hidden = true;
   setStatus(clip, "Ready");
-  takeChosenFiles(); // files chosen before this module finished loading
-refresh();
+  refresh();
 }
 
 // The teach request: a JSON header with the clip list, then each clip's clean and mixed summaries as float32 rows.
@@ -211,8 +204,7 @@ async function teach() {
     return;
   }
   teaching = true;
-  takeChosenFiles(); // files chosen before this module finished loading
-refresh();
+  refresh();
   try {
     const res = await fetch("/dashboard/api/teach", {
       method: "POST",
@@ -233,8 +225,7 @@ refresh();
     showError(FAILED);
   }
   teaching = false;
-  takeChosenFiles(); // files chosen before this module finished loading
-refresh();
+  refresh();
 }
 
 form.addEventListener("submit", (event) => {
