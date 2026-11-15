@@ -163,6 +163,13 @@ const sensitivity = /** @type {HTMLElement} */ (document.querySelector(".sensiti
 const slider = /** @type {HTMLInputElement} */ (sensitivity.querySelector("input"));
 const sliderValue = /** @type {HTMLElement} */ (sensitivity.querySelector(".sensitivity-value"));
 const sliderError = /** @type {HTMLElement} */ (sensitivity.querySelector(".error"));
+// The Devices panel opens over the sound list, so while it is open the reach line sits under the sensitivity,
+// where a change made there can be seen reaching the boards.
+const listen = /** @type {HTMLElement} */ (document.getElementById("sounds"));
+const drawer = /** @type {HTMLElement} */ (document.getElementById("drawer"));
+const placeReach = () => (drawer.hidden ? listen.append(reach) : sensitivity.after(reach));
+new MutationObserver(placeReach).observe(drawer, { attributes: true, attributeFilter: ["hidden"] });
+placeReach();
 let saved = 50;
 let moving = false;
 let savingSensitivity = false;

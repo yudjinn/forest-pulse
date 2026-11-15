@@ -144,6 +144,51 @@
   margin-top: 12px;
 }
 
+/* An alert out of its card's reach (activities.js): in a strip along the foot, over the Devices panel, or at the
+   top of the open dialog. Out of its card it says what was detected and where. */
+.alert-strip {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 4;
+  padding: 14px 16px 18px;
+  border-top: 1px solid var(--hair);
+  background: var(--panel);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.4);
+}
+
+dialog > .activity-alert {
+  margin-bottom: 20px;
+  padding: 14px 16px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ember) 16%, transparent);
+}
+
+.alert-strip .activity-actions,
+dialog > .activity-alert .activity-actions {
+  margin-top: 10px;
+}
+
+.alert-strip .aside-text,
+dialog > .activity-alert .aside-text {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+  color: var(--ivory);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.alert-strip .error,
+dialog > .activity-alert .error {
+  margin-top: 6px;
+  color: var(--alert);
+}
+
 @media (max-width: 900px) {
   .heard {
     position: static;

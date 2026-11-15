@@ -39,6 +39,35 @@ const redraw = () => last && render(last, true);
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let settle;
 
+// An alert belongs in its card, but the card is out of reach while the Devices panel covers the list (narrow
+// screens) or a dialog holds the page. Then the alert moves into the open dialog, or into a strip over the panel,
+// and back to its card once the card is in reach again. `homes` is each alert's card body.
+/** @type {WeakMap<Element, Element>} */
+const homes = new WeakMap();
+const strip = document.createElement("div");
+strip.className = "alert-strip";
+strip.hidden = true;
+document.body.append(strip);
+const drawer = /** @type {HTMLElement} */ (document.getElementById("drawer"));
+const narrow = matchMedia("(max-width: 900px)");
+
+function placeAlerts() {
+  const host = document.querySelector("dialog[open]") ?? (narrow.matches && !drawer.hidden ? strip : null);
+  for (const alert of document.querySelectorAll(".activity-alert")) {
+    const home = homes.get(alert);
+    if (!home?.isConnected) alert.remove(); // left from a list drawn before
+    else if (!host) { if (alert.parentElement !== home) home.append(alert); }
+    else if (alert.parentElement !== host) host === strip ? strip.append(alert) : host.prepend(alert);
+  }
+  const shown = strip.childElementCount > 0;
+  if (strip.hidden === shown) strip.hidden = !shown;
+}
+new MutationObserver(placeAlerts).observe(drawer, { attributes: true, attributeFilter: ["hidden"] });
+for (const dialog of document.querySelectorAll("dialog")) {
+  new MutationObserver(placeAlerts).observe(dialog, { attributes: true, attributeFilter: ["open"] });
+}
+narrow.addEventListener("change", placeAlerts);
+
 /** @param {string} className @param {...(string | Node)} parts */
 function line(className, ...parts) {
   const p = document.createElement("p");
@@ -88,7 +117,11 @@ function card(a) {
   }
   body.append(line("activity-meta", part(first === end ? first : `${first} to ${end}`), ", ",
     part(a.event_count === 1 ? "1 event" : `${a.event_count} events`), ", ", part(a.sensor_names.join(", "))));
-  if (a.category === "logging") body.append(...warningPart(a, redraw));
+  if (a.category === "logging") {
+    const parts = warningPart(a, redraw);
+    for (const p of parts) if (p.classList.contains("activity-alert")) homes.set(p, body);
+    body.append(...parts);
+  }
   item.append(badge, body);
   return item;
 }
@@ -107,9 +140,18 @@ function render(data, force = false) {
     const focused = active instanceof HTMLButtonElement && list.contains(active)
       ? { at: [...list.children].indexOf(/** @type {Element} */ (active.closest("li"))), text: active.textContent }
       : null;
+    // An alert moved out of its card keeps the focus too, in whichever place it is shown now.
+    const alertHost = active instanceof HTMLButtonElement && !list.contains(active)
+      ? active.closest(".activity-alert")?.parentElement : null;
+    const alertText = active?.textContent;
     list.replaceChildren(...data.activities.map(card));
+    placeAlerts();
     if (focused) {
       [...(list.children[focused.at]?.querySelectorAll("button") ?? [])].find((b) => b.textContent === focused.text)?.focus();
+    }
+    if (alertHost) {
+      const buttons = /** @type {HTMLButtonElement[]} */ ([...alertHost.querySelectorAll(".activity-alert button")]);
+      buttons.find((b) => b.textContent === alertText)?.focus();
     }
   }
   count = data.activities.length;

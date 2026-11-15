@@ -11,7 +11,7 @@ import path from "node:path";
 import { createInterface, type Interface } from "node:readline";
 import { promisify } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
-import { devVars, showDevices, showEventLog, signIn } from "../fixtures/dashboard.ts";
+import { devVars, openTeach, showDevices, showEventLog, signIn } from "../fixtures/dashboard.ts";
 import { asSensor, referenceClip, sensorName, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { warningsServicePorts, webRoot } from "../ports.ts";
@@ -199,12 +199,16 @@ test("boards that heard the logging play the warning's alarm and the card report
       for (const p of [page, page2]) {
         await expect(alertBanner(p).getByText(`Logging detected near ${na}`, { exact: true })).toBeVisible();
       }
+      // The second researcher is teaching a sound: the alert comes into the dialog, so it can still be pressed.
+      const teach = await openTeach(page2);
       await page2.route(`${origin}/dashboard/api/dismissals`, (route) => route.abort(), { times: 1 });
-      await alertBanner(page2).getByRole("button", { name: "Dismiss" }).click();
+      await teach.getByRole("region", { name: "Logging alert" }).getByRole("button", { name: "Dismiss" }).click();
       await expect(alertBanner(page2).getByText("Couldn't dismiss. Try again.")).toBeVisible();
       await alertBanner(page2).getByRole("button", { name: "Dismiss" }).click();
       await expect(alertBanner(page2)).toBeHidden();
       await expect(alertBanner(page)).toBeHidden({ timeout: 5000 });
+      await teach.getByRole("button", { name: "Cancel" }).click();
+      await expect(teach).toBeHidden();
 
       // More chainsaw in the same activity brings no alert back.
       await asSensor(a, [{ call: "post_events", events: [chainsawAt("seed-2", seededAt + 2000)] }], key, origin);
@@ -223,12 +227,17 @@ test("boards that heard the logging play the warning's alarm and the card report
           .toBeVisible({ timeout: 10_000 });
       }
 
-      // Its Send warning (the first press never reaches the service) warns the boards, and the alert goes.
+      // On a phone with the Devices panel open over the list, its Send warning (the first press never reaches the
+      // service) warns the boards, and the alert goes.
+      const size = page.viewportSize();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await showDevices(page);
       await page.route(`${origin}/dashboard/api/warnings`, (route) => route.abort(), { times: 1 });
       await alertBanner(page).getByRole("button", { name: "Send warning" }).click();
       await expect(alertBanner(page).getByText("Couldn't send the warning. Try again.")).toBeVisible();
       await alertBanner(page).getByRole("button", { name: "Send warning" }).click();
       await expect(alertBanner(page)).toBeHidden();
+      if (size) await page.setViewportSize(size);
       await expect(alertBanner(page2)).toBeHidden({ timeout: 5000 });
       const sent = loggingCards(page).filter({ hasText: nb }).getByText(/^Warning sent \d{2}:\d{2}:\d{2} · /);
       await expect(sent).toHaveCount(1);

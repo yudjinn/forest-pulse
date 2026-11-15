@@ -176,8 +176,11 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
     await sensitivity.fill("70");
     await expect(panel.getByText("Report sounds at 70% confidence or more")).toBeVisible();
     await expect(panel.getByRole("alert")).toBeHidden();
-    // A sensitivity change is a sound-list change: the sensor has not reached it yet.
+    // A sensitivity change is a sound-list change: the sensor has not reached it yet. With the Devices panel open
+    // over the sound list, the line sits under the sensitivity.
     await expect(reach(page)).toHaveText("Reached 0 of 1 sensor");
+    await expect(panel.getByRole("tabpanel", { name: "Devices" }).getByRole("status").filter({ hasText: /^Reached / }))
+      .toHaveText("Reached 0 of 1 sensor");
     await expect.poll(async () => (await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()))
       .toMatchObject({ sensitivity: 0.7, version: start + 3 });
     await expect(otherPage.getByRole("slider")).toHaveValue("70");
