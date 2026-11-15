@@ -58,7 +58,8 @@ let groundFor = "";
 let g = screen;
 /** Where layers put the elements they place over the map. */
 export const overlay = /** @type {HTMLElement} */ (document.getElementById("map-overlay"));
-const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** The researcher asked for reduced motion: nothing on the map animates. */
+export const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** @type {Layer[]} */
 const layers = [];

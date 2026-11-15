@@ -6,7 +6,9 @@
 // poll, so other researchers' edits appear too.
 // Plan metres: x to the right, y up. Facing: degrees clockwise from the plan's up.
 import { clockTime, poll, signIn } from "/dashboard/shell.js";
-import { COLOR, FONT, addLayer, holdView, invalidate, overlay, place, rgba, ringPath, unproject } from "/dashboard/plan/scene.js";
+import {
+  COLOR, FONT, addLayer, holdView, invalidate, overlay, place, rgba, ringPath, still, unproject,
+} from "/dashboard/plan/scene.js";
 
 /**
  * @typedef {{ id: string, number: number | null, name: string, x_m: number, y_m: number, facing_deg: number, online: boolean, last_checkin_at: string,
@@ -111,7 +113,7 @@ function render(data) {
     beats.set(s.id, { checkin: s.last_checkin_at, at: loaded && s.online ? now : 0 });
     if (!loaded || !s.online) continue;
     for (const watch of beatWatchers) watch(now);
-    invalidate();
+    if (!still) invalidate(); // the check-in's ring, which reduced motion leaves out
   }
   loaded = true;
   // Another researcher removed the sensor being dragged: the drag ends with it.
@@ -180,7 +182,7 @@ addLayer({
     return alarming.size > 0
       || sensors.some((s) => {
         const at = drawn.get(s.id), to = shown(s);
-        return (at && (at.x !== to.x_m || at.y !== to.y_m)) || now - (beats.get(s.id)?.at ?? 0) < BEAT_MS;
+        return (at && (at.x !== to.x_m || at.y !== to.y_m)) || (!still && now - (beats.get(s.id)?.at ?? 0) < BEAT_MS);
       });
   },
   sprites(g, view, now) {
