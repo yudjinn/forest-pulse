@@ -113,20 +113,32 @@ class Pipeline:
         self._thread.start()
 
     def run(self) -> None:
+        # One bad block must not end this thread: the LED arrow would never clear and the queue would grow by the
+        # live audio until the board runs out of memory. Failures are logged at most every 5 s.
+        last_logged = 0.0
         while True:
             try:
-                msg = self.queue.get(timeout=0.5)
-            except queue.Empty:
-                self._led_tick()
-                continue
-            self.handle(msg)
-            while True:  # drain: append everything that's waiting, then analyse once
-                try:
-                    self.handle(self.queue.get_nowait())
-                except queue.Empty:
-                    break
-            self._live_step()
+                self._step()
+            except Exception as e:
+                now = time.monotonic()
+                if now - last_logged >= 5.0:
+                    self.log(f"[event] pipeline step failed, carrying on: {e!r}")
+                    last_logged = now
+
+    def _step(self) -> None:
+        try:
+            msg = self.queue.get(timeout=0.5)
+        except queue.Empty:
             self._led_tick()
+            return
+        self.handle(msg)
+        while True:  # drain: append everything that's waiting, then analyse once
+            try:
+                self.handle(self.queue.get_nowait())
+            except queue.Empty:
+                break
+        self._live_step()
+        self._led_tick()
 
     def drain(self) -> None:
         """Synchronous processing of everything queued (tests / offline replay)."""

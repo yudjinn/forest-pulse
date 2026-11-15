@@ -187,7 +187,11 @@ if os.path.exists(SENSOR_CONFIG):
 
         from forestpulse_sensor import Sensor
 
-        angle_fn = DetectionBearing(cfg, climate, on_bearing=pipeline.show_detection, log=log)
+        angle_fn = None
+        if cfg["bearing"].get("detections", True):
+            angle_fn = DetectionBearing(cfg, climate, on_bearing=pipeline.show_detection, log=log)
+        else:
+            log("[sdk] detections are sent without a direction (bearing.detections is off)")
         extra = {}
         sdk_params = inspect.signature(Sensor.__init__).parameters
         if "calibration" in sdk_params:
@@ -238,6 +242,11 @@ def _reader() -> None:
             with _sock_lock:
                 _sock = s
             log(f"[serial] connected to {BRIDGE_HOST}:{BRIDGE_PORT}")
+            # End a recording left running by an earlier app or connection, or a stop that never reached the ESP32
+            # (a continuous calibration stream never ends by itself and would grow without bound); the firmware
+            # ignores X when idle. A run streaming now keeps its stream.
+            if not calibration.streaming:
+                send_command("X")
 
             state = {"info": False, "info_logged": 0.0}
 
@@ -279,6 +288,9 @@ def _reader() -> None:
                 rx.feed(chunk)
         except OSError as e:
             log(f"[serial] {e}; retrying in {RETRY_SECONDS}s")
+        except Exception as e:
+            # anything else would end the reader and leave the board deaf while the app runs: reconnect instead
+            log(f"[serial] reader failed ({e!r}); reconnecting in {RETRY_SECONDS}s")
         finally:
             _esp_ok = False
             with _sock_lock:

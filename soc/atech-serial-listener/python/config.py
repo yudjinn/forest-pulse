@@ -21,7 +21,9 @@ DEFAULTS = {
     "speed_of_sound_mps": 343.0,
     "test_tone_hz": 0,  # TEST: LED arrow for a pure tone at this frequency (match FE_TEST_TONE_HZ); 0 = off
     "forward_ccw_deg": 90.0,  # board's marked forward in the board frame (90 = top edge, away from mic3)
-    "bearing": {"window_s": 0.5, "final_hop_s": 0.25, "min_snr_db": 0.0, "min_windows": 3, "min_peak_ratio": 3.0,
+    # detections: send each detection's direction to the server; false on a board with fewer than 3 mics fitted,
+    # whose directions would be noise and put sounds in the wrong place on the plan.
+    "bearing": {"detections": True, "window_s": 0.5, "final_hop_s": 0.25, "min_snr_db": 0.0, "min_windows": 3, "min_peak_ratio": 3.0,
                 "max_closure_samples": 1.0, "band_hz": [200, 8000]},
     "classifier": {"model": "models/mn10_as.onnx", "chainsaw_threshold": 0.2, "live_every_s": 2.0},
     "led": {"source": "detections", "rotation_deg": 0, "hold_s": 10.0, "min_change_deg": 5.0, "require_chainsaw": False},

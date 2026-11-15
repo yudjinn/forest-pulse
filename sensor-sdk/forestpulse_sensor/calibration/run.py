@@ -177,7 +177,9 @@ class Calibrator:
     def note_reply(self, reply: dict, sent: float, received: float) -> None:
         """A check-in reply, with this board's clock when the check-in was sent and when the reply arrived."""
         server = parse_time(reply.get("server_time"))
-        if server is not None:
+        # a clock stepped back during the request (NTP soon after boot) gives a round trip of zero or less, which
+        # would win as the fastest sample for the next 30 check-ins with a wrong offset
+        if server is not None and received - sent > 0:
             self._offsets.append((received - sent, server - (sent + received) / 2))
         if not self.capable:
             return

@@ -204,6 +204,9 @@ class CalibrationHooks:
         self.send_command = send_command
         self.notify = notify
         self.tee = tee
+        # a run's continuous stream is on: between a successful start_stream() and the next stop_stream(), whether
+        # or not that stop reached the ESP32
+        self.streaming = False
         self.log = log
         self.on_calibrating = on_calibrating or (lambda on: None)
         self.buzzer_ok = buzzer_ok or (lambda: None)
@@ -222,6 +225,7 @@ class CalibrationHooks:
         if ok:
             self._sleep(STREAM_SWITCH_S)
             ok = bool(self.send_command("C"))
+        self.streaming = ok
         self.log(f"[calib] continuous stream {'started' if ok else 'NOT started (ESP32 not connected)'}")
         if not ok and self.tee is not None:
             self.tee.set_calibrating(False)
@@ -229,7 +233,10 @@ class CalibrationHooks:
         return ok
 
     def stop_stream(self) -> None:
-        self.send_command("X")
+        self.streaming = False
+        if not self.send_command("X"):
+            # the reader sends X again when it reconnects, so the ESP32 never stays in continuous mode
+            self.log("[calib] could not send X to stop the continuous stream (ESP32 not connected)")
         if self.tee is not None:
             self.tee.set_calibrating(False)
         self.on_calibrating(False)

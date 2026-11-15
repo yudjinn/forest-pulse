@@ -94,7 +94,7 @@ def test_detects_reports_angle_and_follows_the_server_sound_list(tmp_path, model
         server.shutdown()
 
 
-def test_events_survive_outage_wrong_key_and_restart(tmp_path, model):
+def test_events_survive_outage_wrong_key_and_restart(tmp_path, model, monkeypatch):
     port = free_port()
     url = f"http://127.0.0.1:{port}"
 
@@ -119,6 +119,29 @@ def test_events_survive_outage_wrong_key_and_restart(tmp_path, model):
                         checkin_interval=0.2).start()
         assert wait_for(lambda: sensor.status["queued_events"] == 0)
         assert [e["sound_id"] for e in state.events] == ["chainsaw"]
+
+        # venue Wi-Fi cuts every reply short for a while: the sensor keeps trying, and once replies get through
+        # again it delivers what it heard meanwhile at once, not when the backoff of its failed deliveries ends
+        import http.client
+        from forestpulse_sensor import api as api_module
+
+        real_urlopen, cut = api_module.urllib.request.urlopen, {"on": True, "n": 0}
+
+        def cut_short(*args, **kwargs):
+            if cut["on"]:
+                cut["n"] += 1
+                raise http.client.IncompleteRead(b"{")
+            return real_urlopen(*args, **kwargs)
+
+        monkeypatch.setattr(api_module.urllib.request, "urlopen", cut_short)
+        time.sleep(5.1)  # past the 5 s repeat limit for the same sound
+        play(sensor, "chainsaw.wav")
+        assert wait_for(lambda: sensor.status["queued_events"] == 1)
+        time.sleep(6.5)  # failed deliveries back off to 8 s
+        cut["on"] = False
+        back = time.monotonic()
+        assert wait_for(lambda: len(state.events) == 2, timeout=10)
+        assert time.monotonic() - back < 2.0, "delivery waited for the outage's backoff"
         sensor.stop()
     finally:
         server.shutdown()
@@ -138,7 +161,7 @@ def test_checks_in_every_3_s_unless_the_config_file_says_otherwise_and_reports_i
         assert sensor.checkin_interval == 1
         sensor.start()
         assert wait_for(lambda: "node-e" in state.sensors)
-        assert state.sensors["node-e"]["sdk_version"] == "0.6.1"
+        assert state.sensors["node-e"]["sdk_version"] == "0.6.2"
     finally:
         sensor.stop()
         server.shutdown()
