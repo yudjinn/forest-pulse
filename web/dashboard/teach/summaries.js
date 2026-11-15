@@ -7,7 +7,6 @@ export const RATE = 32000;
 export const DIM = 960;
 const MODEL_LEN = 10 * RATE; // the model's input; shorter audio is repeated to fill it
 const RATIO_DB = /** @type {const} */ ([-3, 15]);
-const MODEL_DIR = "/model/";
 const FALLBACK_RATE = 48000;
 
 /** @param {Uint8Array} b @param {number} at @param {string} text */
@@ -166,35 +165,45 @@ function fill(audio) {
   return out;
 }
 
+// The model runs in a worker of its own (model-worker.js), so the page keeps drawing while it listens. Each request
+// carries an id, and its reply settles the promise waiting on that id.
+/** @type {Worker | null} */
+let worker = null;
+let nextId = 0;
+/** @type {Map<number, { resolve: (summary: Float32Array | undefined) => void, reject: (e: Error) => void }>} */
+const waiting = new Map();
+
 /**
- * @typedef {{ run(feeds: Record<string, unknown>): Promise<Record<string, { data: Float32Array }>> }} Session
- * @typedef {{
- *   env: { wasm: { wasmPaths: string, numThreads: number, proxy: boolean } },
- *   InferenceSession: { create(url: string, options: object): Promise<Session> },
- *   Tensor: new (type: string, data: Float32Array, dims: number[]) => unknown,
- * }} Runtime
+ * @param {Float32Array} [audio] exactly the model's 10 s, handed over to the worker; none just loads the model
+ * @returns {Promise<Float32Array | undefined>}
  */
-
-/** @type {Promise<{ ort: Runtime, session: Session }> | null} */
-let loading = null;
-
-// ONNX Runtime's WebAssembly build and the model file, both from the site itself, loaded once per page.
-function model() {
-  loading ??= (async () => {
-    const ort = /** @type {Runtime} */ (await import(`${MODEL_DIR}ort.wasm.min.mjs`));
-    ort.env.wasm.wasmPaths = MODEL_DIR;
-    ort.env.wasm.numThreads = 1;
-    ort.env.wasm.proxy = false;
-    const session = await ort.InferenceSession.create(`${MODEL_DIR}mn10_as.onnx`, { executionProviders: ["wasm"] });
-    return { ort, session };
-  })();
-  loading.catch(() => { loading = null; });
-  return loading;
+function ask(audio) {
+  if (!worker) {
+    worker = new Worker("/dashboard/teach/model-worker.js", { type: "module" });
+    worker.addEventListener("message", (event) => {
+      const { id, summary, error } = /** @type {{ id: number, summary?: Float32Array, error?: string }} */ (event.data);
+      const request = waiting.get(id);
+      waiting.delete(id);
+      if (error) request?.reject(new Error(error));
+      else request?.resolve(summary);
+    });
+    // The worker itself failed (its script did not load): everything waiting fails, and the next request starts anew.
+    worker.addEventListener("error", () => {
+      for (const request of waiting.values()) request.reject(new Error("the model's worker failed"));
+      waiting.clear();
+      worker?.terminate();
+      worker = null;
+    });
+  }
+  const id = nextId++;
+  const reply = /** @type {Promise<Float32Array | undefined>} */ (new Promise((resolve, reject) => waiting.set(id, { resolve, reject })));
+  worker.postMessage({ id, audio }, audio ? [audio.buffer] : []);
+  return reply;
 }
 
 /** Starts loading the model; resolves once it can run, rejects if it cannot load. */
 export async function loadModel() {
-  await model();
+  await ask();
 }
 
 /**
@@ -203,7 +212,5 @@ export async function loadModel() {
  * @returns {Promise<Float32Array>}
  */
 export async function summarise(audio) {
-  const { ort, session } = await model();
-  const out = await session.run({ audio: new ort.Tensor("float32", fill(audio), [1, MODEL_LEN]) });
-  return out.embedding.data.slice(0, DIM);
+  return /** @type {Float32Array} */ (await ask(fill(audio)));
 }

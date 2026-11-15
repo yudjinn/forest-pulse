@@ -7,7 +7,7 @@
 // It runs on its own fresh service: teaching changes the sound list for every sensor, so the shared service never
 // sees it. The teaching clips are boreal owls by recordists the player's samples do not use; the replayed owls are
 // the player's own samples, kept out of the other-sounds library and the teaching clips.
-import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -94,8 +94,20 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
 
     // Teaching again works: the dialog closes and the sound list shows the new sound switched on, and the other
     // tab's list picks it up on its own.
+    const replied = page.waitForResponse((r) => r.url() === `${origin}/dashboard/api/teach` && r.ok());
     await page.getByRole("button", { name: "Teach", exact: true }).click();
-    await expect(teaching).toBeHidden({ timeout: 60_000 });
+    // The detector shows with the size the service reports for it, beside the recordings' own total size, and the
+    // claim is the one divided by the other; with no sensor on the plan to send it to, the dialog then closes by
+    // itself.
+    const { detector_bytes: detector } = await (await replied).json() as { detector_bytes: number };
+    const recorded = clips.reduce((sum, file) => sum + statSync(file).size, 0);
+    const times = recorded / detector;
+    const round = times >= 1000 ? Math.round(times / 100) * 100 : times >= 100 ? Math.round(times / 10) * 10 : Math.round(times);
+    await expect(teaching.getByText(`${round.toLocaleString("en")} times smaller`, { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(teaching.getByText(`${Math.round(detector / 1000)} KB`, { exact: true })).toBeVisible();
+    await expect(teaching.getByText("the detector", { exact: true })).toBeVisible();
+    await expect(teaching.getByText(`${(recorded / 1e6).toFixed(1)} MB`, { exact: true })).toBeVisible();
+    await expect(teaching).toBeHidden({ timeout: 10_000 });
     const owl = page.getByRole("switch", { name: "Boreal owl", exact: true });
     await expect(owl).toBeChecked();
     await expect(page.getByRole("listitem").filter({ has: owl })).toContainText("Wildlife · Trained detector");
@@ -155,13 +167,29 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     for (const clip of retaught) {
       await expect(clipRow(page, path.basename(clip))).toContainText("Ready", { timeout: 60_000 });
     }
+    // One of the two sensors on the plan is online, with the list as it was. The teach screen stays up after
+    // teaching and counts a sensor only once it reports the new list; it closes by itself once the sensor online
+    // has it (the other is offline, and is not waited for).
+    const checkIn = (version: number) =>
+      asSensor(tawnySensor, [{ call: "checkin", fields: { sound_list_version: version } }], undefined, origin);
+    await expect.poll(async () => {
+      const plan = await (await page.request.get(`${origin}/dashboard/api/sensors`)).json();
+      return plan.sensors.find((s: { id: string }) => s.id === borealSensor).online;
+    }, { timeout: 15_000 }).toBe(false);
+    await checkIn(after.version);
     await page.getByRole("button", { name: "Teach", exact: true }).click();
-    await expect(teaching).toBeHidden({ timeout: 60_000 });
+    await expect(teaching.getByText("0 of 2 sensors have it", { exact: true })).toBeVisible({ timeout: 60_000 });
+    await checkIn(after.version); // still online, still without the new list
+    await page.waitForTimeout(3000); // past the moment it would close with no sensor online
+    await expect(teaching.getByText("0 of 2 sensors have it", { exact: true })).toBeVisible();
+    await checkIn(after.version + 1);
+    await expect(teaching.getByText("1 of 2 sensors have it", { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(teaching).toBeHidden({ timeout: 10_000 });
     await expect(owl).toBeChecked();
     await expect(page.getByRole("switch", { name: "Boreal owl" })).toHaveCount(1);
-    // The Sounds list counts the two sensors on the plan as not reached until they report the new list: each one's
-    // next run fetches it, and the run after reports it at its first check-in (a run can stop before a second one).
-    await expect(reach(page)).toHaveText("Reached 0 of 2 sensors");
+    // The sound list counts a sensor on the plan as reached only once it reports the new list: each one's next run
+    // fetches it, and the run after reports it at its first check-in (a run can stop before a second one).
+    await expect(reach(page)).toHaveText("Reached 1 of 2 sensors");
     for (let run = 0; run < 2; run++) {
       await replay({ sensorId: borealSensor, wavs: [silentWav()], stateDir: borealState, serverUrl: origin });
       await replay({ sensorId: tawnySensor, wavs: [silentWav()], stateDir: tawnyState, serverUrl: origin });

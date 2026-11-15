@@ -104,7 +104,7 @@ function soundId(name: string): string {
   return `${slug}-${suffix}`;
 }
 
-// POST /dashboard/api/teach -> 201 {sound: {id, name, category, kind, enabled}, version} for a new sound; 200 with the
+// POST /dashboard/api/teach -> 201 {sound: {id, name, category, kind, enabled}, version, detector_bytes} for a new sound; 200 with the
 // same reply when the name is a taught sound's, whose detector (weights, bias, taught time) is replaced in place, so
 // its id, name, category and switch stay and past events stay linked; 400 {error} for a bad or too small request;
 // 409 {error} when the name is a seeded sound's; 500 {error} when teaching failed. Nothing is saved on an error.
@@ -156,6 +156,7 @@ export async function teachSound(request: Request, { env }: RouteContext): Promi
         return json({
           sound: { id: row.id, name: row.name, category: row.category, kind: row.kind, enabled: row.enabled === 1 },
           version: replaced.version,
+          detector_bytes: detectorBytes(row.id, row.name, row.category, detector),
         }, 200);
       }
       // Deleted since the check above: taught as a new sound below.
@@ -180,11 +181,22 @@ export async function teachSound(request: Request, { env }: RouteContext): Promi
       throw e;
     }
     logLine("teach_saved", { name, sound: id, version: saved.version });
-    return json({ sound: { id, name, category, kind: "detector", enabled: true }, version: saved.version }, 201);
+    return json({
+      sound: { id, name, category, kind: "detector", enabled: true }, version: saved.version,
+      detector_bytes: detectorBytes(id, name, category, detector),
+    }, 201);
   } catch (e) {
     logLine("teach_failed", { name, reason: e instanceof Error ? e.message : String(e) });
     return json({ error: "teaching failed" }, 500);
   }
+}
+
+// How large the detector is as a sensor receives it: its entry in the sound list, in bytes. The dashboard shows it
+// beside the size of the recordings it was taught from. Within a few bytes: the served entry carries the current
+// sensitivity as its threshold, which can be a digit shorter or longer than this one.
+function detectorBytes(id: string, name: string, category: string, detector: { weights: number[]; bias: number }): number {
+  const entry = { id, name, category, kind: "detector", threshold: THRESHOLD, weights: detector.weights, bias: detector.bias };
+  return new TextEncoder().encode(JSON.stringify(entry)).length;
 }
 
 // GET /dashboard/api/teach/background -> the hall background the teach dialog mixes recordings over.
