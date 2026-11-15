@@ -120,29 +120,57 @@
       </div>
     </dialog>
 
-    <dialog id="teach" class="teach" aria-labelledby="teach-title">
-      <h2 id="teach-title">Teach a new sound</h2>
+    <dialog id="teach" class="teach c-wildlife" aria-labelledby="teach-title">
       <form class="teach-form" method="dialog">
-        <label class="field" for="teach-name">Name</label>
-        <input id="teach-name" name="name" type="text" autocomplete="off" maxlength="60" required>
-        <fieldset class="teach-category">
-          <legend>Category</legend>
-          <label class="c-wildlife"><input type="radio" name="category" value="wildlife" checked><span class="category-icon"></span>Wildlife</label>
-          <label class="c-logging"><input type="radio" name="category" value="logging"><span class="category-icon"></span>Logging</label>
-          <label class="c-vehicle"><input type="radio" name="category" value="vehicle"><span class="category-icon"></span>Vehicle</label>
-          <label class="c-poaching"><input type="radio" name="category" value="poaching"><span class="category-icon"></span>Poaching</label>
-        </fieldset>
-        <label class="drop" data-testid="drop-zone">
-          <span class="drop-title">Drop recordings here</span>
-          <span class="drop-hint">or choose files</span>
-          <input name="recordings" type="file" multiple aria-label="Recordings"
-            accept=".wav,.mp3,.flac,.ogg,.m4a,audio/wav,audio/mpeg,audio/flac,audio/ogg,audio/mp4">
-        </label>
-        <ul class="clip-list"></ul>
+        <div class="teach-head">
+          <h2 id="teach-title"><span class="teach-badge"><span class="category-icon"></span></span>Teach a new sound</h2>
+          <label class="field" for="teach-name">Name</label>
+          <input id="teach-name" name="name" type="text" autocomplete="off" maxlength="60" required>
+          <fieldset class="teach-category">
+            <legend class="aside-text">Category</legend>
+            <label class="c-wildlife"><input type="radio" name="category" value="wildlife" checked><span class="category-icon"></span>Wildlife</label>
+            <label class="c-logging"><input type="radio" name="category" value="logging"><span class="category-icon"></span>Logging</label>
+            <label class="c-vehicle"><input type="radio" name="category" value="vehicle"><span class="category-icon"></span>Vehicle</label>
+            <label class="c-poaching"><input type="radio" name="category" value="poaching"><span class="category-icon"></span>Poaching</label>
+          </fieldset>
+          <div class="dialog-actions">
+            <button type="button" class="button teach-cancel">Cancel</button>
+            <button type="submit" class="button fill">Teach</button>
+          </div>
+        </div>
+        <p class="teach-claim" role="status"></p>
         <p class="error" role="alert" hidden></p>
-        <div class="dialog-actions">
-          <button type="button" class="button teach-cancel">Cancel</button>
-          <button type="submit" class="button fill">Teach</button>
+        <div class="teach-line">
+          <div class="teach-stage teach-recordings">
+            <label class="drop" data-testid="drop-zone">
+              <span class="drop-title">Drop recordings here</span>
+              <span class="drop-hint">or choose files</span>
+              <input name="recordings" type="file" multiple aria-label="Recordings"
+                accept=".wav,.mp3,.flac,.ogg,.m4a,audio/wav,audio/mpeg,audio/flac,audio/ogg,audio/mp4">
+            </label>
+            <ul class="clip-list"></ul>
+            <p class="teach-size"><b class="teach-total">0 MB</b>of recordings, kept on this laptop</p>
+          </div>
+          <i class="teach-pipe teach-pipe-in"></i>
+          <div class="teach-stage teach-model">
+            <svg viewBox="-80 -80 160 160" aria-hidden="true">
+              <circle class="teach-rim" r="74"/>
+              <circle class="teach-heard" r="74" transform="rotate(-90)" stroke-dasharray="0 465"/>
+              <svg x="-44" y="-36" width="88" height="72" viewBox="410 140 705 575"><path class="teach-leaf" d="M 505 553 C 522 359 643 263 800 250 C 915 240 1019 237 1075 180 C 1070 480 1001 564 888 612 C 791 659 707 633 624 605 C 538 569 509 610 483 675 H 450 C 469 607 534 516 599 486 C 628 471 659 470 678 468 C 704 461 707 511 728 517 C 752 526 760 452 773 409 C 784 368 796 419 807 454 C 819 499 831 519 850 486 C 867 454 872 429 892 439 C 923 464 972 447 1037 416 C 981 437 943 437 931 434 C 908 431 900 410 886 406 C 865 395 855 438 846 452 C 831 475 824 425 811 390 C 794 329 775 333 762 377 C 750 410 743 461 733 463 C 719 471 709 424 687 431 C 670 436 666 449 632 459 C 579 477 541 500 505 553 Z"/></svg>
+            </svg>
+            <p class="teach-size teach-hearing"></p>
+          </div>
+          <i class="teach-pipe teach-pipe-out"></i>
+          <div class="teach-stage teach-detector">
+            <span class="teach-seed-box"><i class="teach-halo"></i><i class="teach-seed"></i></span>
+            <p class="teach-scale">to scale</p>
+            <p class="teach-size"><b class="teach-detector-size">19 KB</b>the detector</p>
+          </div>
+          <i class="teach-pipe teach-pipe-send"></i>
+          <div class="teach-stage teach-sensors">
+            <div class="teach-pucks" aria-hidden="true"></div>
+            <p class="teach-size teach-got"></p>
+          </div>
         </div>
       </form>
     </dialog>

@@ -163,7 +163,7 @@ Before the audience arrives:
 8. The phone: signed in on the dashboard with the player open (the speaker button), paired with the Bluetooth
    speaker, volume up, screen lock off.
 9. The laptop: signed in on the dashboard, the "Boreal owl teaching pack" folder open on the Desktop. Open "Teach a
-   new sound" once, drop a clip and wait until it shows Ready, then Cancel: the dialog loads about 35 MB of model
+   new sound" once, drop a clip and wait until its tile has filled, then Cancel: the dialog loads about 35 MB of model
    the first time, which should come from the browser's cache on stage.
 10. After any deploy, reload every open dashboard tab, the phone's included: a tab keeps the code it loaded.
 
@@ -174,10 +174,11 @@ On stage:
 3. Stop the player, then press Send warning on the Logging activity: the boards that heard it sound the alarm and
    the activity lists each one's outcome. Send it now: it is offered only for 5 minutes after the last chainsaw.
 4. Under the sound list, choose "Teach a new sound", name it "Boreal owl", leave Wildlife, select everything in the pack
-   folder and drop it on the page, wait for every recording to show Ready, then Teach. Boreal owl is listed, switched
-   on.
-5. Open Devices and wait until the sound list number on every board's card has gone up by one: a board fetches the
-   new list after its next check-in, within about a minute. An owl played before that is not reported.
+   folder and drop it on the page, wait until the screen says "heard all" of them (about 20 s), then Teach. The
+   screen shows the detector and how many times smaller it is than the recordings, sends it to each board, and
+   closes once every board online has it. Boreal owl is listed, switched on.
+5. If the teach screen closed before a board had it (it waits 20 s at most), open Devices and wait until the sound
+   list number on that board's card has gone up by one. An owl played before that is not reported.
 6. Play Boreal owl 1, then Boreal owl 2: each is reported as Boreal owl. Play Tawny owl: it is not.
 
 Afterwards: delete Boreal owl from the sound list and Clear events, so the next rehearsal and the boards start clean.

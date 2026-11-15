@@ -95,7 +95,11 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     // Teaching again works: the dialog closes and the sound list shows the new sound switched on, and the other
     // tab's list picks it up on its own.
     await page.getByRole("button", { name: "Teach", exact: true }).click();
-    await expect(teaching).toBeHidden({ timeout: 60_000 });
+    // The detector shows beside the recordings it came from, with how many times smaller it is; with no sensor on
+    // the plan to send it to, the dialog then closes by itself.
+    await expect(teaching.getByText(/^[\d,]+ times smaller$/)).toBeVisible({ timeout: 60_000 });
+    await expect(teaching.getByText(/^\d+ KB$/)).toBeVisible();
+    await expect(teaching).toBeHidden({ timeout: 10_000 });
     const owl = page.getByRole("switch", { name: "Boreal owl", exact: true });
     await expect(owl).toBeChecked();
     await expect(page.getByRole("listitem").filter({ has: owl })).toContainText("Wildlife · Trained detector");
