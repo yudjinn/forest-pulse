@@ -1,6 +1,6 @@
 // Rehearsal of the whole demo script, step by step, as the presenter runs it on stage: the phone's player plays, a
 // sensor hears a chainsaw and the dashboard shows a Logging activity with its direction, two sensors hearing it at
-// once show where it was, the teaching pack is taught through the Teach page, and the player's boreal owls are then
+// once show where it was, the teaching pack is taught through the teach dialog, and the player's boreal owls are then
 // reported while its tawny owl is not. It ends by undoing everything it did, so the audience starts clean.
 // It runs on its own fresh local service (teaching changes the sound list for every sensor), or against the live site
 // when FP_REHEARSAL_ORIGIN is set, with the live sensor key and password from .dev-secrets.local. On the live site it
@@ -11,6 +11,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { showDevices, showEventLog, showPlayer } from "../fixtures/dashboard.ts";
 import { replay, sensorName, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { rehearsalServicePorts } from "../ports.ts";
@@ -106,13 +107,15 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
           const phone = await browser.newContext({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true });
           try {
             const p = await phone.newPage();
-            await signInWith(p, origin, password, "/dashboard/player/");
+            await signInWith(p, origin, password);
+            await showPlayer(p);
             const { samples } = await read<{ samples: { name: string }[] }>(p.request, origin, "player/samples");
             expect(samples.length).toBe(6);
             for (const s of samples) await expect(p.getByRole("button", { name: s.name, exact: true })).toBeVisible();
             await p.getByRole("button", { name: "Chainsaw 1", exact: true }).tap();
             await expect(p.getByRole("listitem").filter({ hasText: "Chainsaw 1" })).toContainText("Playing", seen);
-            await p.getByRole("button", { name: "Stop" }).tap();
+            // Tapping the playing sample stops it; its button now reads "Chainsaw 1 Playing".
+            await p.getByRole("button", { name: "Chainsaw 1 Playing", exact: true }).tap();
             await expect(p.getByText("Playing")).toHaveCount(0);
           } finally {
             await phone.close();
@@ -131,6 +134,7 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
               { data: { x_m, y_m: 0, facing_deg } });
             expect(placed.ok(), `placing ${id}`).toBe(true);
           }
+          await showDevices(page);
           await expect(sensorCard(page, ids.a).getByText(`x ${x0.toFixed(1)} m, y 0.0 m`)).toBeVisible(seen);
           await expect(sensorCard(page, ids.b).getByText(`x ${(x0 + 3).toFixed(1)} m, y 0.0 m`)).toBeVisible(seen);
           for (const id of [ids.a, ids.b]) names[id] = await sensorName(request, id, origin);
@@ -158,7 +162,7 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
           await expect(logging(page, nameOf(ids.a))).toContainText(located, seen);
         });
 
-      const taught = await demoStep(`teach "${name}" from the teaching pack on the Teach page`,
+      const taught = await demoStep(`teach "${name}" from the teaching pack in the teach dialog`,
         "the new sound listed as a taught detector, switched on, and the sound list one version on", async () => {
           await teachThePack(page, origin, name, pack!);
           const sounds = await read<{ sounds: Sound[]; version: number }>(request, origin, "sounds");
@@ -183,14 +187,15 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
           }
           names[ids.c] = await sensorName(request, ids.c, origin);
           await page.goto(`${origin}/dashboard/`);
+          await showEventLog(page);
           await expect(logRows(page, nameOf(ids.a), name).first()).toBeVisible(seen);
           await expect(logRows(page, nameOf(ids.b), name).first()).toBeVisible(seen);
           await page.waitForTimeout(2500); // one more poll of the log
           await expect(logRows(page, nameOf(ids.c), name)).toHaveCount(0);
         });
 
-      await demoStep(`delete "${name}" on the Sounds page`, "it leaves the list after its confirmation", async () => {
-        await page.goto(`${origin}/dashboard/sounds/`);
+      await demoStep(`delete "${name}" from the sound list`, "it leaves the list after its confirmation", async () => {
+        await page.goto(`${origin}/dashboard/`);
         await page.getByRole("button", { name: `Delete ${name}`, exact: true }).click();
         await page.getByRole("dialog", { name: `Delete ${name}?` }).getByRole("button", { name: "Delete", exact: true })
           .click();
@@ -199,6 +204,7 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
 
       await demoStep("remove the rehearsal sensors from the plan", "their cards gone from the plan", async () => {
         await page.goto(`${origin}/dashboard/`);
+        await showDevices(page);
         for (const id of mine) {
           await sensorCard(page, id).getByRole("button", { name: `Remove ${nameOf(id)}` }).click();
           await expect(sensorCard(page, id)).toHaveCount(0, seen);
@@ -208,6 +214,7 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
       const cleared = await demoStep("clear events", "the event log cleared after its confirmation", async () => {
         const { events } = await read<{ events: LogEvent[] }>(request, origin, "events");
         reportOthers(events.filter((e) => !mine.has(e.sensor_id)), events.length >= LOG_LIMIT);
+        await showEventLog(page);
         await page.getByRole("button", { name: "Clear events" }).click();
         await page.getByRole("dialog", { name: "Clear events?" }).getByRole("button", { name: "Clear events" }).click();
         await expect(page.getByRole("dialog", { name: "Clear events?" })).toBeHidden(seen);

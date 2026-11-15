@@ -5,7 +5,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { devVars, signIn } from "../fixtures/dashboard.ts";
+import { devVars, showDevices, showEventLog, signIn } from "../fixtures/dashboard.ts";
 import { asSensor, referenceClip, replay, sensorName, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { activitiesServicePorts, activitiesServiceStateDir, webRoot } from "../ports.ts";
@@ -33,6 +33,7 @@ test("events become activities by category and corrected time, and Clear events 
     const origin = service.url;
     await signIn(page, "/dashboard/", origin);
     await expect(page.getByText("Nothing heard yet")).toBeVisible();
+    await showEventLog(page);
     await expect(page.getByRole("button", { name: "Clear events" })).toBeDisabled();
 
     // A sensor hears a chainsaw: one Logging activity with its icon, sound, time, count and sensor, named as the
@@ -102,10 +103,12 @@ test("events become activities by category and corrected time, and Clear events 
     // Confirmed, every event and activity is gone; the sensors, their placements and the sounds stay as they were.
     const sawCard = page.getByRole("list", { name: "Sensors" }).getByRole("listitem")
       .filter({ has: page.getByText(saw, { exact: true }) });
+    await showDevices(page);
     await sawCard.getByLabel("Facing").fill("45");
     await sawCard.getByLabel("Facing").press("Enter");
     await expect(sawCard.getByLabel("Facing")).toHaveValue("45");
     const sawPosition = await sawCard.getByText(/^x -?\d+\.\d m, y -?\d+\.\d m$/).textContent();
+    await showEventLog(page);
     await page.getByRole("button", { name: "Clear events" }).click();
     await confirm.getByRole("button", { name: "Clear events" }).click();
     await expect(page.getByText("Nothing heard yet")).toBeVisible();
@@ -116,10 +119,10 @@ test("events become activities by category and corrected time, and Clear events 
     await expect(page.getByRole("button", { name: "Clear events" })).toBeDisabled();
     expect(await storedSensors()).toEqual([saw, road, behind].sort());
     await page.reload();
+    await showDevices(page);
     await expect(sawCard.getByLabel("Facing")).toHaveValue("45");
     await expect(sawCard.getByText(/^x -?\d+\.\d m, y -?\d+\.\d m$/)).toHaveText(sawPosition!);
 
-    await page.goto(`${origin}/dashboard/sounds/`);
     for (const name of SEEDED) await expect(page.getByRole("switch", { name, exact: true })).toBeChecked();
     expect((await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()).version).toBe(version);
   } finally {

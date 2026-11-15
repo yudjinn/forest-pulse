@@ -1,4 +1,4 @@
-// Teaching a new sound: the Teach page sends the summaries of a researcher's recordings (never audio), and this
+// Teaching a new sound: the dashboard's teach dialog sends the summaries of a researcher's recordings (never audio), and this
 // trains a detector against the stored summaries of other sounds in the same request, saves it switched on, and
 // moves the sound-list version on so every sensor pulls it at its next check-in.
 //
@@ -187,7 +187,7 @@ export async function teachSound(request: Request, { env }: RouteContext): Promi
   }
 }
 
-// GET /dashboard/api/teach/background -> the hall background the Teach page mixes recordings over.
+// GET /dashboard/api/teach/background -> the hall background the teach dialog mixes recordings over.
 export async function teachBackground(_request: Request, { env }: RouteContext): Promise<Response> {
   const object = await env.STORAGE.get(BACKGROUND);
   if (!object) return json({ error: "not found" }, 404);

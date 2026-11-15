@@ -20,5 +20,8 @@
 - **Sensor name**: "Sensor N" on the dashboard, N the lowest number not held by another sensor on the plan when it joins; a returning sensor takes its old number back when still free. A sensor not on the plan shows its own id, which still identifies it to the service. The plan lists sensors by number, so plan order is Sensor 1 first.
 - **Warning**: the operator's response to a logging activity: every board that heard it plays the alarm on its buzzer, standing in for a radio warning to the loggers that logging here is unauthorised.
 - **Alarm**: the warning's sound: a harsh hi-lo stutter (3.5 kHz and 2.5 kHz tones, 120 ms each, one every 150 ms) for about 5 s, unlike the smooth calibration sweeps.
-- **Sensitivity**: one confidence threshold, set on the Sounds page, that every sound of interest must reach before a sensor reports it.
+- **Sensitivity**: one confidence threshold, set in the dashboard's Devices panel, that every sound of interest must reach before a sensor reports it.
 - **Trigger health**: what a sensor's front-end is doing: recordings per minute (counted by the library) and, when the board provides them, its trigger values and noise floor.
+- **Map**: the dashboard's tilted view of the plan: each sensor a numbered puck, rings a round number of metres apart, and each heard sound shown for 15 s as a direction or a located point.
+- **Devices panel**: opened from the dashboard's top right: one tab with Calibrate, a card per sensor (its id, health, versions, facing, Remove) and the sensitivity, one with the event log and Clear events. While it is open the map tips to a plan view and sensors can be moved.
+- **Pulse**: the line along the foot of the dashboard covering the last 90 s: a small beat for every sensor check-in and a spike for every sound heard.

@@ -1,152 +1,184 @@
-/* The Teach page: the form in one column, the dropped recordings listed with their progress underneath. */
-#teach {
-  max-width: 720px;
-  width: 100%;
-  justify-self: center;
-}
-
+/* Teach a new sound: a name, a category, the dropped recordings with each one's progress, and Teach. */
 .teach-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+  gap: 10px;
 }
 
-.teach-form input,
-.teach-form select {
-  width: 100%;
-  min-width: 0;
-}
-
-.teach-form select {
-  font: inherit;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-  color: inherit;
-}
-
-.drop {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 16px;
-  border: 2px dashed var(--line);
-  border-radius: 8px;
-}
-
-.drop.over {
-  border-color: var(--evergreen);
-  background: var(--ivory);
-}
-
-/* Only the button shows: the chosen recordings are listed below, each with its own state. */
-.drop input[type="file"] {
-  border: 0;
-  padding: 0;
-  color: transparent;
-}
-
-.drop input[type="file"]::file-selector-button {
-  margin-right: 12px;
-  padding: 6px 12px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-  color: var(--evergreen);
-  font: inherit;
+.teach-form .field,
+.teach-category legend {
+  margin-top: 6px;
+  font-size: 14px;
   font-weight: 600;
+}
+
+.teach-form input[type="text"] {
+  padding: 11px 12px;
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.teach-category {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.teach-category legend {
+  margin-bottom: 8px;
+}
+
+.teach-category label {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 10px 4px;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--soft);
   cursor: pointer;
 }
 
-.clip-list {
+.teach-category input {
+  position: absolute;
+  inset: 0;
   margin: 0;
-  padding: 0;
-  list-style: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.teach-category .category-icon {
+  background: currentColor;
+}
+
+.teach-category label:has(:checked) {
+  border-color: var(--c);
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 10%, transparent);
+}
+
+.teach-category label:has(:focus-visible) {
+  outline: 2px solid var(--ivory);
+  outline-offset: 2px;
+}
+
+.drop {
+  position: relative;
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  min-height: 96px;
+  margin-top: 8px;
+  padding: 16px;
+  border: 1.5px dashed var(--faint);
+  border-radius: 14px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.drop-title {
+  font-weight: 600;
+}
+
+.drop-hint {
+  font-size: 13px;
+  color: var(--faint);
+}
+
+.drop input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.drop.over,
+.drop:hover {
+  border-color: var(--ivory);
+  background: rgba(251, 247, 239, 0.05);
+}
+
+.drop:has(:focus-visible) {
+  outline: 2px solid var(--ivory);
+  outline-offset: 2px;
+}
+
+.clip-list {
+  display: grid;
+  gap: 2px;
+  max-height: 168px;
+  overflow: auto;
+  font-size: 13px;
+}
+
+.clip-list:empty {
+  display: none;
 }
 
 .clip-list li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: 1fr auto auto auto;
   align-items: center;
-  gap: 4px 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.clip-list li:last-child {
-  border-bottom: 0;
+  gap: 2px 10px;
+  padding: 4px 0;
 }
 
 .clip-name {
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .clip-status {
-  color: var(--muted);
-  font-size: 14px;
+  color: var(--soft);
 }
 
-.clip-list li.skipped .clip-status {
+.clip-list .skipped .clip-name {
+  color: var(--faint);
+}
+
+.clip-list .skipped .clip-status {
   color: var(--alert);
-  font-weight: 600;
+}
+
+.clip-list button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--soft);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .clip-list progress {
   grid-column: 1 / -1;
   width: 100%;
-  height: 6px;
-  accent-color: var(--evergreen);
+  height: 3px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--hair);
+  accent-color: var(--ivory);
+  appearance: none;
 }
 
-.clip-list progress[hidden] {
-  display: none;
+.clip-list progress::-webkit-progress-bar {
+  border-radius: 2px;
+  background: var(--hair);
 }
 
-.clip-retry {
-  grid-column: 3;
+.clip-list progress::-webkit-progress-value {
+  border-radius: 2px;
+  background: var(--ivory);
 }
 
-.clip-remove {
-  grid-column: 4;
-}
-
-/* On a phone, a row with both buttons puts its status under the name, so the name keeps its width. */
-@media (max-width: 480px) {
-  .clip-list li:has(.clip-retry:not([hidden])) .clip-status {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .clip-list li:has(.clip-retry:not([hidden])) :is(.clip-name, .clip-retry, .clip-remove) {
-    grid-row: 1;
-  }
-}
-
-.clip-retry,
-.clip-remove {
-  padding: 4px 10px;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--evergreen);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.teach-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
-  margin-top: 8px;
-}
-
-.teach-actions a {
-  color: var(--evergreen);
-}
-
-.teach-form button[type="submit"]:disabled {
-  background: var(--line);
-  color: var(--muted);
-  cursor: progress;
+.clip-list progress::-moz-progress-bar {
+  border-radius: 2px;
+  background: var(--ivory);
 }

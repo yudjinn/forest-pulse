@@ -1,8 +1,8 @@
 // Warnings journey: simulated boards that heard a chainsaw get a researcher's warning and play the alarm, and the
 // Logging card says what each board did; a lost reply retried never sends twice, a second Send waits while one is on
-// its way, an old card offers none, and Clear events removes the warnings with the events. The alert banner on every
-// page: a Dismiss in one browser is gone for the other, the same activity never brings it back, a new one does, and
-// its Send warning warns the boards like the card's.
+// its way, an old card offers none, and Clear events removes the warnings with the events. The alert on a
+// logging activity: a Dismiss in one browser is gone for the other, the same activity never brings it back, a new one
+// does, and its Send warning warns the boards.
 // It runs on its own fresh service: it needs a plan of its own and clears every event.
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync, openSync } from "node:fs";
@@ -11,7 +11,7 @@ import path from "node:path";
 import { createInterface, type Interface } from "node:readline";
 import { promisify } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
-import { devVars, signIn } from "../fixtures/dashboard.ts";
+import { devVars, showDevices, showEventLog, signIn } from "../fixtures/dashboard.ts";
 import { asSensor, referenceClip, sensorName, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { warningsServicePorts, webRoot } from "../ports.ts";
@@ -77,7 +77,7 @@ async function stored(sql: string): Promise<number> {
   return Object.values(JSON.parse(stdout)[0].results[0] as Record<string, number>)[0];
 }
 
-test("boards that heard the logging play the warning's alarm and the card reports every outcome; the alert banner is shared, alerts once per activity and sends like the card; Clear events removes warnings and dismissals", async ({ browser, page, playwright }) => {
+test("boards that heard the logging play the warning's alarm and the card reports every outcome; the alert is shared, alerts once per activity and sends the same warning; Clear events removes warnings and dismissals", async ({ browser, page, playwright }) => {
   test.setTimeout(360_000);
   const service = new SecondService(warningsServicePorts);
   await service.start();
@@ -109,6 +109,7 @@ test("boards that heard the logging play the warning's alarm and the card report
     for (const [i, id] of [a, b, off, mute].entries()) {
       await boards.send({ add: { id, x_m: 3 * i, buzzer: id !== mute } });
     }
+    await showDevices(page);
     for (const id of [a, b, off, mute]) {
       await expect(planCard(page, id).getByText("Online", { exact: true })).toBeVisible({ timeout: 10_000 });
     }
@@ -139,7 +140,11 @@ test("boards that heard the logging play the warning's alarm and the card report
     const line = card.getByText(/^Warning sent \d{2}:\d{2}:\d{2} · /);
     await expect(line).toHaveCount(1);
     await expect(line).toContainText(`on its way to ${[na, nb].sort(byName).join(", ")}`);
-    // A warning sent from the card takes the alert banner away.
+    // On the map the two boards it is on its way to sound the alarm.
+    for (const name of [na, nb]) {
+      await expect(page.getByRole("button", { name: `Move ${name}, sounding the alarm`, exact: true })).toBeVisible();
+    }
+    // A warning sent takes the alert away.
     await expect(alertBanner(page)).toBeHidden();
 
     // A Send while the warning is on its way waits.
@@ -174,6 +179,7 @@ test("boards that heard the logging play the warning's alarm and the card report
 
     // Clear events removes the cards and their warnings.
     expect(await stored("SELECT COUNT(*) AS n FROM warning_targets")).toBe(4);
+    await showEventLog(page);
     await page.getByRole("button", { name: "Clear events" }).click();
     await page.getByRole("dialog", { name: "Clear events?" }).getByRole("button", { name: "Clear events" }).click();
     await expect(page.getByText("Nothing heard yet")).toBeVisible();
@@ -182,12 +188,12 @@ test("boards that heard the logging play the warning's alarm and the card report
     expect(await stored("SELECT (SELECT COUNT(*) FROM warnings) + (SELECT COUNT(*) FROM warning_targets) AS n"))
       .toBe(0);
 
-    // A second researcher, on the Sounds page, sees the banner for logging heard 45 s ago (the board's own past
+    // A second researcher sees the alert for logging heard 45 s ago (the board's own past
     // times) and dismisses it (the first Dismiss never reaches the service); it is gone for the first researcher too.
     const other = await browser.newContext();
     try {
       const page2 = await other.newPage();
-      await signIn(page2, "/dashboard/sounds/", origin);
+      await signIn(page2, "/dashboard/", origin);
       const seededAt = Date.now() - 45_000;
       await asSensor(a, [{ call: "post_events", events: [chainsawAt("seed-1", seededAt)] }], key, origin);
       for (const p of [page, page2]) {
@@ -200,15 +206,15 @@ test("boards that heard the logging play the warning's alarm and the card report
       await expect(alertBanner(page2)).toBeHidden();
       await expect(alertBanner(page)).toBeHidden({ timeout: 5000 });
 
-      // More chainsaw in the same activity brings no banner back.
+      // More chainsaw in the same activity brings no alert back.
       await asSensor(a, [{ call: "post_events", events: [chainsawAt("seed-2", seededAt + 2000)] }], key, origin);
       await expect(loggingCards(page)).toContainText("2 events", { timeout: 5000 });
-      await page.waitForTimeout(2500); // a poll of each banner after the event
+      await page.waitForTimeout(2500); // a poll of each page after the event
       // Only meaningful while the activity would still alert had nobody dismissed it.
       expect(Date.now()).toBeLessThan(seededAt + 2000 + 60_000);
       for (const p of [page, page2]) await expect(alertBanner(p)).toBeHidden();
 
-      // Once 60 s have passed without logging, the boards hear a chainsaw now: a new activity, and the banner is
+      // Once 60 s have passed without logging, the boards hear a chainsaw now: a new activity, and the alert is
       // back on both pages.
       await page.waitForTimeout(Math.max(0, seededAt + 2000 + 61_000 - Date.now()));
       await boards.send({ hear: { ids: [a, b], wav: referenceClip("chainsaw.wav") } });
@@ -217,7 +223,7 @@ test("boards that heard the logging play the warning's alarm and the card report
           .toBeVisible({ timeout: 10_000 });
       }
 
-      // Its Send warning (the first press never reaches the service) warns the boards, and the banner goes.
+      // Its Send warning (the first press never reaches the service) warns the boards, and the alert goes.
       await page.route(`${origin}/dashboard/api/warnings`, (route) => route.abort(), { times: 1 });
       await alertBanner(page).getByRole("button", { name: "Send warning" }).click();
       await expect(alertBanner(page).getByText("Couldn't send the warning. Try again.")).toBeVisible();
@@ -233,6 +239,7 @@ test("boards that heard the logging play the warning's alarm and the card report
 
     // Clear events removes the dismissal with the warnings.
     expect(await stored("SELECT COUNT(*) AS n FROM alert_dismissals")).toBe(1);
+    await showEventLog(page);
     await page.getByRole("button", { name: "Clear events" }).click();
     await page.getByRole("dialog", { name: "Clear events?" }).getByRole("button", { name: "Clear events" }).click();
     await expect(page.getByText("Nothing heard yet")).toBeVisible();

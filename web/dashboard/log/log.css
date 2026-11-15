@@ -1,51 +1,68 @@
-/* The live event log panel. */
-.log-scroll {
-  overflow-x: auto;
-}
-
-#log table {
+/* The pulse along the foot of the map (a beat per sensor check-in, a spike per sound heard), and the event log
+   in its tab of the Devices panel. */
+.pulse {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 1;
+  display: block;
   width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
+  height: 78px;
+  padding: 0;
+  border: 0;
+  background: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%);
+  mask-image: linear-gradient(90deg, transparent, #000 22%);
 }
 
-#log th,
-#log td {
-  padding: 6px 8px;
-  text-align: left;
-  white-space: nowrap;
-  border-bottom: 1px solid var(--line);
+.pulse canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-#log th {
-  color: var(--muted);
-  font-weight: 600;
-}
-
-#log th:first-child,
-#log td:first-child {
-  padding-left: 0;
+.log-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .log-empty {
-  margin: 12px 0 0;
-  color: var(--muted);
+  flex: 1;
+  font-size: 14px;
+  color: var(--soft);
 }
 
-@media (max-width: 480px) {
-  #log table {
-    font-size: 13px;
-  }
+.activities-error {
+  margin-bottom: 12px;
+}
 
-  #log th,
-  #log td {
-    padding: 6px 4px;
-  }
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
 
-  /* A long sensor name wraps, so every column fits a phone. */
-  #log td:nth-child(2) {
-    white-space: normal;
-    overflow-wrap: anywhere;
+.log-table th {
+  padding: 0 8px 8px 0;
+  text-align: left;
+  font-weight: 600;
+  color: var(--faint);
+}
+
+.log-table td {
+  padding: 6px 8px 6px 0;
+  border-top: 1px solid var(--hair);
+  color: var(--soft);
+}
+
+.log-table td:nth-child(3) {
+  color: var(--ivory);
+}
+
+@media (max-width: 900px) {
+  .pulse {
+    position: static;
   }
 }

@@ -1,4 +1,4 @@
-// Steps of the stage rehearsal: where it runs, signing in, the presenter's teaching pack taught through the Teach page
+// Steps of the stage rehearsal: where it runs, signing in, the presenter's teaching pack taught through the teach dialog
 // as on stage, and sensors hearing one sound at the same moment.
 import { execFile } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
-import { devVars } from "../fixtures/dashboard.ts";
+import { devVars, openTeach } from "../fixtures/dashboard.ts";
 import { webRoot } from "../ports.ts";
 
 const repoRoot = path.resolve(webRoot, "..");
@@ -37,13 +37,14 @@ export function rehearsalSecrets(): { password: string; key: string } {
   return { password, key };
 }
 
-// Opens a dashboard page signed out, signs in with `password` and waits to be back on that page.
-export async function signInWith(page: Page, origin: string, password: string, dashboardPath = "/dashboard/") {
-  await page.goto(origin + dashboardPath);
+// Opens the dashboard signed out, signs in with `password` and waits to be back on it.
+export async function signInWith(page: Page, origin: string, password: string) {
+  await page.goto(`${origin}/dashboard/`);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(origin + dashboardPath);
+  await expect(page).toHaveURL(`${origin}/dashboard/`);
 }
+
 
 // One step of the demo script. Its result is printed as it ends, and a failure names the step and what it expected.
 export async function demoStep<T>(name: string, expected: string, body: () => Promise<T>): Promise<T> {
@@ -86,22 +87,21 @@ export function teachingPack(): TeachingPack | null {
   return { folder: teachingPackFolder, files: expected.map((f) => path.join(teachingPackFolder, f)), size: expected.length };
 }
 
-// Teaches a sound from the pack through the Teach page, reached from the Sounds page as on stage, and waits for it
-// to be listed switched on. The page must be signed in on `origin`.
+// Teaches a sound from the pack through Teach a new sound, as on stage, and waits for it to be listed switched on.
+// The page must be signed in on `origin`.
 export async function teachThePack(page: Page, origin: string, name: string, pack: TeachingPack) {
-  await page.goto(`${origin}/dashboard/sounds/`);
-  await page.getByRole("link", { name: "Teach a new sound" }).click();
-  await expect(page).toHaveURL(`${origin}/dashboard/teach/`);
+  await page.goto(`${origin}/dashboard/`);
+  const teaching = await openTeach(page);
   await page.getByLabel("Name").fill(name);
-  await expect(page.getByLabel("Category")).toHaveValue("wildlife");
+  await expect(teaching.getByRole("radio", { name: "Wildlife" })).toBeChecked();
   await page.getByLabel("Recordings").setInputFiles(pack.files);
   // Recordings are summarised in turn in the browser, 12 windows clean and mixed for each 60 s clip.
   for (const file of pack.files) {
     await expect(page.getByRole("listitem").filter({ hasText: path.basename(file) }))
       .toContainText("Ready", { timeout: 60_000 });
   }
-  await page.getByRole("button", { name: "Teach" }).click();
-  await expect(page).toHaveURL(`${origin}/dashboard/sounds/`, { timeout: 60_000 });
+  await page.getByRole("button", { name: "Teach", exact: true }).click();
+  await expect(teaching).toBeHidden({ timeout: 60_000 });
   await expect(page.getByRole("switch", { name, exact: true })).toBeChecked();
 }
 

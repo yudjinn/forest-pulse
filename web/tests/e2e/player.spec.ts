@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { signIn } from "../fixtures/dashboard.ts";
+import { showPlayer, signIn } from "../fixtures/dashboard.ts";
 import { replay, uniqueSensorId } from "../fixtures/sensor.ts";
 import { webRoot } from "../ports.ts";
 
@@ -18,17 +18,21 @@ test.use({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true
 const sampleButton = (page: Page, name: string) => page.getByRole("button", { name });
 const sampleRow = (page: Page, name: string) => page.getByRole("listitem").filter({ has: sampleButton(page, name) });
 
-test("a presenter's phone loops one sample at a time until Stop, with credits", async ({ page }) => {
+test("a presenter's phone loops one sample at a time until it is tapped again, with credits", async ({ page }) => {
   const [chainsaw] = byKind("chainsaw");
   const [owl, otherOwl] = byKind("boreal owl");
   const [tawny] = byKind("tawny owl");
   // One recording fails to load; the rest of the player keeps working.
   await page.route(`**/dashboard/api/player/samples/${tawny.file}`, (route) => route.abort());
 
-  // Signed out, the player goes to sign-in and comes back after it.
-  await page.goto("/dashboard/player/");
-  await expect(page).toHaveURL(/\/dashboard\/signin\?next=%2Fdashboard%2Fplayer%2F$/);
-  await signIn(page, "/dashboard/player/");
+  // The player's old address lands on the dashboard (signed out: its sign-in); the speaker button opens the player.
+  for (const old of ["/dashboard/player/", "/dashboard/player", "/dashboard/sounds/index.html"]) {
+    await page.goto(old);
+    await expect(page).toHaveURL(/\/dashboard\/signin$/);
+  }
+  await signIn(page);
+  const opener = page.getByRole("button", { name: "Play sounds", exact: true });
+  await showPlayer(page);
 
   // Every sample is listed with its credit.
   for (const s of samples) {
@@ -37,14 +41,11 @@ test("a presenter's phone loops one sample at a time until Stop, with credits", 
     await expect(row).toContainText(s.credit.licence);
     if (s.credit.recordist) await expect(row).toContainText(s.credit.recordist);
   }
-  const stop = page.getByRole("button", { name: "Stop" });
-  await expect(stop).toBeDisabled();
 
   // A chainsaw plays and keeps playing past its own length: it loops instead of ending.
   await sampleButton(page, chainsaw.name).tap();
   await expect(sampleButton(page, chainsaw.name)).toHaveAttribute("aria-pressed", "true");
   await expect(sampleRow(page, chainsaw.name)).toContainText("Playing");
-  await expect(stop).toBeEnabled();
   await page.waitForTimeout((chainsaw.seconds + 1.5) * 1000);
   await expect(sampleButton(page, chainsaw.name)).toHaveAttribute("aria-pressed", "true");
 
@@ -61,10 +62,14 @@ test("a presenter's phone loops one sample at a time until Stop, with credits", 
   await sampleButton(page, otherOwl.name).tap();
   await expect(sampleButton(page, otherOwl.name)).toHaveAttribute("aria-pressed", "true");
 
-  // Stop silences it.
-  await stop.tap();
+  // Closing the player leaves it playing; tapping the sample again silences it.
+  await opener.tap();
+  await expect(sampleButton(page, otherOwl.name)).toBeHidden();
+  await opener.tap();
+  await expect(sampleButton(page, otherOwl.name)).toHaveAttribute("aria-pressed", "true");
+  await sampleButton(page, otherOwl.name).tap();
   await expect(page.getByText("Playing")).toHaveCount(0);
-  await expect(stop).toBeDisabled();
+  await expect(sampleButton(page, otherOwl.name)).toHaveAttribute("aria-pressed", "false");
 });
 
 test("every chainsaw sample is detected by the seeded chainsaw detector", async ({ page }) => {

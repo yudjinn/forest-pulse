@@ -2,7 +2,7 @@
 // experiment chose (balanced classes, L2 regularisation with C = 0.1 on standardised summaries, as scikit-learn's
 // LogisticRegression with class_weight="balanced"), with the standardisation folded into the weights and bias so a
 // sensor needs only weights . embedding + bias. Plain TypeScript with no Worker APIs: the teach request runs it, and
-// scripts may import it to train exactly as the Teach page does.
+// scripts may import it to train exactly as teaching on the dashboard does.
 
 export const DIM = 960;
 export const C = 0.1;

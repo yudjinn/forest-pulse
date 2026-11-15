@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sign in - Forest Pulse</title>
-    <meta name="theme-color" content="#0B4827">
+    <meta name="theme-color" content="#06301A">
     <link rel="icon" href="/brand/icons/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/brand/icons/favicon.svg" type="image/svg+xml" sizes="any">
     <link rel="apple-touch-icon" href="/brand/icons/apple-touch-icon.png" sizes="180x180">
@@ -12,13 +12,13 @@
   </head>
   <body class="signin">
     <main>
-      <img class="signin-logo" src="/brand/logo.svg" alt="Forest Pulse">
+      <img class="signin-logo" src="/brand/logo-inverse.svg" alt="Forest Pulse">
       <form id="signin" method="post" action="/dashboard/signin">
         <h1>Sign in</h1>
         <label for="password">Password</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
         <p id="signin-error" class="error" role="alert" hidden>Wrong password</p>
-        <button type="submit">Sign in</button>
+        <button type="submit" class="button fill">Sign in</button>
       </form>
     </main>
   </body>

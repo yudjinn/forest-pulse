@@ -1,14 +1,14 @@
-// The sensor plan on the overview page: a top-down view of every sensor, drawn to fit with a 1 m grid, and a card
-// per sensor with its health, each named as the service names it ("Sensor N", its own id on the card beneath), and
+// The sensors: each one stands on the map as a numbered puck with a pointer for its facing, and has a card in the
+// Devices panel with its health, each named as the service names it ("Sensor N", its own id on the card beneath),
 // whether it has the current sound list as the service judges it, and its trigger health as it last reported it
-// (read-only: nothing on the card sets a trigger). Researchers drag a sensor (or move it with the
-// arrow keys) and type its facing; each
-// change saves at once and the plan follows the shell's 2 s poll, so other researchers' edits appear too.
+// (read-only: nothing on the card sets a trigger). While the Devices panel is open researchers drag a sensor (or
+// move it with the arrow keys) and type its facing; each change saves at once and the plan follows the shell's 2 s
+// poll, so other researchers' edits appear too.
 // Plan metres: x to the right, y up. Facing: degrees clockwise from the plan's up.
-//
-// Other capabilities draw on the plan through addLayer (see below); layers sit above the grid and below the sensors.
-// They put their controls beside the plan's title through addTool.
-import { clockTime, poll } from "/dashboard/shell.js";
+import { clockTime, poll, signIn } from "/dashboard/shell.js";
+import {
+  COLOR, FONT, addLayer, holdView, invalidate, overlay, place, rgba, ringPath, still, unproject,
+} from "/dashboard/plan/scene.js";
 
 /**
  * @typedef {{ id: string, number: number | null, name: string, x_m: number, y_m: number, facing_deg: number, online: boolean, last_checkin_at: string,
@@ -17,46 +17,21 @@ import { clockTime, poll } from "/dashboard/shell.js";
  *   trigger: { snr_db?: number, ratio_db?: number, coherence?: number } | null, noise_floor_dbfs: number | null }}
  *   PlanSensor
  */
-/**
- * What a layer is handed on every draw: the sensors as drawn, a projection from plan metres to the drawing's pixels,
- * and the drawing's size.
- * @typedef {{ sensors: PlanSensor[], toScreen: (x: number, y: number) => [number, number], pxPerMetre: number,
- *   width: number, height: number }} PlanView
- */
-/**
- * @typedef {{ draw: (g: SVGGElement, view: PlanView) => void, extent?: () => [number, number][] }} PlanLayer
- */
 
-const SVG = "http://www.w3.org/2000/svg";
-const MARGIN_M = 1.5;
-const MIN_SPAN_M = 4;
+const TAU = Math.PI * 2;
 const SNAP_M = 0.1;
 // After a save, the saved value is shown until a poll agrees with it or this long has passed (a poll that was
 // already in flight answers with the old value).
 const HOLD_MS = 4000;
 const KEY_SAVE_DELAY_MS = 600;
-const LABEL_CHARS = 24;
+// A check-in shows as a ring leaving the puck for this long.
+const BEAT_MS = 900;
 
-const section = /** @type {HTMLElement} */ (document.getElementById("plan"));
-const body = /** @type {HTMLElement} */ (section.querySelector(".plan-body"));
-const svg = /** @type {SVGSVGElement} */ (section.querySelector(".plan-map"));
-const list = /** @type {HTMLUListElement} */ (section.querySelector(".plan-sensors"));
-const empty = /** @type {HTMLElement} */ (section.querySelector(".plan-empty"));
-const error = /** @type {HTMLElement} */ (section.querySelector(".plan-error"));
-
-// The plan's title row: the title, and the tools other capabilities add beside it.
-const title = /** @type {HTMLElement} */ (section.querySelector("h2"));
-const head = document.createElement("div");
-head.className = "plan-head";
-const tools = document.createElement("div");
-tools.className = "plan-tools";
-title.replaceWith(head);
-head.append(title, tools);
-
-const grid = svgEl("g", { class: "plan-grid" });
-const layerRoot = svgEl("g", { class: "plan-layers" });
-const markerRoot = svgEl("g", { class: "plan-markers" });
-svg.append(grid, layerRoot, markerRoot);
+const list = /** @type {HTMLUListElement} */ (document.querySelector(".plan-sensors"));
+const empty = /** @type {HTMLElement} */ (document.querySelector(".plan-empty"));
+const error = /** @type {HTMLElement} */ (document.querySelector(".plan-error"));
+const status = /** @type {HTMLElement} */ (document.querySelector(".status"));
+const statusText = /** @type {HTMLElement} */ (status.querySelector(".status-text"));
 
 /** @type {PlanSensor[]} */
 let sensors = [];
@@ -78,43 +53,42 @@ let drag = null;
  * @type {Map<string, { checkin: string, until: number }>}
  */
 const removing = new Map();
-/** @type {{ scale: number, ox: number, oy: number, width: number, height: number } | null} */
-let view = null;
 /** @type {Map<string, ReturnType<typeof setTimeout>>} */
 const keySaves = new Map();
-/** @type {{ layer: PlanLayer, g: SVGGElement }[]} */
-const layers = [];
+/** Where each puck is drawn: it glides to a new place the service gives it (a calibration run, another researcher). */
+/** @type {Map<string, { x: number, y: number }>} */
+const drawn = new Map();
+/** When each sensor's latest check-in reached this page, on this page's clock. */
+/** @type {Map<string, { checkin: string, at: number }>} */
+const beats = new Map();
+/** Sensors sounding the warning alarm now. @type {Set<string>} */
+let alarming = new Set();
+// What the map last drew of the sensors: a reply that changes none of it draws nothing.
+let mapped = "";
+/** @type {((sensors: PlanSensor[]) => void)[]} */
+const watchers = [];
+/** @type {((at: number) => void)[]} */
+const beatWatchers = [];
 
-/**
- * Adds a layer to the plan. Its draw runs on every redraw of the plan with its own emptied group; its optional
- * extent lists plan points (metres) the view must keep in sight. Call redraw when the layer's own data changes.
- * @param {PlanLayer} layer
- * @returns {{ redraw: () => void }}
- */
-export function addLayer(layer) {
-  const g = svgEl("g");
-  layerRoot.append(g);
-  layers.push({ layer, g });
-  draw();
-  return { redraw: draw };
+/** The sensors as the page shows them now. */
+export const sensorsNow = () => sensors.map(shown);
+
+/** Calls back with the sensors as shown, now and whenever they change. @param {(sensors: PlanSensor[]) => void} watch */
+export function onSensors(watch) {
+  watchers.push(watch);
+  if (loaded) watch(sensorsNow());
 }
 
-/**
- * Adds a control (a button, a status line) beside the plan's title, after any added before it.
- * @param {HTMLElement} el
- */
-export function addTool(el) {
-  tools.append(el);
+/** Calls back each time a sensor's check-in reaches the page. @param {(at: number) => void} watch */
+export function onBeat(watch) {
+  beatWatchers.push(watch);
 }
 
-/**
- * @param {string} name
- * @param {Record<string, string | number>} [attrs]
- */
-function svgEl(name, attrs = {}) {
-  const el = /** @type {any} */ (document.createElementNS(SVG, name));
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
-  return el;
+/** The sensors a warning is on its way to: they strobe on the map as their buzzers sound. @param {Set<string>} ids */
+export function setAlarming(ids) {
+  const changed = ids.size !== alarming.size || [...ids].some((id) => !alarming.has(id));
+  alarming = ids;
+  if (changed) draw();
 }
 
 /** The sensor as this page shows it: the poll's data with any value it has saved and not yet seen back. */
@@ -132,9 +106,18 @@ function render(data) {
     if (!s || s.last_checkin_at !== r.checkin || now > r.until) removing.delete(id);
   }
   sensors = data.sensors.filter((s) => !removing.has(s.id));
+  for (const s of sensors) {
+    const b = beats.get(s.id);
+    if (b?.checkin === s.last_checkin_at) continue;
+    // What the first reply shows already happened: only a check-in seen arriving beats.
+    beats.set(s.id, { checkin: s.last_checkin_at, at: loaded && s.online ? now : 0 });
+    if (!loaded || !s.online) continue;
+    for (const watch of beatWatchers) watch(now);
+    if (!still) invalidate(); // the check-in's ring, which reduced motion leaves out
+  }
   loaded = true;
   // Another researcher removed the sensor being dragged: the drag ends with it.
-  if (drag && !sensors.some((s) => s.id === drag?.id)) drag = null;
+  if (drag && !sensors.some((s) => s.id === drag?.id)) endHold();
   for (const [id, h] of held) {
     const s = sensors.find((x) => x.id === id);
     const dragging = drag?.id === id || keySaves.has(id);
@@ -145,86 +128,185 @@ function render(data) {
   draw();
 }
 
+function endHold() {
+  drag = null;
+  holdView(false);
+}
+
 /** @param {number} a @param {number} b */
 const near = (a, b) => Math.abs(a - b) < 1e-6;
 
+/** Brings the cards, the handles and the status line up to date and has the map drawn again. */
 function draw() {
   if (!loaded) return;
-  const items = sensors.map(shown);
+  const items = sensorsNow();
   empty.hidden = items.length > 0;
-  body.hidden = items.length === 0;
-  if (items.length === 0) return;
-  // While a sensor is being dragged the view holds still; it refits once the sensor is dropped.
-  if (!drag || !view) view = fit(items);
-  const v = view;
-  svg.setAttribute("viewBox", `0 0 ${v.width} ${v.height}`);
-  svg.setAttribute("height", String(v.height));
-  /** @type {(x: number, y: number) => [number, number]} */
-  const toScreen = (x, y) => [v.ox + x * v.scale, v.oy - y * v.scale];
-  drawGrid(v);
-  const planView = { sensors: items, toScreen, pxPerMetre: v.scale, width: v.width, height: v.height };
-  for (const { layer, g } of layers) {
-    g.replaceChildren();
-    try {
-      layer.draw(g, planView);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-  drawMarkers(items, toScreen);
+  const online = items.filter((s) => s.online).length;
+  status.hidden = items.length === 0;
+  status.classList.toggle("short", online < items.length);
+  statusText.textContent = online === items.length
+    ? `${online} ${online === 1 ? "sensor" : "sensors"} listening`
+    : `${online} of ${items.length} sensors listening`;
+  for (const id of drawn.keys()) if (!items.some((s) => s.id === id)) drawn.delete(id);
+  drawMarkers(items);
   drawCards(items);
+  for (const watch of watchers) watch(items);
+  const key = JSON.stringify(items.map((s) => [s.id, s.number, s.x_m, s.y_m, s.facing_deg, s.online, s.sound_list,
+    s.shared_name, alarming.has(s.id)]));
+  if (key === mapped) return;
+  mapped = key;
+  invalidate();
 }
 
-/** @param {PlanSensor[]} items */
-function fit(items) {
-  const width = Math.max(1, Math.round(svg.getBoundingClientRect().width));
-  const height = Math.round(Math.min(480, Math.max(220, width * 0.6)));
-  /** @type {[number, number][]} */
-  const points = items.map((s) => [s.x_m, s.y_m]);
-  for (const { layer } of layers) {
-    try {
-      points.push(...(layer.extent?.() ?? []));
-    } catch (e) {
-      console.error(e);
-    }
+/** Where a sensor's puck is this frame: gliding toward its place, or at it while this page moves it. */
+/** @param {PlanSensor} s @param {boolean} still */
+function glide(s, still) {
+  const at = drawn.get(s.id);
+  if (!at || still || held.has(s.id)) {
+    const to = { x: s.x_m, y: s.y_m };
+    drawn.set(s.id, to);
+    return to;
   }
-  const xs = points.map((p) => p[0]);
-  const ys = points.map((p) => p[1]);
-  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-  const spanX = Math.max(MIN_SPAN_M, maxX - minX + 2 * MARGIN_M);
-  const spanY = Math.max(MIN_SPAN_M, maxY - minY + 2 * MARGIN_M);
-  const scale = Math.min(width / spanX, height / spanY);
-  return {
-    scale,
-    ox: width / 2 - ((minX + maxX) / 2) * scale,
-    oy: height / 2 + ((minY + maxY) / 2) * scale,
-    width,
-    height,
+  at.x += (s.x_m - at.x) * 0.16;
+  at.y += (s.y_m - at.y) * 0.16;
+  if (Math.hypot(s.x_m - at.x, s.y_m - at.y) < 0.004) {
+    at.x = s.x_m;
+    at.y = s.y_m;
+  }
+  return at;
+}
+
+addLayer({
+  extent: () => ({ anchors: sensorsNow().map((s) => [s.x_m, s.y_m]) }),
+  active(now) {
+    return alarming.size > 0
+      || sensors.some((s) => {
+        const at = drawn.get(s.id), to = shown(s);
+        return (at && (at.x !== to.x_m || at.y !== to.y_m)) || (!still && now - (beats.get(s.id)?.at ?? 0) < BEAT_MS);
+      });
+  },
+  sprites(g, view, now) {
+    return sensorsNow().map((s) => {
+      const at = glide(s, view.still);
+      const [x, y, k] = view.P(at.x, at.y);
+      return { depth: k, draw: () => drawPuck(g, view, now, s, at, x, y, k) };
+    });
+  },
+  overlay(view) {
+    for (const s of sensorsNow()) {
+      const m = markers.get(s.id), at = drawn.get(s.id);
+      if (!m || !at) continue;
+      const [x, y, k] = view.P(at.x, at.y);
+      place(m.button, x, y - puckRadius(k) * 0.42);
+      m.button.disabled = !view.device;
+    }
+  },
+});
+
+/** A puck's radius on screen: its real size, held between a size that stays readable and one that stays modest. */
+/** @param {number} k pixels per metre where it stands */
+const puckRadius = (k) => Math.min(25, Math.max(11, 0.095 * k));
+
+/**
+ * @param {CanvasRenderingContext2D} g @param {import("./scene.js").View} view @param {number} now
+ * @param {PlanSensor} s @param {{ x: number, y: number }} at @param {number} x @param {number} y @param {number} k
+ */
+function drawPuck(g, view, now, s, at, x, y, k) {
+  const rx = puckRadius(k), tall = rx * 0.42;
+  /** @param {number} cy @param {number} r */
+  const disc = (cy, r) => {
+    g.beginPath();
+    g.ellipse(x, cy, r, r * view.squash, 0, 0, TAU);
   };
-}
-
-/** @param {{ scale: number, ox: number, oy: number, width: number, height: number }} v */
-function drawGrid(v) {
-  const lines = [];
-  // At a scale where 1 m lines would run together the grid is left out rather than drawn as a solid wash.
-  if (v.scale >= 4) {
-    for (let x = Math.ceil(-v.ox / v.scale); x <= Math.floor((v.width - v.ox) / v.scale); x++) {
-      const px = v.ox + x * v.scale;
-      lines.push(svgEl("line", { x1: px, y1: 0, x2: px, y2: v.height, class: x === 0 ? "plan-axis" : "" }));
-    }
-    for (let y = Math.ceil((v.oy - v.height) / v.scale); y <= Math.floor(v.oy / v.scale); y++) {
-      const py = v.oy - y * v.scale;
-      lines.push(svgEl("line", { x1: 0, y1: py, x2: v.width, y2: py, class: y === 0 ? "plan-axis" : "" }));
+  g.globalAlpha = s.online ? 1 : 0.38;
+  // Which way its forward points.
+  const turn = (s.facing_deg * Math.PI) / 180, len = rx / k;
+  const fx = Math.sin(turn), fy = Math.cos(turn);
+  const tip = view.P(at.x + fx * len * 2.5, at.y + fy * len * 2.5);
+  const left = view.P(at.x + fx * len * 1.75 + fy * len * 0.5, at.y + fy * len * 1.75 - fx * len * 0.5);
+  const right = view.P(at.x + fx * len * 1.75 - fy * len * 0.5, at.y + fy * len * 1.75 + fx * len * 0.5);
+  g.fillStyle = "rgba(251,247,239,.8)";
+  g.beginPath();
+  g.moveTo(tip[0], tip[1]);
+  g.lineTo(left[0], left[1]);
+  g.lineTo(right[0], right[1]);
+  g.fill();
+  if (s.online && !view.still) {
+    const beat = (now - (beats.get(s.id)?.at ?? 0)) / BEAT_MS;
+    if (beat < 1) {
+      disc(y, rx * (1.2 + 1.3 * beat));
+      g.strokeStyle = `rgba(251,247,239,${0.4 * (1 - beat)})`;
+      g.lineWidth = 1.5;
+      g.stroke();
     }
   }
-  grid.replaceChildren(...lines);
+  if (alarming.has(s.id)) {
+    // The alarm's hi-lo stutter, one tone every 150 ms.
+    const hi = view.still || Math.floor(now / 150) % 2 === 0;
+    disc(y, rx * (hi ? 1.7 : 2.4));
+    g.strokeStyle = rgba(COLOR.logging, 0.95);
+    g.lineWidth = hi ? 4 : 2.5;
+    g.stroke();
+    for (let i = 0; i < 2 && !view.still; i++) {
+      const u = (now / 700 + i / 2) % 1;
+      ringPath(at.x, at.y, 0.1 + u * 0.9);
+      g.strokeStyle = rgba(COLOR.logging, 0.7 * (1 - u));
+      g.lineWidth = 2;
+      g.stroke();
+    }
+  }
+  g.fillStyle = "rgba(0,0,0,.35)";
+  disc(y + 2, rx * 1.12);
+  g.fill();
+  g.fillStyle = "#b5ad98";
+  disc(y, rx);
+  g.fill();
+  g.fillRect(x - rx, y - tall, rx * 2, tall);
+  g.fillStyle = "#fbf7ef";
+  disc(y - tall, rx);
+  g.fill();
+  if (s.number !== null) {
+    g.fillStyle = "#0b4827";
+    g.font = `700 ${rx * (s.number > 9 ? 0.8 : 1.02)}px ${FONT}`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.save();
+    g.translate(x, y - tall + 0.5);
+    g.scale(1, Math.min(1, Math.max(0.7, view.squash + 0.28)));
+    g.fillText(String(s.number), 0, 0);
+    g.restore();
+  }
+  if (s.shared_name) {
+    // Two devices check in under this id: a broken ring around the puck.
+    disc(y, rx * 1.3);
+    g.setLineDash([5, 4]);
+    g.strokeStyle = COLOR.vehicle;
+    g.lineWidth = 2;
+    g.stroke();
+    g.setLineDash([]);
+  }
+  if (s.sound_list === "outdated") {
+    g.fillStyle = COLOR.vehicle;
+    g.beginPath();
+    g.arc(x + rx * 0.8, y - tall - rx * view.squash * 0.9, 5, 0, TAU);
+    g.fill();
+  }
+  if (drag?.id === s.id || document.activeElement === markers.get(s.id)?.button) {
+    disc(y, rx * 1.55);
+    g.setLineDash([3, 4]);
+    g.strokeStyle = "rgba(251,247,239,.9)";
+    g.lineWidth = 1.5;
+    g.stroke();
+    g.setLineDash([]);
+  }
+  g.globalAlpha = 1;
 }
 
-/** @type {Map<string, { g: SVGGElement, pointer: SVGPathElement, label: SVGTextElement }>} */
+/** Each sensor's handle over its puck. @type {Map<string, { button: HTMLButtonElement, label: HTMLElement }>} */
 const markers = new Map();
 
-/** @param {PlanSensor[]} items @param {(x: number, y: number) => [number, number]} toScreen */
-function drawMarkers(items, toScreen) {
+/** @param {PlanSensor[]} items */
+function drawMarkers(items) {
   const seen = new Set();
   for (const s of items) {
     seen.add(s.id);
@@ -232,20 +314,16 @@ function drawMarkers(items, toScreen) {
     if (!m) {
       m = makeMarker(s.id);
       markers.set(s.id, m);
-      markerRoot.append(m.g);
+      overlay.append(m.button);
     }
-    const [px, py] = toScreen(s.x_m, s.y_m);
-    m.g.setAttribute("transform", `translate(${px.toFixed(1)} ${py.toFixed(1)})`);
-    const outdated = s.sound_list === "outdated";
-    m.g.setAttribute("class",
-      `plan-sensor${s.online ? "" : " offline"}${s.shared_name ? " shared" : ""}${outdated ? " outdated" : ""}`);
-    m.pointer.setAttribute("transform", `rotate(${s.facing_deg})`);
-    m.g.setAttribute("aria-label", outdated ? `Move ${s.name}, outdated sound list` : `Move ${s.name}`);
-    m.label.textContent = s.name.length > LABEL_CHARS ? `${s.name.slice(0, LABEL_CHARS - 1)}…` : s.name;
+    const notes = [...(s.sound_list === "outdated" ? ["outdated sound list"] : []),
+      ...(alarming.has(s.id) ? ["sounding the alarm"] : [])];
+    m.button.setAttribute("aria-label", [`Move ${s.name}`, ...notes].join(", "));
+    m.label.textContent = s.name;
   }
   for (const [id, m] of markers) {
     if (!seen.has(id)) {
-      m.g.remove();
+      m.button.remove();
       markers.delete(id);
     }
   }
@@ -253,24 +331,22 @@ function drawMarkers(items, toScreen) {
 
 /** @param {string} id */
 function makeMarker(id) {
-  const g = /** @type {SVGGElement} */ (svgEl("g", { role: "button", tabindex: 0 }));
-  const pointer = svgEl("path", { class: "plan-sensor-facing", d: "M0 -22 L8 -7 L-8 -7 Z" });
-  // A touch-sized target around the dot and its pointer, so a finger or a click near the sensor picks it up.
-  const target = svgEl("circle", { class: "plan-sensor-target", r: 22 });
-  const dot = svgEl("circle", { class: "plan-sensor-dot", r: 10 });
-  const label = svgEl("text", { class: "plan-sensor-label", y: 30, "text-anchor": "middle" });
-  // The outdated sound-list warning: a small alert badge on the dot's upper right, shown by the outdated class.
-  const badge = svgEl("g", { class: "plan-sensor-badge", transform: "translate(10 -10)" });
-  badge.append(svgEl("circle", { r: 7 }), svgEl("path", { d: "M0 -3.5 V0.5 M0 3.5 V3.6" }));
-  g.append(target, pointer, dot, label, badge);
-  g.addEventListener("pointerdown", (e) => startDrag(id, g, e));
-  g.addEventListener("pointermove", (e) => moveDrag(id, e));
-  g.addEventListener("pointerup", (e) => endDrag(id, e, false));
-  g.addEventListener("pointercancel", (e) => endDrag(id, e, true));
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "map-sensor";
+  button.disabled = true;
+  const label = document.createElement("span");
+  button.append(label);
+  button.addEventListener("pointerdown", (e) => startDrag(id, button, e));
+  button.addEventListener("pointermove", (e) => moveDrag(id, e));
+  button.addEventListener("pointerup", (e) => endDrag(id, e, false));
+  button.addEventListener("pointercancel", (e) => endDrag(id, e, true));
   // Capture can go without a pointerup (the element left the page); after a pointerup the drag is already over.
-  g.addEventListener("lostpointercapture", (e) => endDrag(id, e, true));
-  g.addEventListener("keydown", (e) => nudge(id, e));
-  return { g, pointer, label };
+  button.addEventListener("lostpointercapture", (e) => endDrag(id, e, true));
+  button.addEventListener("keydown", (e) => nudge(id, e));
+  button.addEventListener("focus", invalidate);
+  button.addEventListener("blur", invalidate);
+  return { button, label };
 }
 
 /** @param {string} id */
@@ -285,29 +361,29 @@ const snap = (v) => {
   return Math.round(r * 1000) / 1000 || 0;
 };
 
-/** @param {string} id @param {SVGGElement} g @param {PointerEvent} e */
-function startDrag(id, g, e) {
+/** @param {string} id @param {HTMLButtonElement} button @param {PointerEvent} e */
+function startDrag(id, button, e) {
   if (e.button !== 0 || drag) return;
   const s = current(id);
   if (!s) return;
   e.preventDefault();
-  g.setPointerCapture(e.pointerId);
-  g.focus();
+  button.setPointerCapture(e.pointerId);
+  button.focus();
   const h = held.get(id);
   drag = {
     id, pointerId: e.pointerId, from: { x_m: s.x_m, y_m: s.y_m }, at: { x: e.clientX, y: e.clientY }, moved: false,
     before: h && { ...h },
   };
+  holdView(true);
 }
 
 /** @param {string} id @param {PointerEvent} e */
 function moveDrag(id, e) {
-  if (!drag || drag.id !== id || drag.pointerId !== e.pointerId || !view) return;
+  if (!drag || drag.id !== id || drag.pointerId !== e.pointerId) return;
   // A click that jiggles a few pixels is not a move: a saved move clears a measured layout.
   if (!drag.moved && Math.hypot(e.clientX - drag.at.x, e.clientY - drag.at.y) < DRAG_START_PX) return;
-  const box = svg.getBoundingClientRect();
-  const x = snap((e.clientX - box.left - view.ox) / view.scale);
-  const y = snap((view.oy - (e.clientY - box.top)) / view.scale);
+  const [wx, wy] = unproject(e.clientX, e.clientY);
+  const x = snap(wx), y = snap(wy);
   const h = held.get(id);
   if (h?.x_m === x && h?.y_m === y) return;
   drag.moved = true;
@@ -319,7 +395,7 @@ function moveDrag(id, e) {
 function endDrag(id, e, cancelled) {
   if (!drag || drag.id !== id || drag.pointerId !== e.pointerId) return;
   const { from, moved, before } = drag;
-  drag = null;
+  endHold();
   const h = held.get(id);
   if (cancelled || !moved || !h || h.x_m === undefined || h.y_m === undefined
     || (near(h.x_m, from.x_m) && near(h.y_m, from.y_m))) {
@@ -362,7 +438,7 @@ function nudge(id, e) {
 
 /**
  * Saves a placement change. On success the saved values stay shown until a poll agrees; on failure the sensor goes
- * back to where the service has it and the plan says so.
+ * back to where the service has it and the panel says so.
  * @param {string} id
  * @param {{ x_m: number, y_m: number } | { facing_deg: number }} change
  */
@@ -420,12 +496,6 @@ async function remove(id) {
     error.textContent = "Couldn't save, try again";
     error.hidden = false;
   }
-}
-
-function signIn() {
-  location.assign(location.pathname === "/dashboard/"
-    ? "/dashboard/signin"
-    : `/dashboard/signin?next=${encodeURIComponent(location.pathname)}`);
 }
 
 /**
@@ -608,9 +678,5 @@ function checkinTime(d) {
   const today = new Date();
   return d.toDateString() === today.toDateString() ? clockTime(d) : `${d.toLocaleDateString()} ${clockTime(d)}`;
 }
-
-new ResizeObserver(() => {
-  if (!drag) draw();
-}).observe(svg);
 
 poll("/dashboard/api/sensors", render);

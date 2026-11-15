@@ -1,10 +1,12 @@
-// The presenter's player: tap a sample and it loops through the phone's audio (and so a paired speaker) until Stop
-// or another sample is tapped. Each recording is decoded once and looped by the audio engine, so the seam never
-// gaps, and the screen is kept awake while something plays.
+// The presenter's player, opened from the speaker button: tap a sample and it loops through the phone's audio (and
+// so a paired speaker) until it or another sample is tapped. Each recording is decoded once and looped by the audio
+// engine, so the seam never gaps, and the screen is kept awake while something plays. The dashboard loads this
+// module, and with it the recordings, when the player is first opened.
+import { signIn } from "/dashboard/shell.js";
 
 const section = /** @type {HTMLElement} */ (document.getElementById("player"));
 const list = /** @type {HTMLUListElement} */ (section.querySelector(".sample-list"));
-const stopButton = /** @type {HTMLButtonElement} */ (section.querySelector(".player-stop"));
+const opener = /** @type {HTMLElement} */ (document.getElementById("open-player"));
 const listError = /** @type {HTMLElement} */ (section.querySelector(":scope > .error"));
 
 /**
@@ -25,10 +27,6 @@ let current = null;
 let pending = null;
 /** @type {WakeLockSentinel | null} */
 let wakeLock = null;
-
-function signIn() {
-  location.assign(`/dashboard/signin?next=${encodeURIComponent(location.pathname)}`);
-}
 
 /** Fetches and decodes a row's recording once; a failure is forgotten so the next tap tries again. @param {Row} row */
 function load(row) {
@@ -51,7 +49,7 @@ function show(row, state) {
   row.button.setAttribute("aria-pressed", String(state === "playing"));
   row.button.setAttribute("aria-busy", String(state === "loading"));
   row.state.textContent = state === "playing" ? "Playing" : state === "loading" ? "Loading" : "";
-  stopButton.disabled = !current && !pending;
+  opener.classList.toggle("on", Boolean(current || pending));
 }
 
 async function holdScreen() {
@@ -171,7 +169,6 @@ function makeRow(sample) {
   return row;
 }
 
-stopButton.addEventListener("click", stop);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible" || !current) return;
   holdScreen();

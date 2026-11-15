@@ -3,7 +3,7 @@
 // from the plan.
 // Every journey here starts its own fresh service on the calibration pair, so they run one after another.
 import { expect, test, type Page } from "@playwright/test";
-import { devVars, signIn } from "../fixtures/dashboard.ts";
+import { devVars, showDevices, signIn } from "../fixtures/dashboard.ts";
 import { asSensor, referenceClip, sensorName, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { calibrationServicePorts } from "../ports.ts";
@@ -31,6 +31,7 @@ test("two sensors measure their distance and facings and appear as they stand; a
     const context = await browser.newContext({ baseURL: origin });
     const page = await context.newPage();
     await signIn(page, "/dashboard/", origin);
+    await showDevices(page);
     const calibrate = page.getByRole("button", { name: "Calibrate" });
 
     // One capable sensor, one whose library is too old to know about calibration, and one whose device app has not
@@ -163,6 +164,7 @@ test("three sensors calibrate into a triangle on the side of the line they stand
     const context = await browser.newContext({ baseURL: origin });
     const page = await context.newPage();
     await signIn(page, "/dashboard/", origin);
+    await showDevices(page);
     const calibrate = page.getByRole("button", { name: "Calibrate" });
 
     // Sides of 3 m (a-b), 2.5 m (a-c) and 2 m (b-c), c above the line from a to b, each board turned its own way with

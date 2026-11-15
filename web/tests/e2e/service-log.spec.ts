@@ -1,6 +1,6 @@
 // Service core journey: a researcher signs in and watches a real sensor's event arrive in the live log.
 import { expect, test } from "@playwright/test";
-import { devVars } from "../fixtures/dashboard.ts";
+import { devVars, showEventLog } from "../fixtures/dashboard.ts";
 import { referenceClip, replay, sensorName, uniqueSensorId } from "../fixtures/sensor.ts";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -30,7 +30,8 @@ test("a researcher signs in and sees a replayed chainsaw arrive in the live log"
   await page.getByLabel("Password").fill(devVars().DASHBOARD_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/dashboard\/$/);
-  await expect(page.getByRole("heading", { name: "Event log" })).toBeVisible();
+  await showEventLog(page);
+  await expect(page.getByRole("tabpanel", { name: "Event log" })).toBeVisible();
   expect((await page.request.get("/dashboard/")).headers()["content-security-policy"]).toContain("script-src 'self'");
   const signedInAt = Date.now() / 1000;
   const [cookie] = (await context.cookies()).filter((c) => c.name === "fp_session");

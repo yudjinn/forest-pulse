@@ -11,15 +11,17 @@ Python 3 and Wrangler 4 are the only build and deployment tools required.
 - `src/` the Worker (TypeScript). `src/routes.ts` is the route table and the
   sensor intake hooks; `src/router.ts` enforces each route's access and serves
   the files.
-- `dashboard/` the researchers' pages: plain HTML, CSS and JavaScript modules,
-  served only to a signed-in researcher (the sign-in page and its stylesheet
-  excepted). `dashboard/shell.js` holds the header navigation and the 2 s live
-  polling with the connection-lost banner.
+- `dashboard/` the researchers' dashboard, one page: plain HTML, CSS and
+  JavaScript modules, served only to a signed-in researcher (the sign-in page
+  and its stylesheet excepted). `dashboard/plan/scene.js` draws the map on one
+  canvas; `dashboard/shell.js` holds the 2 s live polling with the
+  connection-lost line. Teaching and the presenter's player load their modules
+  when first opened.
 - `migrations/` the D1 schema and the seeded sound list.
 - `tests/` the journey harness and journeys.
 - `bucket/teach/` what teaching a new sound trains against: the summaries of other
   sounds and the hall background, rebuilt by
-  `../experiments/efficientat-chainsaw/build_negative_library.py`. The Teach page
+  `../experiments/efficientat-chainsaw/build_negative_library.py`. Teaching
   runs the sensors' own model file in the browser; the build copies it and ONNX
   Runtime's WebAssembly files (pinned in `package.json`) to `/model/`.
 

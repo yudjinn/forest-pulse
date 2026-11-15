@@ -1,163 +1,161 @@
-/* Suspected activities on the overview page: one card per activity, the Clear events action and its confirmation. */
-.activities-head {
+/* What was heard, down the left of the map: how many sensors listen, then an activity per suspected situation.
+   An activity heard just now, or one that alerts, stands large; older ones sit small beneath. */
+.heard {
+  position: fixed;
+  left: 0;
+  top: 76px;
+  z-index: 1;
+  width: 380px;
+  max-height: calc(100vh - 170px);
+  padding: 24px 32px;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.status {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  margin-bottom: 4px;
+  gap: 10px;
+  color: var(--soft);
+  font-size: 15px;
 }
 
-.activities-head h2 {
-  margin: 0;
+.status i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  animation: ping 3s infinite;
 }
 
-#activities button.secondary,
-.activities-clear {
-  background: #fff;
-  color: var(--evergreen);
-  border: 1px solid var(--line);
+.status.short i {
+  background: var(--amber);
+  animation: none;
 }
 
-.activities-clear:disabled {
-  opacity: 0.5;
-  cursor: default;
+@keyframes ping {
+  0% {
+    box-shadow: 0 0 0 0 rgba(95, 210, 141, 0.55);
+  }
+
+  40%,
+  100% {
+    box-shadow: 0 0 0 9px rgba(95, 210, 141, 0);
+  }
 }
 
-#activities > .error {
+.connection-lost {
   margin-top: 8px;
+  color: var(--alert);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.activities-empty {
+  margin-top: 10px;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .activity-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 8px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
+  gap: 18px;
+  margin-top: 22px;
 }
 
 .activity {
-  display: flex;
-  gap: 12px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 14px;
+  align-items: start;
 }
 
 .activity-icon {
   display: grid;
-  flex: none;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: var(--ivory);
-}
-
-.activity-poaching .activity-icon {
-  background: var(--alert-bg);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--c);
 }
 
 .activity-icon img {
-  display: block;
+  width: 19px;
+  height: 19px;
 }
 
 .activity-body {
-  display: grid;
-  flex: 1;
-  gap: 2px;
   min-width: 0;
 }
 
-.activity-body p {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.activity-title {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.activity-title h3 {
-  margin: 0;
+.activity h3 {
   font-size: 17px;
   font-weight: 600;
+  line-height: 34px;
 }
 
-.activity-count,
-.activity-meta {
-  color: var(--muted);
+.activity p {
   font-size: 14px;
-  font-variant-numeric: tabular-nums;
+  color: var(--soft);
 }
 
-.activity-count {
-  flex: none;
+.activity .activity-sounds {
+  color: var(--ivory);
+  font-weight: 500;
 }
 
-.activities-empty {
-  margin: 12px 0 0;
-  color: var(--muted);
+.activity.live .activity-icon {
+  width: 48px;
+  height: 48px;
+  box-shadow: 0 0 30px color-mix(in srgb, var(--c) 50%, transparent);
 }
 
-.activities-confirm {
-  width: min(100% - 32px, 400px);
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--evergreen);
+.activity.live .activity-icon img {
+  width: 27px;
+  height: 27px;
 }
 
-.activities-confirm::backdrop {
-  background: rgb(11 72 39 / 0.35);
+.activity.live h3 {
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  line-height: 48px;
 }
 
-.activities-confirm p {
-  margin: 0 0 16px;
+.activity.live p {
+  font-size: 16px;
 }
 
-.activities-confirm-actions {
+.activity .activity-warning {
+  margin-top: 6px;
+}
+
+.activity .error {
+  margin-top: 6px;
+  color: var(--alert);
+}
+
+.activity-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 12px;
 }
 
-#activities button.danger {
-  background: var(--alert);
-  color: #fff;
-}
-
-@media (max-width: 480px) {
-  .activity-list {
-    grid-template-columns: 1fr;
+@media (max-width: 900px) {
+  .heard {
+    position: static;
+    width: auto;
+    max-height: none;
+    padding: 8px 16px 20px;
+    overflow: visible;
   }
 }
 
-.activity-warning {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-
-.activity-body > .error {
-  font-size: 14px;
-}
-
-.activity-body > .activity-warn {
-  justify-self: start;
-  margin-top: 6px;
-  padding: 6px 12px;
-  background: var(--alert);
-  color: #fff;
-}
-
-.activity-warn:disabled {
-  opacity: 0.6;
-  cursor: default;
+@media (prefers-reduced-motion: reduce) {
+  .status i {
+    animation: none;
+  }
 }

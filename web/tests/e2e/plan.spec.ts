@@ -7,7 +7,7 @@ import { mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { signIn } from "../fixtures/dashboard.ts";
+import { showDevices, showEventLog, signIn } from "../fixtures/dashboard.ts";
 import { asSensor, referenceClip, replay, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { planServicePorts } from "../ports.ts";
@@ -48,6 +48,7 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     const context = await browser.newContext({ baseURL: service.url });
     const page = await context.newPage();
     await signIn(page, "/dashboard/", service.url);
+    await showDevices(page);
     await expect(page.getByText("No sensors yet. Sensors appear here when they first check in.")).toBeVisible();
 
     // Two sensors check in for the first time: Sensor 1 at the origin facing right, Sensor 2 3 m to its right facing
@@ -64,7 +65,9 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     const cardB = card(page, b);
     await expect(cardA.getByRole("heading")).toHaveText("Sensor 1", { timeout: 3000 });
     await expect(cardB.getByRole("heading")).toHaveText("Sensor 2");
+    await showEventLog(page);
     await expect(logRows(page, "Sensor 2").first()).toContainText("Chainsaw", { timeout: 3000 });
+    await showDevices(page);
     const logging = page.getByRole("list", { name: "Activities" }).getByRole("listitem")
       .filter({ has: page.getByRole("heading", { name: "Logging", exact: true }) });
     await expect(logging.getByText("Sensor 2", { exact: true })).toBeVisible({ timeout: 3000 });
@@ -86,6 +89,7 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     // A second researcher watches the same plan.
     const other = await context.newPage();
     await other.goto("/dashboard/");
+    await showDevices(other);
     await expect(position(card(other, b))).toHaveText("x 3.0 m, y 0.0 m", { timeout: 3000 });
 
     // Drag b up and to the left; type a facing past the range into a, which is normalised.
@@ -113,6 +117,7 @@ test("sensors join the plan on first check-in, researchers place them, and the p
 
     // The placement survives a reload.
     await page.reload();
+    await showDevices(page);
     await expect(position(cardB)).toHaveText(moved);
     await expect(cardA.getByLabel("Facing")).toHaveValue("330");
     await expect(position(cardA)).toHaveText("x 0.0 m, y 0.0 m");
@@ -178,7 +183,7 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     await expect(card(page, c).getByText("Outdated sound list")).toBeHidden();
     await expect(marker(page, "Sensor 3")).toHaveAccessibleName("Move Sensor 3");
 
-    // The sound list changes (a switch; the Sounds page's own switch is the sounds journey's). c last reported the
+    // The sound list changes (a switch; the sound list's own switch is the sounds journey's). c last reported the
     // old list and is still online: it is updating.
     const old: number = (await (await page.request.get("/dashboard/api/sounds")).json()).version;
     expect((await page.request.patch("/dashboard/api/sounds/gunshot", { data: { enabled: false } })).ok()).toBe(true);
@@ -234,16 +239,20 @@ test("sensors join the plan on first check-in, researchers place them, and the p
     // board checking in again finds it taken and becomes Sensor 4, and its events read Sensor 4.
     await cardB.getByRole("button", { name: "Remove Sensor 2" }).click();
     await expect(cardB).toHaveCount(0);
+    await showEventLog(page);
     await expect(logRows(page, b).first()).toContainText("Chainsaw", { timeout: 3000 });
     await expect(logRows(page, "Sensor 2")).toHaveCount(0);
+    await showDevices(page);
     await expect(logging.getByText(b, { exact: true })).toBeVisible();
     const e = uniqueSensorId("plan-e");
     await replay({ sensorId: e, wavs: [silence], serverUrl: service.url });
     await expect(card(page, e).getByRole("heading")).toHaveText("Sensor 2", { timeout: 3000 });
     await replay({ sensorId: b, wavs: [silence], serverUrl: service.url });
     await expect(cardB.getByRole("heading")).toHaveText("Sensor 4", { timeout: 3000 });
+    await showEventLog(page);
     await expect(logRows(page, "Sensor 4").first()).toContainText("Chainsaw", { timeout: 3000 });
     await expect(logRows(page, b)).toHaveCount(0);
+    await showDevices(page);
 
     // A sensor on the plan keeps its number: with Sensor 3 removed, the Sensor 4 board checking in again is still
     // Sensor 4. The plan lists sensors by number, not by when they joined.
