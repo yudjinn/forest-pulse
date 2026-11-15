@@ -44,14 +44,11 @@
 #define PIN_MIC3_SD 35    // port 14 D2
 
 // --- Speaker: ports 3-4 (ATech Speaker v2.2, MAX98357A, I2S) ----------------
-// UNVERIFIED pinout, assumed to follow the mic module's layout: module 1st port
-// D1 = SD_MODE (enable: high = on), D2 = LRC (WS); 2nd port D1 = BCLK, D2 = DIN.
+// Module pinout (ATech module page): 1st port D1 = LRCLK, D2 = BCLK; 2nd port
+// D1 not connected, D2 = DIN. No enable line (the module keeps the amp on).
 // Left edge, so the module's 1st port lands on board port 4 and its 2nd on 3.
-// Check against the module's pin page before trusting the speaker; a wrong map
-// only leaves it silent (all four are outputs the module reads).
-#define PIN_SPK_EN 16     // port 4 D1
-#define PIN_SPK_WS 15     // port 4 D2
-#define PIN_SPK_BCLK 17   // port 3 D1
+#define PIN_SPK_WS 16     // port 4 D1  (LRCLK)
+#define PIN_SPK_BCLK 15   // port 4 D2
 #define PIN_SPK_DIN 18    // port 3 D2
 
 // --- Internal: LCD_CAM VSYNC control pad (port 7 D2, nothing plugged in) ---

@@ -64,9 +64,6 @@ esp_err_t clock_gen_init(void)
     // ...and to the speaker, so its samples are locked to the mics' frames.
     output_signal(PIN_SPK_BCLK, I2S0O_BCK_OUT_IDX);
     output_signal(PIN_SPK_WS, I2S0O_WS_OUT_IDX);
-    gpio_config_t en = {.pin_bit_mask = 1ULL << PIN_SPK_EN, .mode = GPIO_MODE_OUTPUT};
-    gpio_config(&en);
-    gpio_set_level(PIN_SPK_EN, 1);  // amplifier on (MAX98357A SD_MODE high)
 
     // Let LCD_CAM sample mic1's BCLK/WS pads (input path on an output pad),
     // so it sees exactly the edges the mics see.

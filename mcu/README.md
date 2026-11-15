@@ -49,7 +49,7 @@ ESP32-S3 GPIO, with no mux. That is what "1:1 mapping" means on this board.
 | 13-14 | Microphone 3 | port 13: LR → GPIO39, WS → GPIO38 · port 14: SCK → GPIO36, SD → GPIO35 |
 | 6 | Data-out ("data incoming") to the Uno Q | D1 → GPIO13, HIGH for the whole event (3.3 V) |
 | 8 | USB-C (to the Uno Q; also flashing) | native USB-Serial/JTAG |
-| 3-4 | Speaker (ATech Speaker v2.2, MAX98357A) | **port 4**: D1 SD_MODE → GPIO16, D2 LRC → GPIO15 · **port 3**: D1 BCLK → GPIO17, D2 DIN → GPIO18 (pinout assumed from the mic module's; unverified) |
+| 3-4 | Speaker (ATech Speaker v2.2, MAX98357A) | **port 4**: D1 LRCLK → GPIO16, D2 BCLK → GPIO15 · **port 3**: D1 not connected, D2 DIN → GPIO18 |
 | 7 | *(nothing plugged in)* | D2 GPIO7 is used **internally** as the camera VSYNC control pad; keep port 7 empty |
 | 11 | *(console)* | GPIO43/44 = UART0 log output |
 
