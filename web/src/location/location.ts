@@ -8,7 +8,7 @@ import type { RouteContext } from "../router.ts";
 import { json } from "../http.ts";
 import { logLine } from "../log.ts";
 import { byName, readPlan, sensorNames } from "../sensors/plan.ts";
-import { type Candidate, choosePartner, crossing, directionDeg, normaliseDeg, PAIR_WINDOW_MS } from "./geometry.ts";
+import { alongByLevel, type Candidate, choosePartner, crossing, directionDeg, normaliseDeg, PAIR_WINDOW_MS } from "./geometry.ts";
 
 // Lines and points show on the plan for this long after the event's corrected time.
 export const SHOW_FOR_MS = 15_000;
@@ -34,14 +34,21 @@ export async function locateOnArrival(env: Env, events: AcceptedEvent[]): Promis
     // that would show it online again, and must still find their partner.
     return [{ event: e, online: true, x_m: s.x_m, y_m: s.y_m, deg }];
   });
-  if (!lines.length) return;
+  const online = JSON.stringify(plan.filter((s) => s.online).map((s) => s.id));
+  const crossed = new Set<number>();
+  if (lines.length) await locateByCrossing(db, lines, online, crossed);
+  await locateByLevel(db, events, lines, placed, online, crossed);
+}
+
+type NewLine = { event: AcceptedEvent; online: boolean; x_m: number; y_m: number; deg: number };
+
+async function locateByCrossing(db: D1Database, lines: NewLine[], online: string, crossed: Set<number>) {
   await db.batch(lines.map((l) =>
     db.prepare("UPDATE events SET line_x_m = ?2, line_y_m = ?3, line_deg = ?4 WHERE id = ?1")
       .bind(l.event.id, l.x_m, l.y_m, l.deg)));
 
   // One query per line and one write per crossing, each set in a single batch, so a backlog delivery of many
   // events costs two round trips rather than two per event.
-  const online = JSON.stringify(plan.filter((s) => s.online).map((s) => s.id));
   const pairing = lines.filter((l) => l.online);
   if (!pairing.length) return;
   const found = await db.batch<StoredLine>(pairing.map(({ event: e }) => db.prepare(
@@ -58,6 +65,7 @@ export async function locateOnArrival(env: Env, events: AcceptedEvent[]): Promis
       event: e.id, sensor: e.sensor_id, partner: partner.id, partner_sensor: partner.sensor_id, crossed: point !== null,
     });
     if (!point) return [];
+    crossed.add(e.id);
     return [db.prepare(
       `UPDATE events SET location_x_m = ?2, location_y_m = ?3, location_partner_id = ?4, location_partner_sensor = ?5,
          location_distance_m = ?6, location_partner_distance_m = ?7 WHERE id = ?1`,
@@ -65,6 +73,77 @@ export async function locateOnArrival(env: Env, events: AcceptedEvent[]): Promis
       round(point.distance_a_m, 3), round(point.distance_b_m, 3))];
   });
   if (located.length) await db.batch(located);
+}
+
+interface LevelPartner extends Candidate {
+  sensor_id: string;
+  level_dbfs: number;
+  line_x_m: number | null;
+  line_y_m: number | null;
+  line_deg: number | null;
+}
+
+// When only one of two sensors can tell direction (a single-mic board beside a 3-mic one), the levels both heard
+// place the sound along the one line (alongByLevel): roughly, in the right area. Done by whichever event arrives
+// second: a new line without a crossing looks for a level-only partner, and a new level-only event looks for a line
+// still without a point. The partner's own row gets where its sensor stood, so the point shows from both sensors.
+async function locateByLevel(db: D1Database, events: AcceptedEvent[], lines: NewLine[],
+  placed: Map<string, { x_m: number; y_m: number }>, online: string, crossed: Set<number>) {
+  const window = (e: AcceptedEvent) => [e.occurred_at - PAIR_WINDOW_MS, e.occurred_at + PAIR_WINDOW_MS];
+  const fromLine = lines.filter((l) => l.event.level_dbfs !== null && !crossed.has(l.event.id));
+  const levelOnly = events.filter((e) => e.angle_deg === null && e.level_dbfs !== null && placed.has(e.sensor_id));
+  if (!fromLine.length && !levelOnly.length) return;
+  const found = await db.batch<LevelPartner>([
+    ...fromLine.map(({ event: e }) => db.prepare(
+      `SELECT id, sensor_id, angle_confidence, occurred_at, level_dbfs, NULL AS line_x_m, NULL AS line_y_m,
+         NULL AS line_deg FROM events
+       WHERE sound_id = ?1 AND sensor_id != ?2 AND angle_deg IS NULL AND level_dbfs IS NOT NULL
+         AND occurred_at BETWEEN ?3 AND ?4 AND sensor_id IN (SELECT value FROM json_each(?5))`,
+    ).bind(e.sound_id, e.sensor_id, ...window(e), online)),
+    ...levelOnly.map((e) => db.prepare(
+      `SELECT id, sensor_id, angle_confidence, occurred_at, level_dbfs, line_x_m, line_y_m, line_deg FROM events
+       WHERE sound_id = ?1 AND sensor_id != ?2 AND line_deg IS NOT NULL AND level_dbfs IS NOT NULL
+         AND location_x_m IS NULL AND occurred_at BETWEEN ?3 AND ?4`,
+    ).bind(e.sound_id, e.sensor_id, ...window(e))),
+  ]);
+  // (line event, its line, its level) with (level-only event, where its sensor stands, its level)
+  const pairs: { line: { id: number; sensor_id: string; x_m: number; y_m: number; deg: number; level: number };
+    other: { id: number; sensor_id: string; x_m: number; y_m: number; level: number } }[] = [];
+  fromLine.forEach((l, i) => {
+    const partner = choosePartner(found[i].results);
+    const at = partner && placed.get(partner.sensor_id);
+    if (!partner || !at) return;
+    pairs.push({
+      line: { id: l.event.id, sensor_id: l.event.sensor_id, x_m: l.x_m, y_m: l.y_m, deg: l.deg, level: l.event.level_dbfs! },
+      other: { id: partner.id, sensor_id: partner.sensor_id, x_m: at.x_m, y_m: at.y_m, level: partner.level_dbfs },
+    });
+  });
+  levelOnly.forEach((e, i) => {
+    const partner = choosePartner(found[fromLine.length + i].results);
+    const at = placed.get(e.sensor_id)!;
+    if (!partner || partner.line_x_m === null || partner.line_y_m === null || partner.line_deg === null) return;
+    pairs.push({
+      line: { id: partner.id, sensor_id: partner.sensor_id, x_m: partner.line_x_m, y_m: partner.line_y_m,
+        deg: partner.line_deg, level: partner.level_dbfs },
+      other: { id: e.id, sensor_id: e.sensor_id, x_m: at.x_m, y_m: at.y_m, level: e.level_dbfs! },
+    });
+  });
+  const writes = pairs.flatMap(({ line, other }) => {
+    const point = alongByLevel(line, line.level, other, other.level);
+    logLine("event_located", { event: line.id, sensor: line.sensor_id, partner: other.id, partner_sensor: other.sensor_id,
+      by: "level", crossed: point !== null });
+    if (!point) return [];
+    return [
+      db.prepare(
+        `UPDATE events SET location_x_m = ?2, location_y_m = ?3, location_partner_id = ?4, location_partner_sensor = ?5,
+           location_distance_m = ?6, location_partner_distance_m = ?7 WHERE id = ?1 AND location_x_m IS NULL`,
+      ).bind(line.id, round(point.x_m, 3), round(point.y_m, 3), other.id, other.sensor_id,
+        round(point.distance_a_m, 3), round(point.distance_b_m, 3)),
+      db.prepare("UPDATE events SET line_x_m = ?2, line_y_m = ?3 WHERE id = ?1 AND line_deg IS NULL")
+        .bind(other.id, other.x_m, other.y_m),
+    ];
+  });
+  if (writes.length) await db.batch(writes);
 }
 
 interface ShownRow {

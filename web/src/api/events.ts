@@ -19,6 +19,7 @@ interface ValidEvent {
   confidence: number;
   angle_deg: number | null;
   angle_confidence: number | null;
+  level_dbfs: number | null;
 }
 
 export async function postEvents(request: Request, { env, params, hooks }: RouteContext): Promise<Response> {
@@ -81,12 +82,12 @@ export async function postEvents(request: Request, { env, params, hooks }: Route
   if (inserts.length) {
     const replies = await env.DB.batch<{ id: number }>(inserts.map(({ event: e, sound }) => env.DB.prepare(
       `INSERT INTO events (sensor_id, event_id, sound_id, sound_name, category, confidence, angle_deg,
-         angle_confidence, detected_at, occurred_at, received_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+         angle_confidence, detected_at, occurred_at, received_at, level_dbfs)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
        ON CONFLICT (sensor_id, event_id) DO NOTHING
        RETURNING id`,
     ).bind(sensor, e.event_id, sound.id, sound.name, sound.category, e.confidence, e.angle_deg, e.angle_confidence,
-      e.detected_at, occurredAt(e.detected_ms), receivedAt)));
+      e.detected_at, occurredAt(e.detected_ms), receivedAt, e.level_dbfs)));
     replies.forEach((reply, i) => {
       const { index, event: e, sound } = inserts[i];
       const row = reply.results[0];
@@ -97,7 +98,8 @@ export async function postEvents(request: Request, { env, params, hooks }: Route
       accepted.push({
         id: row.id, sensor_id: sensor, event_id: e.event_id, sound_id: sound.id, sound_name: sound.name,
         category: sound.category, confidence: e.confidence, angle_deg: e.angle_deg,
-        angle_confidence: e.angle_confidence, occurred_at: occurredAt(e.detected_ms), received_at: receivedAt,
+        angle_confidence: e.angle_confidence, level_dbfs: e.level_dbfs, occurred_at: occurredAt(e.detected_ms),
+        received_at: receivedAt,
       });
     });
   }
@@ -137,9 +139,12 @@ function validate(raw: unknown): ValidEvent | { event_id: string | null; reason:
     if (!isUnit(e.angle_confidence)) return bad("angle_confidence must be a number from 0 to 1");
     angleConfidence = e.angle_confidence;
   }
+  // Optional and advisory: a level outside a plausible range is dropped, never a reason to refuse the event.
+  const level = typeof e.level_dbfs === "number" && Number.isFinite(e.level_dbfs) && e.level_dbfs >= -150
+    && e.level_dbfs <= 10 ? e.level_dbfs : null;
   return {
     event_id: id, sound_id: e.sound_id, detected_at: e.detected_at as string, detected_ms: detected,
-    confidence: e.confidence, angle_deg: angle, angle_confidence: angleConfidence,
+    confidence: e.confidence, angle_deg: angle, angle_confidence: angleConfidence, level_dbfs: level,
   };
 }
 
