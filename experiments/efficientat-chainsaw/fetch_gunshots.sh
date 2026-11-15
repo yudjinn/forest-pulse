@@ -31,4 +31,14 @@ for c in fireworks thunderstorm door_wood_knock clapping glass_breaking can_open
   church_bells siren car_horn dog cat rooster hen; do
   awk -F, -v c="$c" '$4==c{print $1}' samples/esc50.csv | xargs -P8 -I{} bash -c 'fetch {} samples/confusers'
 done
-echo "gunshot: $(ls samples/gunshot/gunshot | wc -l)  forest noise: $(ls samples/gunshot/noise | wc -l)  confusers: $(ls samples/confusers | wc -l)"
+# People talking: LibriSpeech dev-clean (CC BY 4.0, https://www.openslr.org/12), the first 4 utterances of each speaker.
+mkdir -p samples/speech
+if ! ls samples/speech/*/*.flac >/dev/null 2>&1; then
+  [ -f samples/speech/dev-clean.tar.gz ] || curl -sfL https://www.openslr.org/resources/12/dev-clean.tar.gz -o samples/speech/dev-clean.tar.gz
+  tar -xzf samples/speech/dev-clean.tar.gz -C samples/speech
+  find samples/speech/LibriSpeech -name '*.flac' | sort | awk -F/ '{n[$5]++} n[$5] <= 4' | while read -r f; do
+    spk=$(echo "$f" | awk -F/ '{print $5}'); mkdir -p "samples/speech/$spk"; mv "$f" "samples/speech/$spk/"
+  done
+  rm -rf samples/speech/LibriSpeech samples/speech/dev-clean.tar.gz
+fi
+echo "gunshot: $(ls samples/gunshot/gunshot | wc -l)  forest noise: $(ls samples/gunshot/noise | wc -l)  confusers: $(ls samples/confusers | wc -l)  speakers: $(ls samples/speech | wc -l)"

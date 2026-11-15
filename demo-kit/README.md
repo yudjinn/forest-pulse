@@ -22,6 +22,9 @@ The samples are honest:
 
 - The seeded chainsaw detector (the service's seeded sound list and the sensor library's built-in list) never trained
   on any clip cut from these three ESC-50 source recordings.
+- The seeded gunshot detector trained only on forest gunshots (`experiments/efficientat-chainsaw/gunshot.py`); the
+  player has no gunshot sample. A gunshot played on stage should come from the detector's held-out set
+  (`heads/gunshot.json`, `held_out_occasions`), never from a clip it trained on.
 - The owls are the experiment's held-out recordings, whose recordists have no other recording in its set. The
   teaching pack must use boreal owl recordings by other recordists, and the other-sounds library leaves out every
   held-out owl recording (`experiments/efficientat-chainsaw/heads/owl_holdout.json`), these included.
