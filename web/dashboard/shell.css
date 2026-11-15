@@ -1,99 +1,292 @@
-/* The dashboard shell: brand colours, the header, panels, forms and the connection banner. */
+/* The dashboard's look: brand colours, type, buttons, dialogs, the top bar and the sign-in page. Sound categories
+   carry one colour each: warm for what people do (logging, vehicle, poaching), cool for wildlife. */
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   --evergreen: #0b4827;
   --ivory: #fbf7ef;
-  --line: #d9d3c4;
-  --muted: #5b6b60;
-  --alert: #9a2c12;
-  --alert-bg: #fbe3d8;
-  color: var(--evergreen);
-  background: var(--ivory);
-  font-family: "Avenir Next", Avenir, system-ui, sans-serif;
+  --night: #06301a;
+  --deep: #03190d;
+  --panel: #062b18;
+  --ink: #04200f;
+  --ember: #ff6a3c;
+  --amber: #f6b93b;
+  --rose: #f0457c;
+  --moon: #8fe3d0;
+  --ok: #5fd28d;
+  --soft: rgba(251, 247, 239, 0.7);
+  --faint: rgba(251, 247, 239, 0.46);
+  --hair: rgba(251, 247, 239, 0.16);
+  --alert: #ff9b7b;
+  color: var(--ivory);
+  font-family: "Avenir Next", Avenir, "Nunito Sans", "Segoe UI", system-ui, sans-serif;
   font-size: 16px;
-  line-height: 1.4;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
 }
+
+.c-logging { --c: var(--ember); --icon: url("/dashboard/icons/logging.svg"); }
+.c-vehicle { --c: var(--amber); --icon: url("/dashboard/icons/vehicle.svg"); }
+.c-poaching { --c: var(--rose); --icon: url("/dashboard/icons/poaching.svg"); }
+.c-wildlife { --c: var(--moon); --icon: url("/dashboard/icons/wildlife.svg"); }
 
 * {
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+}
+
+html {
+  background: var(--deep);
+}
+
 body {
   margin: 0;
-  min-height: 100svh;
+  overflow: hidden;
+  background: radial-gradient(120% 95% at 50% 46%, #0b4428 0%, var(--night) 46%, var(--deep) 100%);
 }
 
 h1,
-h2 {
-  margin: 0 0 12px;
+h2,
+h3,
+p,
+ul,
+ol,
+dl,
+dd,
+fieldset {
+  margin: 0;
+  padding: 0;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+fieldset {
+  border: 0;
+  min-width: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 2px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.sprite {
+  position: absolute;
+}
+
+/* Read by screen readers, not shown. */
+.aside-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+/* A category's icon in the category's colour. */
+.category-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  background: var(--c);
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+.button {
+  padding: 10px 20px;
+  border: 1px solid var(--faint);
+  border-radius: 999px;
+  background: transparent;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--ivory);
+}
+
+.button.fill {
+  border-color: var(--ivory);
+  background: var(--ivory);
+  color: var(--evergreen);
+}
+
+.button.warn {
+  padding: 12px 24px;
+  border-color: var(--ember);
+  background: var(--ember);
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.button.warn:hover:not(:disabled) {
+  border-color: #ff825a;
+  background: #ff825a;
+}
+
+.button.danger {
+  border-color: var(--alert);
+  color: var(--alert);
+}
+
+.button:disabled {
+  opacity: 0.45;
+}
+
+.link {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--soft);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link:hover:not(:disabled) {
+  color: var(--ivory);
+}
+
+.link.danger {
+  color: var(--alert);
+}
+
+.link:disabled {
+  opacity: 0.45;
+}
+
+.icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--hair);
+  border-radius: 50%;
+  background: rgba(4, 32, 17, 0.6);
+  color: var(--soft);
+}
+
+.icon-button:hover,
+.icon-button[aria-expanded="true"] {
+  color: var(--ivory);
+  border-color: var(--faint);
+  background: var(--panel);
+}
+
+.error {
+  color: var(--alert);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* The top bar floats over the map. */
+.top {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 32px;
+  pointer-events: none;
+}
+
+.top > * {
+  pointer-events: auto;
+}
+
+.logo {
+  display: block;
+  height: 38px;
+  width: auto;
+}
+
+.tools {
+  display: flex;
+  gap: 10px;
+}
+
+/* Panels that open over the map. */
+.popover,
+.drawer,
+dialog {
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  color: var(--ivory);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+dialog {
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 28px;
+  border-radius: 22px;
+}
+
+dialog::backdrop {
+  background: rgba(2, 16, 9, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+dialog h2 {
+  margin-bottom: 14px;
+  font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
 
-h1 {
-  font-size: 28px;
+dialog p {
+  color: var(--soft);
 }
 
-h2 {
-  font-size: 20px;
-}
-
-.shell-header {
+.dialog-actions {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 24px;
-  padding: 12px 16px;
-  background: var(--evergreen);
-  color: var(--ivory);
-}
-
-.shell-home img {
-  display: block;
-  height: 32px;
-  width: auto;
-}
-
-.shell-header nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-}
-
-.shell-header nav a {
-  color: var(--ivory);
-  text-decoration: none;
-  padding: 4px 0;
-  border-bottom: 2px solid transparent;
-}
-
-.shell-header nav a[aria-current="page"] {
-  border-bottom-color: var(--ivory);
-}
-
-.connection-lost {
-  margin: 0;
-  padding: 10px 16px;
-  background: var(--alert-bg);
-  color: var(--alert);
-  font-weight: 600;
-}
-
-.panels {
-  display: grid;
-  gap: 16px;
-  padding: 16px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.panel {
-  min-width: 0;
-  padding: 16px;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
 }
 
 /* Sign-in */
@@ -102,115 +295,60 @@ h2 {
   display: grid;
   place-items: center;
   padding: 32px 16px;
+  overflow: auto;
 }
 
 .signin main {
-  width: min(100%, 360px);
+  width: min(100%, 340px);
 }
 
 .signin-logo {
   display: block;
-  width: 160px;
+  width: 190px;
   height: auto;
-  margin: 0 auto 24px;
+  margin: 0 auto 36px;
 }
 
 .signin form {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
-label {
+.signin h1 {
+  font-size: 24px;
   font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
-input {
-  font: inherit;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-  color: inherit;
-}
-
-button {
-  font: inherit;
-  font-weight: 600;
-  padding: 10px 16px;
-  border: 0;
-  border-radius: 6px;
-  background: var(--evergreen);
-  color: var(--ivory);
-  cursor: pointer;
-}
-
-.error {
-  margin: 0;
-  color: var(--alert);
-  font-weight: 600;
-}
-
-@media (max-width: 480px) {
-  .panels {
-    gap: 8px;
-    padding: 8px;
-  }
-
-  .panel {
-    padding: 12px;
-  }
-}
-
-/* The alert banner: logging going on that nobody has warned about or dismissed. */
-
-.shell-alert {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-  padding: 10px 16px;
-  background: var(--alert-bg);
-  color: var(--alert);
-  border-bottom: 1px solid var(--alert);
-}
-
-.shell-alert[hidden] {
-  display: none;
-}
-
-.shell-alert-text {
-  margin: 0;
-  font-weight: 600;
-}
-
-.shell-alert-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.shell-alert button {
-  padding: 6px 12px;
-  background: var(--alert);
-  color: #fff;
-}
-
-.shell-alert button.secondary {
-  background: #fff;
-  color: var(--evergreen);
-  border: 1px solid var(--line);
-}
-
-.shell-alert button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.shell-alert .error {
-  flex-basis: 100%;
+.signin label {
+  margin-top: 8px;
   font-size: 14px;
+  font-weight: 600;
 }
 
-.shell-alert .error[hidden] {
-  display: none;
+.signin input {
+  padding: 12px;
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.signin .button {
+  margin-top: 10px;
+  padding: 12px 20px;
+}
+
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
+  .top {
+    position: absolute;
+    padding: 14px 16px;
+  }
+
+  .logo {
+    height: 30px;
+  }
 }

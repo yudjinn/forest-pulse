@@ -8,7 +8,7 @@
 // reads them; nothing runs on a timer.
 //
 // The alert: while a logging activity goes on and nobody has sent a warning about it or dismissed it, the activities
-// reply marks it, and every dashboard page shows a banner for it. A dismissal is tied to its activity the same way a
+// reply marks it, and the dashboard shows the alert on that activity. A dismissal is tied to its activity the same way a
 // warning is, and is for every researcher.
 import type { Env } from "../env.ts";
 import type { RouteContext } from "../router.ts";

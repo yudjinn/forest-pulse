@@ -1,30 +1,15 @@
-/* Calibrate beside the plan's title, the run's state line, and the measured distance drawn on the plan. */
+/* Calibrate, at the top of the Devices panel: the run's state beside the button. */
+.calibrate {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--hair);
+}
+
 .calibrate-status {
-  margin: 0;
+  flex: 1;
   font-size: 14px;
-  font-weight: 600;
-}
-
-.calibrate-status[hidden] {
-  display: none;
-}
-
-.calibrate-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.calibrate-distance line {
-  stroke: var(--evergreen);
-  stroke-width: 2;
-}
-
-.calibrate-distance text {
-  fill: var(--evergreen);
-  font-size: 13px;
-  font-weight: 600;
-  paint-order: stroke;
-  stroke: var(--ivory);
-  stroke-width: 3px;
-  stroke-linejoin: round;
+  color: var(--soft);
 }

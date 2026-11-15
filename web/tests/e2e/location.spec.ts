@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { expect, test, type Page } from "@playwright/test";
-import { devVars, signIn } from "../fixtures/dashboard.ts";
+import { devVars, showDevices, signIn } from "../fixtures/dashboard.ts";
 import { referenceClip, replay, sensorName, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { locationServicePorts, webRoot } from "../ports.ts";
@@ -68,6 +68,7 @@ test("a sensor shows where it heard a sound from, and two sensors' crossing line
     const context = await browser.newContext({ baseURL: origin });
     const page = await context.newPage();
     await signIn(page, "/dashboard/", origin);
+    await showDevices(page);
 
     // Two sensors check in and are placed 3 m apart, facing each other: a at the origin facing right, b to its right.
     const a = uniqueSensorId("loc-a");

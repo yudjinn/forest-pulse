@@ -14,7 +14,7 @@ test("the browser computes the same summaries as the sensor library", async ({ p
     Record<string, { embedding: number[] }>;
   await page.route("**/dashboard/teach/reference/*", (route) =>
     route.fulfill({ body: readFileSync(referenceClip(route.request().url().split("/").pop()!)), contentType: "audio/wav" }));
-  await signIn(page, "/dashboard/teach/");
+  await signIn(page);
 
   const got = await page.evaluate(async (clips) => {
     const module = "/dashboard/teach/summaries.js";

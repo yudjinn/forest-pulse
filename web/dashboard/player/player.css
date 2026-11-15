@@ -1,96 +1,107 @@
-/* The phone player: one large tap target per sample, its credit underneath, Stop beside the heading. */
-#player {
-  max-width: 560px;
-  width: 100%;
-  justify-self: center;
-}
-
-.player-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 4px;
-}
-
-.player-head h2 {
-  margin: 0;
-}
-
-.player-stop {
-  min-width: 96px;
-  min-height: 48px;
-  background: var(--alert);
-}
-
-.player-stop:disabled {
-  background: var(--line);
-  color: var(--muted);
-  cursor: default;
-}
-
-.sample-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.sample-list li {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.sample-list li:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
+/* The presenter's player, opened from the speaker button: tap a sample to loop it, tap it again to stop. */
+.popover {
+  position: fixed;
+  top: 76px;
+  right: 84px;
+  z-index: 3;
+  width: 310px;
+  max-height: calc(100vh - 100px);
+  padding: 8px;
+  overflow: auto;
+  border-radius: 16px;
 }
 
 .sample {
-  display: flex;
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 0 12px;
   width: 100%;
-  min-height: 56px;
-  padding: 12px 16px;
-  border: 2px solid var(--evergreen);
-  background: #fff;
-  color: var(--evergreen);
+  padding: 9px 10px 2px;
+  border: 0;
+  border-radius: 10px 10px 0 0;
+  background: none;
   text-align: left;
-  font-size: 18px;
 }
 
-.sample[aria-pressed="true"] {
+.sample::before,
+.sample::after {
+  content: "";
+  grid-area: 1 / 1;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.sample::before {
+  border: 1px solid var(--faint);
+}
+
+.sample::after {
+  background: currentColor;
+  -webkit-mask: url("/dashboard/icons/play.svg") center / 12px no-repeat;
+  mask: url("/dashboard/icons/play.svg") center / 12px no-repeat;
+}
+
+.sample[aria-pressed="true"]::before {
+  border-color: var(--ivory);
+  background: var(--ivory);
+}
+
+.sample[aria-pressed="true"]::after {
   background: var(--evergreen);
-  color: var(--ivory);
+  -webkit-mask-image: url("/dashboard/icons/stop.svg");
+  mask-image: url("/dashboard/icons/stop.svg");
 }
 
-.sample[aria-busy="true"] {
-  border-style: dashed;
+.sample-name {
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .sample-state {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 13px;
+  color: var(--soft);
+}
+
+.sample-list li:hover {
+  border-radius: 10px;
+  background: rgba(251, 247, 239, 0.07);
 }
 
 .sample-credit {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-  overflow-wrap: anywhere;
+  padding: 0 10px 9px 54px;
+  font-size: 12px;
+  color: var(--faint);
 }
 
 .sample-credit a {
   color: inherit;
-  white-space: nowrap;
 }
 
 .sample-list .error {
-  margin-top: 6px;
-  font-size: 14px;
+  padding: 0 10px 9px 54px;
 }
 
 #player > .error {
-  margin-top: 12px;
+  padding: 10px;
+}
+
+/* Something is playing. */
+#open-player.on::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ivory);
+}
+
+@media (max-width: 900px) {
+  .popover {
+    top: 64px;
+    right: 16px;
+  }
 }

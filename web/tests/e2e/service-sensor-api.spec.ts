@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { devVars, signIn } from "../fixtures/dashboard.ts";
+import { devVars, showEventLog, signIn } from "../fixtures/dashboard.ts";
 import { asSensor, referenceClip, replay, sensorName, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService, secondServiceURL } from "../fixtures/service.ts";
 import { webRoot } from "../ports.ts";
@@ -37,6 +37,7 @@ function event(id: string, fields: Record<string, unknown> = {}) {
 
 test("sensors get the contract's replies: sound list, duplicates, dropped, rejected, version, clock offset", async ({ page, request }) => {
   await signIn(page);
+  await showEventLog(page);
   const sensorId = uniqueSensorId("contract");
 
   // Check-in and the sound list: the seeded list, verbatim from the library's built-in one, at its version.
@@ -111,6 +112,7 @@ test("sensors get the contract's replies: sound list, duplicates, dropped, rejec
 
 test("a replay with a wrong key is refused, then delivered once the key is fixed", async ({ page }) => {
   await signIn(page);
+  await showEventLog(page);
   const sensorId = uniqueSensorId("key");
   const stateDir = path.join(mkdtempSync(path.join(os.tmpdir(), "fp-key-")), "state");
 
@@ -133,6 +135,7 @@ test("the dashboard shows when it has lost the service, and clears it when the s
   await service.start();
   try {
     await signIn(page, "/dashboard/", secondServiceURL);
+    await showEventLog(page);
     await expect(page.getByText("No events yet")).toBeVisible(); // the first poll has landed
     const lost = page.getByText(/^Connection lost, last update \d{2}:\d{2}:\d{2}$/);
     await expect(lost).toBeHidden();

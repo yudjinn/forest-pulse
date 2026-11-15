@@ -4,62 +4,147 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Forest Pulse dashboard</title>
-    <meta name="theme-color" content="#0B4827">
+    <meta name="theme-color" content="#06301A">
     <link rel="icon" href="/brand/icons/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="icon" href="/brand/icons/favicon.svg" type="image/svg+xml" sizes="any">
     <link rel="apple-touch-icon" href="/brand/icons/apple-touch-icon.png" sizes="180x180">
     <link rel="stylesheet" href="/dashboard/shell.css">
-    <link rel="stylesheet" href="/dashboard/log/log.css">
     <link rel="stylesheet" href="/dashboard/plan/plan.css">
-    <link rel="stylesheet" href="/dashboard/activities/activities.css">
     <link rel="stylesheet" href="/dashboard/plan/calibrate.css">
+    <link rel="stylesheet" href="/dashboard/activities/activities.css">
+    <link rel="stylesheet" href="/dashboard/sounds/sounds.css">
+    <link rel="stylesheet" href="/dashboard/log/log.css">
+    <link rel="stylesheet" href="/dashboard/teach/teach.css">
+    <link rel="stylesheet" href="/dashboard/player/player.css">
     <script type="module" src="/dashboard/shell.js"></script>
-    <script type="module" src="/dashboard/log/log.js"></script>
     <script type="module" src="/dashboard/plan/plan.js"></script>
     <script type="module" src="/dashboard/plan/location.js"></script>
-    <script type="module" src="/dashboard/activities/activities.js"></script>
     <script type="module" src="/dashboard/plan/calibrate.js"></script>
+    <script type="module" src="/dashboard/activities/activities.js"></script>
+    <script type="module" src="/dashboard/log/log.js"></script>
+    <script type="module" src="/dashboard/log/pulse.js"></script>
+    <script type="module" src="/dashboard/sounds/sounds.js"></script>
+    <script type="module" src="/dashboard/drawer.js"></script>
   </head>
   <body>
-    <main class="panels">
-      <section id="plan" class="panel" aria-labelledby="plan-title">
-        <h2 id="plan-title">Sensor plan</h2>
+    <svg class="sprite" width="0" height="0" aria-hidden="true">
+      <symbol id="icon-speaker" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6M18 6.7a7.5 7.5 0 0 1 0 10.6"/></symbol>
+      <symbol id="icon-devices" viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.6"/><circle cx="8" cy="17" r="2.6"/></symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    </svg>
+
+    <div class="stage">
+      <canvas id="scene" role="img" aria-label="Map of the sensors and the sounds they hear"></canvas>
+      <div id="map-overlay"></div>
+      <p class="plan-empty" hidden>No sensors yet. Sensors appear here when they first check in.</p>
+    </div>
+
+    <header class="top">
+      <img class="logo" src="/brand/logo-horizontal-inverse.svg" alt="Forest Pulse" width="168" height="38">
+      <div class="tools">
+        <button type="button" id="open-player" class="icon-button" aria-label="Play sounds" title="Play sounds" aria-expanded="false" aria-controls="player"><svg class="icon"><use href="#icon-speaker"/></svg></button>
+        <button type="button" id="open-devices" class="icon-button" aria-label="Devices" title="Devices" aria-expanded="false" aria-controls="drawer"><svg class="icon"><use href="#icon-devices"/></svg></button>
+      </div>
+    </header>
+
+    <section id="activities" class="heard" aria-label="Heard">
+      <p class="status" hidden><i></i><span class="status-text"></span></p>
+      <p class="connection-lost" role="alert" hidden></p>
+      <p class="activities-empty" hidden>Nothing heard yet</p>
+      <ol class="activity-list" aria-label="Activities"></ol>
+    </section>
+
+    <section id="sounds" class="listen" aria-labelledby="sounds-title">
+      <h2 id="sounds-title">Listening for</h2>
+      <ul class="sound-list"></ul>
+      <button type="button" class="button teach-open"><svg class="icon"><use href="#icon-plus"/></svg>Teach a new sound</button>
+      <p class="sound-reach" role="status" hidden></p>
+    </section>
+
+    <button type="button" class="pulse" aria-label="Open event log" title="Open event log"><canvas id="pulse"></canvas></button>
+
+    <section id="player" class="popover" aria-label="Play sounds" hidden>
+      <ul class="sample-list"></ul>
+      <p class="error" role="alert" hidden>Couldn't load the samples</p>
+    </section>
+
+    <aside id="drawer" class="drawer" aria-label="Devices and event log" hidden>
+      <div class="drawer-head" role="tablist" aria-label="Devices and event log">
+        <button type="button" class="tab" role="tab" id="tab-devices" aria-controls="panel-devices" aria-selected="true">Devices</button>
+        <button type="button" class="tab" role="tab" id="tab-log" aria-controls="panel-log" aria-selected="false">Event log</button>
+        <button type="button" class="icon-button drawer-close" aria-label="Close"><svg class="icon"><use href="#icon-close"/></svg></button>
+      </div>
+      <div id="panel-devices" class="drawer-body" role="tabpanel" aria-labelledby="tab-devices">
+        <div class="calibrate">
+          <p class="calibrate-status" role="status" hidden></p>
+          <button type="button" class="button calibrate-button" disabled>Calibrate</button>
+        </div>
         <p class="error plan-error" role="alert" hidden></p>
-        <p class="plan-empty" hidden>No sensors yet. Sensors appear here when they first check in.</p>
-        <div class="plan-body" hidden>
-          <svg class="plan-map" role="group" aria-label="Plan"></svg>
-          <ul class="plan-sensors" aria-label="Sensors"></ul>
+        <ul class="plan-sensors" aria-label="Sensors"></ul>
+        <div class="sensitivity" hidden>
+          <label for="sensitivity">Report sounds at <span class="sensitivity-value">50%</span> confidence or more</label>
+          <input id="sensitivity" type="range" min="20" max="90" step="5" value="50">
+          <p class="error" role="alert" hidden></p>
         </div>
-      </section>
-      <section id="activities" class="panel" aria-labelledby="activities-title">
-        <div class="activities-head">
-          <h2 id="activities-title">Activities</h2>
-          <button type="button" class="activities-clear" disabled>Clear events</button>
+      </div>
+      <div id="panel-log" class="drawer-body" role="tabpanel" aria-labelledby="tab-log" hidden>
+        <div class="log-head">
+          <p class="log-empty" hidden>No events yet</p>
+          <button type="button" class="link danger activities-clear" disabled>Clear events</button>
         </div>
+        <p class="error activities-error" role="alert" hidden></p>
+        <table class="log-table">
+          <thead>
+            <tr><th scope="col">Time</th><th scope="col">Sensor</th><th scope="col">Sound</th><th scope="col">Confidence</th><th scope="col">Angle</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </aside>
+
+    <dialog class="activities-confirm" aria-labelledby="clear-title" aria-describedby="clear-what">
+      <h2 id="clear-title">Clear events?</h2>
+      <p id="clear-what">Every event and activity will be removed. Sensors and sounds stay.</p>
+      <div class="dialog-actions">
+        <button type="button" class="button" data-action="cancel">Cancel</button>
+        <button type="button" class="button danger" data-action="clear">Clear events</button>
+      </div>
+    </dialog>
+
+    <dialog class="sound-confirm" aria-labelledby="delete-title">
+      <h2 id="delete-title"></h2>
+      <div class="dialog-actions">
+        <button type="button" class="button" data-action="cancel">Cancel</button>
+        <button type="button" class="button danger" data-action="delete">Delete</button>
+      </div>
+    </dialog>
+
+    <dialog id="teach" class="teach" aria-labelledby="teach-title">
+      <h2 id="teach-title">Teach a new sound</h2>
+      <form class="teach-form">
+        <label class="field" for="teach-name">Name</label>
+        <input id="teach-name" name="name" type="text" autocomplete="off" maxlength="60" required>
+        <fieldset class="teach-category">
+          <legend>Category</legend>
+          <label class="c-wildlife"><input type="radio" name="category" value="wildlife" checked><span class="category-icon"></span>Wildlife</label>
+          <label class="c-logging"><input type="radio" name="category" value="logging"><span class="category-icon"></span>Logging</label>
+          <label class="c-vehicle"><input type="radio" name="category" value="vehicle"><span class="category-icon"></span>Vehicle</label>
+          <label class="c-poaching"><input type="radio" name="category" value="poaching"><span class="category-icon"></span>Poaching</label>
+        </fieldset>
+        <label class="drop" data-testid="drop-zone">
+          <span class="drop-title">Drop recordings here</span>
+          <span class="drop-hint">or choose files</span>
+          <input name="recordings" type="file" multiple aria-label="Recordings"
+            accept=".wav,.mp3,.flac,.ogg,.m4a,audio/wav,audio/mpeg,audio/flac,audio/ogg,audio/mp4">
+        </label>
+        <ul class="clip-list"></ul>
         <p class="error" role="alert" hidden></p>
-        <ol class="activity-list" aria-labelledby="activities-title"></ol>
-        <p class="activities-empty" hidden>Nothing heard yet</p>
-        <dialog class="activities-confirm" aria-labelledby="clear-title" aria-describedby="clear-what">
-          <h2 id="clear-title">Clear events?</h2>
-          <p id="clear-what">Every event and activity will be removed. Sensors and sounds stay.</p>
-          <div class="activities-confirm-actions">
-            <button type="button" class="secondary" data-action="cancel">Cancel</button>
-            <button type="button" class="danger" data-action="clear">Clear events</button>
-          </div>
-        </dialog>
-      </section>
-      <section id="log" class="panel" aria-labelledby="log-title">
-        <h2 id="log-title">Event log</h2>
-        <div class="log-scroll">
-          <table>
-            <thead>
-              <tr><th scope="col">Time</th><th scope="col">Sensor</th><th scope="col">Sound</th><th scope="col">Confidence</th><th scope="col">Angle</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div class="dialog-actions">
+          <button type="button" class="button teach-cancel">Cancel</button>
+          <button type="submit" class="button fill">Teach</button>
         </div>
-        <p class="log-empty" hidden>No events yet</p>
-      </section>
-    </main>
+      </form>
+    </dialog>
   </body>
 </html>

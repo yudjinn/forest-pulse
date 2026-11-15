@@ -7,7 +7,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { devVars, signIn } from "../fixtures/dashboard.ts";
+import { devVars, showDevices, showEventLog, signIn } from "../fixtures/dashboard.ts";
 import { asSensor, referenceClip, replay, sensorName, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { soundsServicePorts } from "../ports.ts";
@@ -59,8 +59,12 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
   await service.start();
   try {
     const origin = service.url;
-    await signIn(page, "/dashboard/sounds/", origin);
-    await expect(page.getByRole("link", { name: "Sounds" })).toHaveAttribute("aria-current", "page");
+    await signIn(page, "/dashboard/", origin);
+    // The sensitivity and the sensors' cards are in the Devices panel, which opens over the sound list: a second
+    // tab keeps it open.
+    const panel = await context.newPage();
+    await panel.goto(`${origin}/dashboard/`);
+    await showDevices(panel);
     // Each switch moves the list's version on by one from wherever this fresh service starts.
     const start: number = (await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()).version;
 
@@ -69,20 +73,20 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
       await expect(soundSwitch(page, name)).toBeChecked();
       const row = page.getByRole("listitem").filter({ has: soundSwitch(page, name) });
       await expect(row).toContainText(category);
-      await expect(row).toContainText(kind);
+      await expect(row).toHaveAttribute("title", kind);
     }
 
     // The sensitivity starts at 50%. A save of it that fails puts the slider back and says so.
-    const sensitivity = page.getByRole("slider");
+    const sensitivity = panel.getByRole("slider");
     await expect(sensitivity).toHaveValue("50");
-    await expect(page.getByText("Report sounds at 50% confidence or more")).toBeVisible();
-    await page.route(`${origin}/dashboard/api/sounds`, (route) =>
+    await expect(panel.getByText("Report sounds at 50% confidence or more")).toBeVisible();
+    await panel.route(`${origin}/dashboard/api/sounds`, (route) =>
       route.request().method() === "PATCH" ? route.fulfill({ status: 500, body: "{}" }) : route.continue());
     await sensitivity.fill("60");
-    await expect(page.getByRole("alert")).toHaveText("Couldn't save, try again");
+    await expect(panel.getByRole("alert")).toHaveText("Couldn't save, try again");
     await expect(sensitivity).toHaveValue("50");
-    await expect(page.getByText("Report sounds at 50% confidence or more")).toBeVisible();
-    await page.unroute(`${origin}/dashboard/api/sounds`);
+    await expect(panel.getByText("Report sounds at 50% confidence or more")).toBeVisible();
+    await panel.unroute(`${origin}/dashboard/api/sounds`);
     expect((await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()).sensitivity).toBe(0.5);
 
     // A save that fails flips the switch back and says so.
@@ -98,6 +102,7 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
     // A sensor that keeps its state hears a chainsaw; the row shows in the live log.
     const log = await context.newPage();
     await log.goto(`${origin}/dashboard/`);
+    await showEventLog(log);
     const sensorId = uniqueSensorId("sounds");
     const stateDir = path.join(mkdtempSync(path.join(os.tmpdir(), "fp-sounds-")), "state");
     const first = await replay({ sensorId, wavs: [referenceClip("chainsaw.wav")], stateDir, serverUrl: origin });
@@ -114,8 +119,8 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
     // Switched off: the page counts the sensor as not reached yet and the plan shows it updating, until the sensor's
     // next check-ins fetch a list without Chainsaw and report it: its next run fetches the list, and the run after
     // reports it at its first check-in (a run can stop before a second one).
-    const sensorCard = log.getByRole("list", { name: "Sensors" }).getByRole("listitem")
-      .filter({ has: log.getByText(sensorId, { exact: true }) });
+    const sensorCard = panel.getByRole("list", { name: "Sensors" }).getByRole("listitem")
+      .filter({ has: panel.getByText(sensorId, { exact: true }) });
     // The sensor has just checked in with the list it holds, so it is online when the switch lands.
     await asSensor(sensorId, [{ call: "checkin", fields: { sound_list_version: start } }], undefined, origin);
     await soundSwitch(page, "Chainsaw").click();
@@ -165,11 +170,12 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
     // Another researcher has the page open when the sensitivity moves to 70%; their page follows at its next poll.
     const other = await browser.newContext();
     const otherPage = await other.newPage();
-    await signIn(otherPage, "/dashboard/sounds/", origin);
+    await signIn(otherPage, "/dashboard/", origin);
+    await showDevices(otherPage);
     await expect(otherPage.getByRole("slider")).toHaveValue("50");
     await sensitivity.fill("70");
-    await expect(page.getByText("Report sounds at 70% confidence or more")).toBeVisible();
-    await expect(page.getByRole("alert")).toBeHidden();
+    await expect(panel.getByText("Report sounds at 70% confidence or more")).toBeVisible();
+    await expect(panel.getByRole("alert")).toBeHidden();
     // A sensitivity change is a sound-list change: the sensor has not reached it yet.
     await expect(reach(page)).toHaveText("Reached 0 of 1 sensor");
     await expect.poll(async () => (await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()))
@@ -194,7 +200,7 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
 
     // Back at 50%, the same replay is heard below 70% and reported once.
     await sensitivity.fill("50");
-    await expect(page.getByText("Report sounds at 50% confidence or more")).toBeVisible();
+    await expect(panel.getByText("Report sounds at 50% confidence or more")).toBeVisible();
     await expect.poll(async () => (await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()))
       .toMatchObject({ sensitivity: 0.5, version: start + 4 });
     expect(fetchedList(await replay({ sensorId, wavs: [silentWav()], stateDir, serverUrl: origin }), start + 4))

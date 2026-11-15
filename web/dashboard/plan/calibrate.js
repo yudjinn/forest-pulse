@@ -1,8 +1,9 @@
-// Calibrate on the sensor plan: the button, the run's state beside it, and the measured distance drawn between the
-// sensors a calibration run placed. The service runs the run; this page starts it and follows the shell's poll.
-// Sensors are named as the plan names them.
-import { poll, refresh } from "/dashboard/shell.js";
-import { addLayer, addTool } from "/dashboard/plan/plan.js";
+// Calibrate, at the top of the Devices panel: the button, the run's state beside it, and the measured distance
+// drawn between the sensors a calibration run placed. The service runs the run; this page starts it and follows
+// the shell's poll. Sensors are named as the plan names them. The distances show while the Devices panel is open.
+import { poll, refresh, serviceClock, serviceNow, signIn } from "/dashboard/shell.js";
+import { onSensors, sensorsNow } from "/dashboard/plan/plan.js";
+import { addLayer, invalidate, overlay, place, ringPath } from "/dashboard/plan/scene.js";
 
 /**
  * @typedef {{ id: string, state: "waiting" | "beeping" | "calibrated" | "failed", ready: number,
@@ -15,7 +16,6 @@ import { addLayer, addTool } from "/dashboard/plan/plan.js";
  *   CalibrationState
  */
 
-const SVG = "http://www.w3.org/2000/svg";
 // A finished run's failure shows this long by the service's clock; progress shows while the run lasts.
 const SHOW_FAILURE_MS = 60_000;
 /** @type {Record<string, string>} */
@@ -36,38 +36,21 @@ const PAIR_REASONS = {
   bearings_disagree: (a, b) => `directions between ${a} and ${b} don't match the distances`,
 };
 
-const status = document.createElement("p");
-status.className = "calibrate-status";
-status.setAttribute("role", "status");
-const button = document.createElement("button");
-button.type = "button";
-button.className = "calibrate-button";
-button.textContent = "Calibrate";
-button.disabled = true;
-addTool(status);
-addTool(button);
+const status = /** @type {HTMLElement} */ (document.querySelector(".calibrate-status"));
+const button = /** @type {HTMLButtonElement} */ (document.querySelector(".calibrate-button"));
 
 /** @type {CalibrationState | null} */
 let state = null;
-// The service's clock minus this page's, from the latest reply.
-let skew = 0;
 let starting = false;
 // Why the service refused the last press, shown until a poll at least REFUSED_MS later.
 /** @type {{ text: string, until: number } | null} */
 let refused = null;
 const REFUSED_MS = 4000;
-// The plan's names for its sensors, as of its latest draw.
+// The plan's names for its sensors.
 /** @type {Map<string, string>} */
 let names = new Map();
 /** A sensor's name on the plan, or its own id when it is not on the plan. @param {string} id */
 const nameOf = (id) => names.get(id) ?? id;
-
-/** @param {string} name @param {Record<string, string | number>} attrs */
-function svgEl(name, attrs) {
-  const el = document.createElementNS(SVG, name);
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
-  return el;
-}
 
 /** @param {number} n */
 const pad = (n) => String(n).padStart(2, "0");
@@ -102,41 +85,90 @@ function line(s) {
 
 function show() {
   button.disabled = starting || !state || state.running || state.eligible < 2;
-  const text = refused?.text ?? (state ? line({ ...state, now: Date.now() + skew }) : "");
-  status.textContent = text;
+  const text = refused?.text ?? (state ? line({ ...state, now: serviceNow() }) : "");
+  if (status.textContent !== text) status.textContent = text;
   status.hidden = !text;
 }
 
-const layer = addLayer({
-  draw(g, view) {
-    // The status line names sensors too, so it follows the plan's names.
-    names = new Map(view.sensors.map((s) => [s.id, s.name]));
-    show();
-    if (!state?.layout) return;
-    for (const d of state.layout.distances) {
-      const a = view.sensors.find((s) => s.id === d.a);
-      const b = view.sensors.find((s) => s.id === d.b);
-      if (!a || !b) continue;
-      const [x1, y1] = view.toScreen(a.x_m, a.y_m);
-      const [x2, y2] = view.toScreen(b.x_m, b.y_m);
-      const text = `${d.distance_m.toFixed(2)} m`;
-      const group = svgEl("g", { class: "calibrate-distance", role: "img", "aria-label": `Measured ${text} from ${a.name} to ${b.name}` });
-      group.append(svgEl("line", { x1, y1, x2, y2 }));
-      const label = svgEl("text", { x: ((x1 + x2) / 2).toFixed(1), y: ((y1 + y2) / 2 - 8).toFixed(1), "text-anchor": "middle" });
-      label.textContent = text;
-      group.append(label);
-      g.append(group);
+/** The measured distances between sensors still on the plan, with where each end stands. */
+function measured() {
+  const sensors = sensorsNow();
+  return (state?.layout?.distances ?? []).flatMap((d) => {
+    const a = sensors.find((s) => s.id === d.a), b = sensors.find((s) => s.id === d.b);
+    return a && b ? [{ a, b, text: `${d.distance_m.toFixed(2)} m` }] : [];
+  });
+}
+
+/** One label per measured distance, kept across frames. @type {Map<string, HTMLElement>} */
+const labels = new Map();
+
+addLayer({
+  active: () => state?.run?.state === "beeping",
+  ground(g, view, now) {
+    // While the boards beep, each sensor on the plan sends out rings.
+    if (state?.run?.state === "beeping" && !view.still) {
+      sensorsNow().filter((s) => s.online).forEach((s, i) => {
+        const u = (now / 1400 + i / 3) % 1;
+        ringPath(s.x_m, s.y_m, 0.15 + u * 1.1);
+        g.strokeStyle = `rgba(251,247,239,${0.8 * (1 - u)})`;
+        g.lineWidth = 2;
+        g.stroke();
+      });
+    }
+    if (!view.device) return;
+    for (const { a, b } of measured()) {
+      const from = view.P(a.x_m, a.y_m), to = view.P(b.x_m, b.y_m);
+      g.setLineDash([4, 5]);
+      g.beginPath();
+      g.moveTo(from[0], from[1]);
+      g.lineTo(to[0], to[1]);
+      g.strokeStyle = "rgba(251,247,239,.55)";
+      g.lineWidth = 1.2;
+      g.stroke();
+      g.setLineDash([]);
+    }
+  },
+  overlay(view) {
+    const seen = new Set();
+    for (const { a, b, text } of view.device ? measured() : []) {
+      const key = `${a.id} ${b.id}`;
+      seen.add(key);
+      let el = labels.get(key);
+      if (!el) {
+        el = document.createElement("span");
+        el.className = "map-label";
+        el.setAttribute("role", "img");
+        el.append(document.createElement("span"));
+        labels.set(key, el);
+        overlay.append(el);
+      }
+      const label = `Measured ${text} from ${a.name} to ${b.name}`;
+      if (el.getAttribute("aria-label") !== label) el.setAttribute("aria-label", label);
+      if (el.firstElementChild && el.firstElementChild.textContent !== text) el.firstElementChild.textContent = text;
+      const from = view.P(a.x_m, a.y_m), to = view.P(b.x_m, b.y_m);
+      place(el, (from[0] + to[0]) / 2, (from[1] + to[1]) / 2 - 10);
+    }
+    for (const [key, el] of labels) {
+      if (seen.has(key)) continue;
+      el.remove();
+      labels.delete(key);
     }
   },
 });
 
+// The status line names sensors too, so it follows the plan's names.
+onSensors((sensors) => {
+  names = new Map(sensors.map((s) => [s.id, s.name]));
+  show();
+});
+
 /** @param {CalibrationState} data */
 function render(data) {
-  skew = data.now - Date.now();
+  serviceClock(data.now);
   state = data;
   if (refused && Date.now() > refused.until) refused = null;
   show();
-  layer.redraw();
+  invalidate();
 }
 
 button.addEventListener("click", async () => {
@@ -144,10 +176,7 @@ button.addEventListener("click", async () => {
   show();
   try {
     const res = await fetch("/dashboard/api/calibration", { method: "POST" });
-    if (res.status === 401) {
-      location.assign("/dashboard/signin");
-      return;
-    }
+    if (res.status === 401) return signIn();
     if (!res.ok) {
       /** @type {{ error?: string }} */
       const body = await res.json().catch(() => ({}));

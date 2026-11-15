@@ -68,6 +68,8 @@ export async function locateOnArrival(env: Env, events: AcceptedEvent[]): Promis
 interface ShownRow {
   id: number;
   sensor_id: string;
+  sound_name: string;
+  category: string;
   occurred_at: number;
   line_x_m: number;
   line_y_m: number;
@@ -83,12 +85,13 @@ interface ShownRow {
 }
 
 // GET /dashboard/api/locations: the lines and crossing points to show now, with the service's clock so the page
-// can take each one down when its time is up. Each names its sensors as shown now.
+// can take each one down when its time is up. Each names its sensors as shown now and carries its sound's name and
+// category; a line says whether it is one of the two behind a shown point (located).
 export async function listLocations(_request: Request, { env }: RouteContext): Promise<Response> {
   const now = Date.now();
   const name = await sensorNames(env.DB);
   const rows = await env.DB.prepare(
-    `SELECT e.id, e.sensor_id, e.occurred_at, e.line_x_m, e.line_y_m, e.line_deg, e.location_x_m, e.location_y_m,
+    `SELECT e.id, e.sensor_id, e.sound_name, e.category, e.occurred_at, e.line_x_m, e.line_y_m, e.line_deg, e.location_x_m, e.location_y_m,
        e.location_partner_id, e.location_partner_sensor, e.location_distance_m, e.location_partner_distance_m,
        p.line_x_m AS partner_x_m, p.line_y_m AS partner_y_m
      FROM events e LEFT JOIN events p ON p.id = e.location_partner_id
@@ -97,8 +100,10 @@ export async function listLocations(_request: Request, { env }: RouteContext): P
   ).bind(now - SHOW_FOR_MS).all<ShownRow>();
   const located = new Map(rows.results.filter((r) => r.location_partner_id !== null).map((r) => [r.id, r]));
   const points = [];
+  const inPoint = new Set<number>();
   for (const r of located.values()) {
     if (r.location_x_m === null || r.location_y_m === null || r.partner_x_m === null || r.partner_y_m === null) continue;
+    inPoint.add(r.id).add(r.location_partner_id as number);
     // Both events of a pair can hold the same crossing; it is shown once.
     const back = located.get(r.location_partner_id as number);
     if (back && back.location_partner_id === r.id && back.id < r.id) continue;
@@ -106,6 +111,8 @@ export async function listLocations(_request: Request, { env }: RouteContext): P
       x_m: r.location_x_m,
       y_m: r.location_y_m,
       occurred_at: r.occurred_at,
+      sound_name: r.sound_name,
+      category: r.category,
       from: [
         { sensor_id: r.sensor_id, x_m: r.line_x_m, y_m: r.line_y_m, distance_m: r.location_distance_m },
         { sensor_id: r.location_partner_sensor, x_m: r.partner_x_m, y_m: r.partner_y_m,
@@ -119,6 +126,9 @@ export async function listLocations(_request: Request, { env }: RouteContext): P
       event_id: r.id, sensor_id: r.sensor_id, sensor_name: name(r.sensor_id), x_m: r.line_x_m, y_m: r.line_y_m,
       direction_deg: r.line_deg,
       occurred_at: r.occurred_at,
+      sound_name: r.sound_name,
+      category: r.category,
+      located: inPoint.has(r.id),
     })),
     points,
   });

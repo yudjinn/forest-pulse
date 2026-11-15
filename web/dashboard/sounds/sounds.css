@@ -1,238 +1,168 @@
-/* The Sounds page: one row per sound, its switch on the right. */
-#sounds {
-  max-width: 720px;
-  width: 100%;
-  justify-self: center;
+/* What the sensors listen for, down the right of the map: a switch per sound, Teach a new sound, and how far the
+   latest change has reached. The sensitivity sits in the Devices panel. */
+.listen {
+  position: fixed;
+  right: 0;
+  top: 76px;
+  z-index: 1;
+  width: 328px;
+  max-height: calc(100vh - 170px);
+  padding: 24px 32px;
+  overflow: auto;
+  scrollbar-width: none;
 }
 
-.sounds-head {
+.listen h2 {
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--soft);
+}
+
+.sound-list > li {
+  margin: 0 -10px;
+  padding: 0 10px;
+  border-radius: 10px;
+}
+
+.sound-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-}
-
-/* The Teach entry point, drawn as the dashboard's button, with the heading's bottom margin so they centre together. */
-.teach-link {
-  margin-bottom: 12px;
-  padding: 8px 14px;
-  border-radius: 6px;
-  background: var(--evergreen);
-  color: var(--ivory);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-/* How far the researcher's latest change has reached the sensors. */
-.sound-reach {
-  margin: 0 0 8px;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.sound-reach[hidden] {
-  display: none;
-}
-
-/* The sensitivity: its sentence over a full-width slider, above the list. */
-.sensitivity {
-  display: grid;
-  gap: 4px;
-  padding: 4px 0 12px;
-  border-bottom: 1px solid var(--line);
-}
-
-.sensitivity[hidden] {
-  display: none;
-}
-
-.sensitivity label {
-  font-weight: inherit;
-}
-
-.sensitivity-value {
-  font-weight: 600;
-}
-
-.sensitivity input[type="range"] {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  accent-color: var(--evergreen);
-  cursor: pointer;
-}
-
-.sensitivity input[type="range"]:focus-visible {
-  outline: 2px solid var(--evergreen);
-  outline-offset: 2px;
-}
-
-.sensitivity .error {
-  font-size: 14px;
-}
-
-.sound-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.sound-list li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: 12px;
-  border-bottom: 1px solid var(--line);
-}
-
-.sound-list li:last-child {
-  border-bottom: 0;
+  gap: 12px;
+  min-height: 35px;
 }
 
 .sound {
-  flex: 1;
-  min-width: 0;
   display: flex;
+  flex: 1;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 0;
-  font-weight: inherit;
-  cursor: pointer;
-}
-
-.sound-text {
-  display: grid;
+  gap: 12px;
   min-width: 0;
+  padding: 7px 0;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
 }
 
 .sound-name {
-  font-weight: 600;
-  overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.sound-meta {
-  color: var(--muted);
-  font-size: 14px;
+.sound-list > li.off .sound-name {
+  color: var(--faint);
 }
 
-.sound-list .error {
-  flex-basis: 100%;
-  padding: 0 0 10px;
-  font-size: 14px;
+.sound-list > li.off .category-icon {
+  background: var(--faint);
 }
 
-/* Delete, for a taught sound: the dashboard's secondary button, smaller, after the switch. */
-.sound-delete {
-  flex: none;
-  padding: 6px 12px;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--evergreen);
-  font-size: 14px;
-}
-
-/* Seeded rows keep Delete's space, unseen, so every row's switch lines up. */
-.sound-delete[hidden] {
-  display: block;
-  visibility: hidden;
-}
-
-.sound-delete:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.sound-delete:focus-visible,
-.sound-confirm button:focus-visible {
-  outline: 2px solid var(--evergreen);
-  outline-offset: 2px;
-}
-
-.sound-confirm {
-  width: min(100% - 32px, 400px);
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--evergreen);
-}
-
-.sound-confirm::backdrop {
-  background: rgb(11 72 39 / 0.35);
-}
-
-.sound-confirm h2 {
-  margin: 0 0 16px;
-  overflow-wrap: anywhere;
-}
-
-.sound-confirm-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.sound-confirm button.secondary {
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--evergreen);
-}
-
-.sound-confirm button.danger {
-  background: var(--alert);
-  color: #fff;
-}
-
-/* A switch drawn from the checkbox: a track with a knob that slides right when on. */
-.sound input[role="switch"] {
+.sound-row input {
   appearance: none;
   flex: none;
   position: relative;
-  width: 44px;
-  height: 26px;
+  width: 36px;
+  height: 21px;
   margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 13px;
-  background: var(--line);
+  border-radius: 11px;
+  background: rgba(251, 247, 239, 0.18);
   cursor: pointer;
-  transition: background-color 120ms;
+  transition: background 0.15s;
 }
 
-.sound input[role="switch"]::after {
+.sound-row input::after {
   content: "";
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 20px;
-  height: 20px;
+  top: 2px;
+  left: 2px;
+  width: 17px;
+  height: 17px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
-  transition: transform 120ms;
+  background: var(--ivory);
+  transition: transform 0.15s;
 }
 
-.sound input[role="switch"]:checked {
-  background: var(--evergreen);
+.sound-row input:checked {
+  background: #2f9a5e;
 }
 
-.sound input[role="switch"]:checked::after {
-  transform: translateX(18px);
+.sound-row input:checked::after {
+  transform: translateX(15px);
 }
 
-.sound input[role="switch"]:disabled {
+.sound-row input:disabled {
   opacity: 0.6;
-  cursor: progress;
 }
 
-.sound input[role="switch"]:focus-visible {
-  outline: 2px solid var(--evergreen);
-  outline-offset: 2px;
+.sound-delete {
+  display: grid;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--faint);
+}
+
+.sound-delete:hover {
+  color: var(--ivory);
+}
+
+.sound-delete .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.sound-list .error {
+  padding-bottom: 6px;
+}
+
+.teach-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 9px 18px 9px 12px;
+}
+
+.teach-open .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.sound-reach {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--soft);
+}
+
+.sensitivity {
+  padding: 18px 0;
+}
+
+.sensitivity label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sensitivity input {
+  display: block;
+  width: 100%;
+  margin: 12px 0 0;
+  accent-color: var(--ivory);
+}
+
+.sensitivity .error {
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .listen {
+    position: static;
+    width: auto;
+    max-height: none;
+    padding: 8px 16px 20px;
+    overflow: visible;
+  }
 }

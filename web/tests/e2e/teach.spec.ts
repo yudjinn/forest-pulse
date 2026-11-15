@@ -1,4 +1,4 @@
-// Teaching journey: a researcher teaches Boreal owl from dropped recordings on the Teach page, after seeing too few
+// Teaching journey: a researcher teaches Boreal owl from dropped recordings in the teach dialog, after seeing too few
 // usable recordings refused and a failed upload save nothing; the sound appears in the Sounds list, and sensors
 // pull it at their next check-in: a boreal owl the detector never heard is reported, a tawny owl is not. Teaching
 // Boreal owl again with other recordings replaces its detector in place, and the Sounds list it returns to counts
@@ -11,7 +11,7 @@ import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { devVars, signIn } from "../fixtures/dashboard.ts";
+import { devVars, openTeach, showEventLog, signIn } from "../fixtures/dashboard.ts";
 import { asSensor, replay, sensorName, silentWav, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SecondService } from "../fixtures/service.ts";
 import { teachServicePorts, webRoot } from "../ports.ts";
@@ -51,18 +51,17 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
   await service.start();
   try {
     const origin = service.url;
-    await signIn(page, "/dashboard/sounds/", origin);
+    await signIn(page, "/dashboard/", origin);
     const before = await (await page.request.get(`${origin}/dashboard/api/sounds`)).json();
-    // The Sounds list in its own tab, following the 2 s poll.
+    // The sound list in another tab, following the 2 s poll.
     const sounds = await context.newPage();
-    await sounds.goto(`${origin}/dashboard/sounds/`);
+    await sounds.goto(`${origin}/dashboard/`);
     await expect(sounds.getByRole("switch")).toHaveCount(before.sounds.length);
 
-    await page.getByRole("link", { name: "Teach a new sound" }).click();
-    await expect(page).toHaveURL(`${origin}/dashboard/teach/`);
+    const teaching = await openTeach(page);
     await expect(page.getByRole("heading", { name: "Teach a new sound" })).toBeVisible();
     await page.getByLabel("Name").fill("Boreal owl");
-    await expect(page.getByLabel("Category")).toHaveValue("wildlife");
+    await expect(teaching.getByRole("radio", { name: "Wildlife" })).toBeChecked();
 
     // Four recordings and a file that is not audio: the file is skipped with its reason, and Teach is refused.
     const clips = teachingSet("teach-a");
@@ -75,7 +74,7 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     for (const clip of clips.slice(0, 4)) {
       await expect(clipRow(page, path.basename(clip))).toContainText("Ready", { timeout: 60_000 });
     }
-    await page.getByRole("button", { name: "Teach" }).click();
+    await page.getByRole("button", { name: "Teach", exact: true }).click();
     await expect(page.getByText("Needs at least 5 usable recordings")).toBeVisible();
 
     // Two more make six. An upload that fails says so and saves nothing.
@@ -84,22 +83,23 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
       await expect(clipRow(page, path.basename(clip))).toContainText("Ready", { timeout: 60_000 });
     }
     await page.route(`${origin}/dashboard/api/teach`, (route) => route.abort("failed"));
-    await page.getByRole("button", { name: "Teach" }).click();
+    await page.getByRole("button", { name: "Teach", exact: true }).click();
     await expect(page.getByText("Teaching failed, try again")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Teach" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Teach", exact: true })).toBeEnabled();
     await page.unroute(`${origin}/dashboard/api/teach`);
     const unchanged = await (await page.request.get(`${origin}/dashboard/api/sounds`)).json();
     expect(unchanged).toEqual(before);
     await expect(sounds.getByRole("switch")).toHaveCount(before.sounds.length);
     await expect(sounds.getByText("Boreal owl")).toHaveCount(0);
 
-    // Teaching again works: the page returns to the Sounds list, which shows the new sound switched on, and the
-    // other tab's list picks it up on its own.
-    await page.getByRole("button", { name: "Teach" }).click();
-    await expect(page).toHaveURL(`${origin}/dashboard/sounds/`, { timeout: 60_000 });
+    // Teaching again works: the dialog closes and the sound list shows the new sound switched on, and the other
+    // tab's list picks it up on its own.
+    await page.getByRole("button", { name: "Teach", exact: true }).click();
+    await expect(teaching).toBeHidden({ timeout: 60_000 });
     const owl = page.getByRole("switch", { name: "Boreal owl", exact: true });
     await expect(owl).toBeChecked();
-    await expect(page.getByRole("listitem").filter({ has: owl })).toContainText("Wildlife · Trained detector");
+    await expect(page.getByRole("listitem").filter({ has: owl })).toContainText("Wildlife");
+    await expect(page.getByRole("listitem").filter({ has: owl })).toHaveAttribute("title", "Trained detector");
     await expect(sounds.getByRole("switch", { name: "Boreal owl", exact: true })).toBeChecked({ timeout: 5000 });
     const after = await (await page.request.get(`${origin}/dashboard/api/sounds`)).json();
     expect(after.version).toBe(before.version + 1);
@@ -119,6 +119,7 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     // a tawny owl. Only the first is reported as Boreal owl in the live log.
     const log = await context.newPage();
     await log.goto(`${origin}/dashboard/`);
+    await showEventLog(log);
     const borealSensor = uniqueSensorId("teach-boreal");
     const tawnySensor = uniqueSensorId("teach-tawny");
     // The boreal owl sensor keeps its state, so its later check-ins follow the list it has.
@@ -148,15 +149,15 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     // one Boreal owl, and a sensor's next sound-list fetch carries a higher version and new weights for the same id.
     const fetchSounds = async () => (await asSensor(borealSensor, [{ call: "sounds" }], undefined, origin))[0];
     const taught = (await fetchSounds()).sounds.find((s: { name: string }) => s.name === "Boreal owl");
-    await page.getByRole("link", { name: "Teach a new sound" }).click();
+    await openTeach(page);
     await page.getByLabel("Name").fill("Boreal owl");
     const retaught = teachingSet("teach-b");
     await page.getByLabel("Recordings").setInputFiles(retaught.map(asFile));
     for (const clip of retaught) {
       await expect(clipRow(page, path.basename(clip))).toContainText("Ready", { timeout: 60_000 });
     }
-    await page.getByRole("button", { name: "Teach" }).click();
-    await expect(page).toHaveURL(`${origin}/dashboard/sounds/`, { timeout: 60_000 });
+    await page.getByRole("button", { name: "Teach", exact: true }).click();
+    await expect(teaching).toBeHidden({ timeout: 60_000 });
     await expect(owl).toBeChecked();
     await expect(page.getByRole("switch", { name: "Boreal owl" })).toHaveCount(1);
     // The Sounds list counts the two sensors on the plan as not reached until they report the new list: each one's
@@ -220,6 +221,7 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     });
     expect((await late.json()).results).toEqual([{ event_id: "late-owl", status: "dropped" }]);
     await log.reload();
+    await showEventLog(log);
     await expect(borealRows.first()).toBeVisible();
     await log.waitForTimeout(2500); // one more poll of the log
     await expect(borealRows).toHaveCount(heardRows);

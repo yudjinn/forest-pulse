@@ -1,55 +1,17 @@
-// The dashboard shell, shared by every researcher page: the header with its navigation, and live polling with
-// the connection-lost banner, and the alert banner while logging goes on (activities/warnings.js). A page loads this
-// module and builds its own content in <main>.
-// Additive only: add a navigation entry, never reorder or rewrite one (docs/agents/ownership.md).
-import { alertBanner } from "/dashboard/activities/warnings.js";
-
-/** @type {{ href: string, label: string }[]} */
-const NAV = [
-  { href: "/dashboard/", label: "Live" },
-  { href: "/dashboard/sounds/", label: "Sounds" },
-  { href: "/dashboard/player/", label: "Player" },
-];
+// The dashboard shell: live polling with the connection-lost line, the service's clock, and going to sign-in. Every
+// part of the one page loads this module and builds its own content.
 
 const POLL_MS = 2000;
 const FAILURES_BEFORE_LOST = 3;
 
-const banner = document.createElement("p");
-banner.className = "connection-lost";
-banner.setAttribute("role", "alert");
-banner.hidden = true;
+const lost = /** @type {HTMLElement} */ (document.querySelector(".connection-lost"));
 
 /** @type {Set<{ failures: number, tick: () => void }>} */
 const pollers = new Set();
 /** @type {Date | null} */
 let lastUpdate = null;
-
-function mountHeader() {
-  const header = document.createElement("header");
-  header.className = "shell-header";
-  const home = document.createElement("a");
-  home.href = "/dashboard/";
-  home.className = "shell-home";
-  const logo = document.createElement("img");
-  logo.src = "/brand/logo-horizontal-inverse.svg";
-  logo.alt = "Forest Pulse";
-  home.append(logo);
-  header.append(home);
-  // One page needs no navigation.
-  if (NAV.length > 1) {
-    const nav = document.createElement("nav");
-    nav.setAttribute("aria-label", "Dashboard");
-    for (const item of NAV) {
-      const a = document.createElement("a");
-      a.href = item.href;
-      a.textContent = item.label;
-      if (item.href === location.pathname) a.setAttribute("aria-current", "page");
-      nav.append(a);
-    }
-    header.append(nav);
-  }
-  document.body.prepend(header, banner);
-}
+// The service's clock minus this page's, from the latest reply that carried the service's time.
+let skew = 0;
 
 /** @param {number} n */
 const pad = (n) => String(n).padStart(2, "0");
@@ -59,15 +21,28 @@ export function clockTime(d) {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+/** The service's time now, in ms since the epoch, as far as its replies have told this page. */
+export const serviceNow = () => Date.now() + skew;
+
+/** A reply said what time the service has. @param {number} now */
+export function serviceClock(now) {
+  skew = now - Date.now();
+}
+
+/** A signed-out reply: the researcher signs in and comes back. */
+export function signIn() {
+  location.assign("/dashboard/signin");
+}
+
 function showConnection() {
-  const lost = [...pollers].some((p) => p.failures >= FAILURES_BEFORE_LOST);
-  banner.textContent = lastUpdate ? `Connection lost, last update ${clockTime(lastUpdate)}` : "Connection lost";
-  banner.hidden = !lost;
+  const isLost = [...pollers].some((p) => p.failures >= FAILURES_BEFORE_LOST);
+  lost.textContent = lastUpdate ? `Connection lost, last update ${clockTime(lastUpdate)}` : "Connection lost";
+  lost.hidden = !isLost;
 }
 
 /**
  * Fetches a researcher data path every 2 s and hands each successful JSON reply to render. A signed-out reply goes
- * to sign-in; after 3 failed polls in a row the banner shows, and the next success clears it.
+ * to sign-in; after 3 failed polls in a row the connection-lost line shows, and the next success clears it.
  * @param {string} path
  * @param {(data: any) => void} render
  */
@@ -82,11 +57,7 @@ export function poll(path, render) {
     try {
       const res = await fetch(path, { cache: "no-store", signal: AbortSignal.timeout(POLL_MS) });
       if (mine !== run) return;
-      if (res.status === 401) {
-        const back = location.pathname + location.search;
-        location.assign(back === "/dashboard/" ? "/dashboard/signin" : `/dashboard/signin?next=${encodeURIComponent(back)}`);
-        return;
-      }
+      if (res.status === 401) return signIn();
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (mine !== run) return;
@@ -112,10 +83,3 @@ export function poll(path, render) {
 export function refresh() {
   for (const p of pollers) p.tick();
 }
-
-mountHeader();
-
-// The alert banner, under the connection banner, refreshed by the activities reply.
-const alerts = alertBanner();
-banner.after(alerts.element);
-poll("/dashboard/api/activities", alerts.render);

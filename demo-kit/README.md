@@ -1,6 +1,6 @@
 # Demo kit
 
-What the presenter plays on stage. The player page (`/dashboard/player/`, behind the dashboard sign-in) loops one
+What the presenter plays on stage. The dashboard's player (the speaker button at the top right) loops one
 sample at a time through the phone's audio, so a paired Bluetooth speaker plays it to the sensors.
 
 ## Player samples
@@ -116,7 +116,7 @@ FP_E2E_PORT_BASE=8800 FP_REHEARSAL_ORIGIN=https://forestpulse.paxid.com npx play
 Clearing events removes every event on the live site, the real boards' included, and the run clears as soon as it has
 printed what it clears from other sensors (count and time span per sensor). If the team needs the real boards' events,
 save them from the event log before starting the run. It also fails at its start if any taught sound is listed (one
-left by an interrupted rehearsal, or "Boreal owl" itself): delete it on the Sounds page and run it again.
+left by an interrupted rehearsal, or "Boreal owl" itself): delete it from the dashboard's sound list and run it again.
 
 ### Calibration rehearsal
 
@@ -147,16 +147,17 @@ Before the audience arrives:
    board needs the library 0.3.0 or later with the device app's calibration hooks.
 3. Stage check: record the buzzer at 1 m, 3 m and 5 m on the stage and run the stage check tool on the three
    recordings (`sensor-sdk/README.md`, Stage check). FAIL: skip to step 6.
-4. Calibrate: with 2 or 3 boards standing where they will be, press Calibrate on the plan and wait for
+4. Calibrate: with 2 or 3 boards standing where they will be, open Devices, press Calibrate and wait for
    "Calibrated" and the time. A failure names the board or pair: fix it and press again, or go to step 6.
 5. Tape measure: measure between each pair of boards and compare with the distance shown on the plan, then play
    Chainsaw 1 between two boards and check that the plan shows it where it was. Off by much more than 15 cm, or the
    wrong place: go to step 6.
-6. Fallback, only if a step above failed: on the plan, drag each board to where it stands in the hall and set its
-   Facing; with only one board working it shows direction only. Do this before any sound is played: an edit only
+6. Fallback, only if a step above failed: with Devices open, drag each board on the map to where it stands in the
+   hall and set its Facing; with only one board working it shows direction only. Do this before any sound is played: an edit only
    affects events that arrive after it.
-7. The Sounds list has no "Boreal owl", and the event log is empty (Clear events if not).
-8. The phone: signed in on the player page, paired with the Bluetooth speaker, volume up, screen lock off.
+7. The sound list has no "Boreal owl", and the event log (the second tab under Devices) is empty (Clear events
+   if not).
+8. The phone: signed in on the dashboard with the player open (the speaker button), paired with the Bluetooth speaker, volume up, screen lock off.
 9. The laptop: signed in on the dashboard, the "Boreal owl teaching pack" folder open on the Desktop.
 
 On stage:
@@ -164,11 +165,11 @@ On stage:
 1. Play Chainsaw 1 from the phone near one board: a Logging activity appears with the direction line from that board.
 2. Play it again between two boards: the plan shows where it was, and the activity shows the distance from each board.
 3. Stop the player.
-4. On the Sounds page, choose "Teach a new sound", name it "Boreal owl", leave Wildlife, select everything in the pack
+4. Under the sound list, choose "Teach a new sound", name it "Boreal owl", leave Wildlife, select everything in the pack
    folder and drop it on the page, wait for every recording to show Ready, then Teach. Boreal owl is listed, switched
    on.
-5. Back on the plan, wait until the sound list number on every board's card has gone up by one: a board fetches the
+5. Open Devices and wait until the sound list number on every board's card has gone up by one: a board fetches the
    new list after its next check-in, within about a minute. An owl played before that is not reported.
 6. Play Boreal owl 1, then Boreal owl 2: each is reported as Boreal owl. Play Tawny owl: it is not.
 
-Afterwards: delete Boreal owl on the Sounds page and Clear events, so the next rehearsal and the boards start clean.
+Afterwards: delete Boreal owl from the sound list and Clear events, so the next rehearsal and the boards start clean.

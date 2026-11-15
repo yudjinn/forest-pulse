@@ -1,6 +1,9 @@
-// The Teach page: a name, a category and 5 to 100 dropped recordings. Each recording is checked, decoded and summarised
+// The teach dialog: a name, a category and 5 to 100 dropped recordings. Each recording is checked, decoded and summarised
 // here as soon as it is added (clean and mixed over the hall background), with its progress in its row; Teach sends
-// only the summaries. The service trains and saves the sound, and the page returns to the Sounds list where it appears.
+// only the summaries. The service trains and saves the sound, the dialog closes and the sound appears in the list.
+// The dashboard loads this module (and with it the model) only when the dialog is first opened.
+import { signIn } from "/dashboard/shell.js";
+import { madeChange } from "/dashboard/sounds/sounds.js";
 import { DIM, decode, loadModel, mixOver, summarise, toModelRate, windows } from "/dashboard/teach/summaries.js";
 
 const MIN_CLIPS = 5;
@@ -21,9 +24,9 @@ const SERVICE_REFUSALS = new Set([TOO_FEW, "A sound with this name already exist
  * }} Clip
  */
 
+const dialog = /** @type {HTMLDialogElement} */ (document.getElementById("teach"));
 const form = /** @type {HTMLFormElement} */ (document.querySelector(".teach-form"));
 const nameInput = /** @type {HTMLInputElement} */ (form.elements.namedItem("name"));
-const categoryInput = /** @type {HTMLSelectElement} */ (form.elements.namedItem("category"));
 const filesInput = /** @type {HTMLInputElement} */ (form.elements.namedItem("recordings"));
 const drop = /** @type {HTMLElement} */ (form.querySelector(".drop"));
 const list = /** @type {HTMLUListElement} */ (form.querySelector(".clip-list"));
@@ -203,7 +206,7 @@ async function summariseClip(clip) {
 function encode(ready) {
   const header = new TextEncoder().encode(JSON.stringify({
     name: nameInput.value.trim(),
-    category: categoryInput.value,
+    category: new FormData(form).get("category"),
     clips: ready.map((c) => ({ file: c.file.name, windows: c.clean.length })),
   }));
   const start = 4 + Math.ceil(header.length / 4) * 4;
@@ -237,13 +240,13 @@ async function teach() {
       headers: { "Content-Type": "application/octet-stream" },
       body: encode(ready),
     });
-    if (res.status === 401) {
-      location.assign(`/dashboard/signin?next=${encodeURIComponent(location.pathname)}`);
-      return;
-    }
+    if (res.status === 401) return signIn();
     if (res.ok) {
-      // The Sounds page shows how far this change has reached the sensors.
-      location.assign("/dashboard/sounds/?changed");
+      // The sound list shows the new sound, and how far this change has reached the sensors.
+      const reply = /** @type {{ version: number }} */ (await res.json());
+      teaching = false;
+      dialog.close();
+      madeChange(reply.version);
       return;
     }
     const reply = /** @type {{ error?: string }} */ (await res.json().catch(() => ({})));
@@ -259,6 +262,16 @@ form.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!teaching) teach();
 });
+// Closing the dialog, taught or not, leaves it empty for the next sound.
+dialog.addEventListener("close", () => {
+  for (const clip of clips) clip.removed = true;
+  clips = [];
+  list.replaceChildren();
+  form.reset();
+  showError();
+  refresh();
+});
+/** @type {HTMLElement} */ (form.querySelector(".teach-cancel")).addEventListener("click", () => dialog.close());
 const takeChosenFiles = () => {
   if (filesInput.files?.length) addFiles([...filesInput.files]);
   filesInput.value = "";

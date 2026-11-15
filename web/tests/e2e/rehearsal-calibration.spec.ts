@@ -11,6 +11,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { showDevices } from "../fixtures/dashboard.ts";
 import { sensorName, uniqueSensorId } from "../fixtures/sensor.ts";
 import { SimulatedSensors } from "./calibration-sensors.ts";
 import { demoStep, liveOrigin, rehearsalSecrets, signInWith } from "./rehearsal-steps.ts";
@@ -73,7 +74,10 @@ test("calibration on the live site: three rehearsal boards calibrate into their 
     let passed = false;
     console.log(`calibration rehearsal on ${origin}: sensors ${[...mine].join(", ")}`);
     try {
-      await demoStep("sign in", "the dashboard after signing in", () => signInWith(page, origin, password));
+      await demoStep("sign in", "the dashboard after signing in", async () => {
+        await signInWith(page, origin, password);
+        await showDevices(page);
+      });
 
       const before = await demoStep("record the starting state",
         "no calibration running, no other calibration-capable sensor online, and the plan not a measured layout",

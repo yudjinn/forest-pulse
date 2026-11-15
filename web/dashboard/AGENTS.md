@@ -1,6 +1,5 @@
 # Dashboard invariants
 
 - Scripts load only from files: `_headers` gives `/dashboard/*` its own Content-Security-Policy after detaching the site-wide one (`! Content-Security-Policy`). Without the detach both policies are sent and enforced together, so the site-wide `default-src 'none'` and `form-action 'none'` block every script and the sign-in form. A page that needs more (WebAssembly, a worker) adds it to that one rule.
-- Live views poll through `poll()` in `shell.js`, never their own timer: the connection-lost banner counts failures across every poller on the page and only `poll()` feeds it.
+- Live views poll through `poll()` in `shell.js`, never their own timer: the connection-lost line counts failures across every poller on the page and only `poll()` feeds it.
 - After a page action that changes what other views poll (Clear events), call `refresh()` from `shell.js`. A poll already in flight may have been answered before the change, and without it that reply redraws the old data for one cycle.
-- `shell.js` and `activities/warnings.js` import each other (the shell mounts the alert banner, which shares the card's Send). `warnings.js` must never call into the shell while loading: it evaluates before the shell, so the shell's `const` state (its pollers) does not exist yet and the page's scripts fail. The shell's one call at load, `alertBanner()`, only builds the banner's elements; it and anything else the shell calls at load must touch none of `warnings.js`'s module state until the first poll reply.

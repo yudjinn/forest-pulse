@@ -1,9 +1,12 @@
-// The Sounds page: the sensitivity every sound must reach, then every sound sensors can report, each with its switch,
-// and a Delete for each taught sound behind a confirmation. The page follows the shell's 2 s poll; a switch or the
-// sensitivity saves at once and goes back to the saved value if the save fails. Once this researcher changes the
-// list (here, or by teaching, which returns here with ?changed), a line says how many sensors on the plan have the
-// latest version, from the same poll, until the page is reloaded.
-import { poll, refresh } from "/dashboard/shell.js";
+// What the sensors listen for, down the right of the map: every sound sensors can report, each with its switch, and
+// a Delete for each taught sound behind a confirmation; Teach a new sound opens the teach dialog, whose module loads
+// on first use. The sensitivity every sound must reach sits in the Devices panel. The list follows the shell's 2 s
+// poll; a switch or the sensitivity saves at once and goes back to the saved value if the save fails. Once this
+// researcher changes the list (here, or by teaching), a line says how many sensors on the plan have the latest
+// version, from the same poll, until the page is reloaded. A sound lights up in its row as sensors report it.
+import { poll, refresh, signIn } from "/dashboard/shell.js";
+import { onEvents } from "/dashboard/log/log.js";
+import { colorOf, rgba } from "/dashboard/plan/scene.js";
 
 const CATEGORY = /** @type {Record<string, string>} */ ({
   logging: "Logging",
@@ -19,8 +22,9 @@ const KIND = /** @type {Record<string, string>} */ ({ detector: "Trained detecto
  *   remove: HTMLButtonElement, error: HTMLElement, saving: boolean, deleting: boolean }} Row
  */
 
+const SVG = "http://www.w3.org/2000/svg";
 const list = /** @type {HTMLUListElement} */ (document.querySelector("#sounds .sound-list"));
-const confirm = /** @type {HTMLDialogElement} */ (document.querySelector("#sounds .sound-confirm"));
+const confirm = /** @type {HTMLDialogElement} */ (document.querySelector(".sound-confirm"));
 const confirmTitle = /** @type {HTMLElement} */ (confirm.querySelector("h2"));
 /** @type {Map<string, Row>} */
 const rows = new Map();
@@ -29,13 +33,11 @@ const rows = new Map();
 let version = 0;
 let nextId = 0;
 const reach = /** @type {HTMLElement} */ (document.querySelector("#sounds .sound-reach"));
-// Whether this researcher changed the sound list since the page loaded. The teach page hands its change across in
-// the address, dropped at once so a reload starts without the line.
-let changed = new URLSearchParams(location.search).has("changed");
-if (changed) history.replaceState(null, "", location.pathname);
+// Whether this researcher changed the sound list since the page loaded.
+let changed = false;
 
-/** A change this page made: the version it moved the list to. @param {number} to */
-function madeChange(to) {
+/** A change this page made (teaching included): the version it moved the list to. @param {number} to */
+export function madeChange(to) {
   version = Math.max(version, to);
   changed = true;
   refresh();
@@ -49,39 +51,50 @@ function makeRow(id) {
   const item = document.createElement("li");
   const label = document.createElement("label");
   label.className = "sound";
-  const text = document.createElement("span");
-  text.className = "sound-text";
+  const icon = document.createElement("span");
+  icon.className = "category-icon";
   const name = document.createElement("span");
   name.className = "sound-name";
   name.id = `sound-name-${nextId++}`;
+  // The category, which the icon and its colour show, in words for a screen reader.
   const meta = document.createElement("span");
-  meta.className = "sound-meta";
-  text.append(name, meta);
+  meta.className = "aside-text";
   const toggle = document.createElement("input");
   toggle.type = "checkbox";
   toggle.setAttribute("role", "switch");
   toggle.setAttribute("aria-labelledby", name.id);
-  label.append(text, toggle);
+  toggle.id = `sound-switch-${nextId++}`;
+  label.htmlFor = toggle.id;
+  label.append(icon, name, meta);
   const remove = document.createElement("button");
   remove.type = "button";
   remove.className = "sound-delete";
-  remove.textContent = "Delete";
+  remove.title = "Delete";
+  const cross = document.createElementNS(SVG, "svg");
+  cross.setAttribute("class", "icon");
+  const use = document.createElementNS(SVG, "use");
+  use.setAttribute("href", "#icon-close");
+  cross.append(use);
+  remove.append(cross);
   remove.hidden = true;
+  const row = document.createElement("div");
+  row.className = "sound-row";
+  row.append(label, remove, toggle);
   const error = document.createElement("p");
   error.className = "error";
   error.setAttribute("role", "alert");
   error.hidden = true;
-  item.append(label, remove, error);
+  item.append(row, error);
   /** @type {Row} */
-  const row = { item, name, meta, toggle, remove, error, saving: false, deleting: false };
-  toggle.addEventListener("change", () => save(id, row));
+  const made = { item, name, meta, toggle, remove, error, saving: false, deleting: false };
+  toggle.addEventListener("change", () => save(id, made));
   remove.addEventListener("click", () => {
-    row.error.hidden = true;
+    made.error.hidden = true;
     pending = id;
-    confirmTitle.textContent = `Delete ${row.name.textContent}?`;
+    confirmTitle.textContent = `Delete ${made.name.textContent}?`;
     confirm.showModal();
   });
-  return row;
+  return made;
 }
 
 /** @param {string} id @param {Row} row */
@@ -91,10 +104,7 @@ async function remove(id, row) {
   row.error.hidden = true;
   try {
     const res = await fetch(`/dashboard/api/sounds/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (res.status === 401) {
-      location.assign(`/dashboard/signin?next=${encodeURIComponent(location.pathname)}`);
-      return;
-    }
+    if (res.status === 401) return signIn();
     // Already gone (deleted from another tab): the next poll drops the row.
     if (res.status === 404) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -132,10 +142,7 @@ async function save(id, row) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled }),
     });
-    if (res.status === 401) {
-      location.assign(`/dashboard/signin?next=${encodeURIComponent(location.pathname)}`);
-      return;
-    }
+    if (res.status === 401) return signIn();
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const reply = /** @type {{ sound: Sound, version: number }} */ (await res.json());
     madeChange(reply.version);
@@ -152,7 +159,7 @@ async function save(id, row) {
 
 // The sensitivity, shown and set in whole percent. `saved` is the value the service last reported. While the slider
 // is being dragged or saved, polls update `saved` but leave the slider where the researcher put it.
-const sensitivity = /** @type {HTMLElement} */ (document.querySelector("#sounds .sensitivity"));
+const sensitivity = /** @type {HTMLElement} */ (document.querySelector(".sensitivity"));
 const slider = /** @type {HTMLInputElement} */ (sensitivity.querySelector("input"));
 const sliderValue = /** @type {HTMLElement} */ (sensitivity.querySelector(".sensitivity-value"));
 const sliderError = /** @type {HTMLElement} */ (sensitivity.querySelector(".error"));
@@ -180,10 +187,7 @@ async function saveSensitivity() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sensitivity: percent / 100 }),
       });
-      if (res.status === 401) {
-        location.assign(`/dashboard/signin?next=${encodeURIComponent(location.pathname)}`);
-        return;
-      }
+      if (res.status === 401) return signIn();
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const reply = /** @type {{ sensitivity: number, version: number }} */ (await res.json());
       madeChange(reply.version);
@@ -234,8 +238,10 @@ function render(data) {
       rows.set(s.id, row);
     }
     row.name.textContent = s.name;
-    row.meta.textContent = `${CATEGORY[s.category] ?? s.category} · ${KIND[s.kind] ?? s.kind}`;
+    row.meta.textContent = CATEGORY[s.category] ?? s.category;
+    row.item.title = KIND[s.kind] ?? s.kind;
     if (!row.saving) row.toggle.checked = s.enabled;
+    row.item.className = `c-${s.category}${row.toggle.checked ? "" : " off"}`;
     row.remove.hidden = !s.taught;
     row.remove.setAttribute("aria-label", `Delete ${s.name}`);
     return row.item;
@@ -246,5 +252,23 @@ function render(data) {
     list.replaceChildren(...items);
   }
 }
+
+// A sound heard since the last reply lights up in its row, in its category's colour.
+let newest = -1;
+onEvents((events) => {
+  const before = newest;
+  newest = Math.max(newest, ...events.map((e) => e.id));
+  if (before < 0) return; // what the first reply shows was heard before this page opened
+  for (const e of events.filter((e) => e.id > before)) {
+    const row = [...rows.values()].find((r) => r.name.textContent === e.sound_name);
+    row?.item.animate([{ background: rgba(colorOf(e.category), 0.3) }, { background: "transparent" }], { duration: 1800 });
+  }
+});
+
+const teach = /** @type {HTMLDialogElement} */ (document.getElementById("teach"));
+/** @type {HTMLElement} */ (document.querySelector(".teach-open")).addEventListener("click", () => {
+  teach.showModal();
+  import("/dashboard/teach/teach.js");
+});
 
 poll("/dashboard/api/sounds", render);

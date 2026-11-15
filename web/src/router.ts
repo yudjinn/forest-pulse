@@ -29,6 +29,8 @@ export interface Route {
 
 // Dashboard files anyone may fetch: what the sign-in page itself needs.
 const PUBLIC_DASHBOARD_FILES = new Set(["/dashboard/shell.css"]);
+// Pages the one-page dashboard replaced: an old bookmark lands on the dashboard.
+const RETIRED_PAGES = new Set(["/dashboard/sounds/", "/dashboard/teach/", "/dashboard/player/"]);
 
 export async function route(
   request: Request,
@@ -52,7 +54,7 @@ export async function route(
   if (pathMatched) return json({ error: "method not allowed" }, 405);
 
   if (path.startsWith("/api/")) return json({ error: "not found" }, 404);
-  if (path === "/dashboard") return redirect("/dashboard/");
+  if (path === "/dashboard" || RETIRED_PAGES.has(path)) return redirect("/dashboard/");
   if (path.startsWith("/dashboard/")) {
     if (request.method !== "GET" && request.method !== "HEAD") return json({ error: "method not allowed" }, 405);
     if (!PUBLIC_DASHBOARD_FILES.has(path)) {
