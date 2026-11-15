@@ -138,9 +138,10 @@ ends (or when the sensor was left out of it, below):
 
 1. On receiving a run the sensor checks in every 1 s and starts its continuous stream.
 2. Once audio has flowed for 1 s without a break, it sends `"calibration_ack": "<run_id>"` on every check-in.
-3. The service sets `start_at` 4 s after the last ready confirmation. If some participant has not confirmed within
+3. The service sets `start_at` 6 s after the last ready confirmation. If some participant has not confirmed within
    20 s of the press, the run goes ahead with the 2 or more that have (the others lose the run from their replies),
-   or fails naming the missing one.
+   or fails naming the missing one. A participant that reports `no_stream` before it is ready counts as not ready:
+   left out as soon as every other is ready and at least 2 are, otherwise the run fails naming it.
 4. The schedule: round `r` (from 0) plays `order` forward when `r` is even and reversed when it is odd, one slot
    each, `slot_ms` apart, starting at `start_at + r * (len(order) * slot_ms + round_gap_ms)`. Each sensor plays its
    role's pattern at the start of each of its slots, by its clock corrected to the service's (`server_time` on the
@@ -232,6 +233,12 @@ bearings fit better wins; if the two fit within 20 percent of each other the run
 the other two, from its bearings, must also agree with the angle the distances give within 20 degrees. A failure
 names a pair: the longest side for an impossible triangle, the side opposite the smallest angle for a flat one, and
 the pair the fit fits worst when the bearings disagree.
+
+When any of the six bearings is missing (fewer than 2, or scattered), three sensors calibrate the distances only, as
+two do: the three distances must still make a triangle that is not too flat; the first stays where it is on the plan,
+the second moves to the measured distance along the line from the first to where it was placed, the third goes where
+the distances put it on the side of that line it was placed on (above it when it stood on the line), and all three
+keep the facings set on the plan.
 
 A participant that never confirms ready is left out (step 3 of the run): the two that ran are solved as a pair, and
 the dashboard says which sensor was left out.

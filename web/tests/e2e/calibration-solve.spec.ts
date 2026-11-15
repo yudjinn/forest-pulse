@@ -1,7 +1,7 @@
 // Focused test of solving a calibration run (no browser, no service): the rules no journey reaches. Weak detections
 // and invalid rounds never count, a pair needs two valid rounds with at least one in each order, and the two orders
 // must agree within 40 cm. Facings come from the mutual bearings: the circular median each way, across 0/360, from
-// at least two bearings that scatter by at most 15 degrees; two sensors without them calibrate the distance only. Three sensors: the triangle's geometry (both mirror
+// at least two bearings that scatter by at most 15 degrees; two sensors without them calibrate the distance only, and so do three. Three sensors: the triangle's geometry (both mirror
 // images, too flat, impossible, bearings against the distances) and an outlier round the median rejects.
 import { expect, test } from "@playwright/test";
 import { type Participant, type ReportRound, parseReport, solve } from "../../src/calibration/solve.ts";
@@ -201,9 +201,21 @@ test("a triangle too flat, impossible, or whose bearings contradict the distance
   // every board hears the other two from the same direction: neither side of the line fits better, and b-c, between
   // the two largest angles, is fitted worst
   expect(solve(trio(triangle, { angle: () => 0 }))).toEqual({ ok: false, sensors: ["b", "c"], reason: "bearings_disagree" });
-  // c can never tell where b is
-  expect(solve(trio(triangle, { angle: (l, e, t) => (l === "C" && e === "B" ? null : t) })))
-    .toEqual({ ok: false, sensors: ["b", "c"], reason: "no_direction" });
+});
+
+test("three sensors that cannot tell every direction are placed by their distances alone, without facings", () => {
+  // c can never tell where b is, or no board can tell any direction (single-mic boards)
+  for (const angle of [(l: Roles, e: Roles, t: number) => (l === "C" && e === "B" ? null : t), () => null]) {
+    const solution = solve(trio(triangle, { angle }));
+    expect(solution.ok, JSON.stringify(solution)).toBe(true);
+    if (!solution.ok) continue;
+    expect(solution.distances.map((d) => d.distance_m)).toEqual([3, 2.5, 2]);
+    expect(solution.positions.map((p) => [p.x_m, p.y_m, p.facing_deg]))
+      .toEqual([[0, 0, null], [3, 0, null], [1.875, Math.round(triangle.C.y * 1000) / 1000, null]]);
+  }
+  // an impossible triangle still fails first
+  expect(solve(trio(triangle, { sides: { AB: 3, AC: 1.2, BC: 1.5 }, angle: () => null })))
+    .toEqual({ ok: false, sensors: ["a", "b"], reason: "not_a_triangle" });
 });
 
 test("a report is refused when a field the solver needs is missing or out of range", () => {
