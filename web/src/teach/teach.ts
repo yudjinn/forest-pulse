@@ -192,7 +192,8 @@ export async function teachSound(request: Request, { env }: RouteContext): Promi
 }
 
 // How large the detector is as a sensor receives it: its entry in the sound list, in bytes. The dashboard shows it
-// beside the size of the recordings it was taught from.
+// beside the size of the recordings it was taught from. Within a few bytes: the served entry carries the current
+// sensitivity as its threshold, which can be a digit shorter or longer than this one.
 function detectorBytes(id: string, name: string, category: string, detector: { weights: number[]; bias: number }): number {
   const entry = { id, name, category, kind: "detector", threshold: THRESHOLD, weights: detector.weights, bias: detector.bias };
   return new TextEncoder().encode(JSON.stringify(entry)).length;

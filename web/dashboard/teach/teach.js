@@ -26,15 +26,17 @@ const SVG = "http://www.w3.org/2000/svg";
 // is drawn smaller, tiles and detector alike.
 const PX_PER_MB = 132 / 3.84;
 const TILE_HEIGHT = 48;
+const MIN_TILE_PX = 14;
 const PILE_ROWS = 5.5;
 const TILE_GAP = 8;
-// A taught detector is always 960 weights and a bias, about this large as a sensor receives it; the service says
-// exactly how large once it is trained.
+// A taught detector is always 960 weights and a bias, about this large as a sensor receives it. Until the sound is
+// taught the screen shows this as an estimate, dimmed and called one; the service then says exactly how large.
 const ABOUT_DETECTOR_BYTES = 19_000;
 // Training takes the service under a second: the line shows it for at least this long, so it is seen to happen.
 const TRAINING_SHOWN_MS = 1400;
 const PEAKS = 64;
-const MAX_PUCKS = 6;
+// More sensors than this and the pucks are drawn smaller, so every one on the plan still stands at the line's end.
+const ROOMY_PUCKS = 5;
 // After teaching, the line stays up at least this long, then until every sensor online has the detector and a
 // moment more, and never longer than the last.
 const SHOW_MS = 2600;
@@ -64,6 +66,8 @@ const total = /** @type {HTMLElement} */ (form.querySelector(".teach-total"));
 const hearing = /** @type {HTMLElement} */ (form.querySelector(".teach-hearing"));
 const heardArc = /** @type {SVGCircleElement} */ (form.querySelector(".teach-heard"));
 const detectorSize = /** @type {HTMLElement} */ (form.querySelector(".teach-detector-size"));
+const detectorWhat = /** @type {HTMLElement} */ (form.querySelector(".teach-detector-what"));
+const ESTIMATE = detectorWhat.textContent;
 const seed = /** @type {HTMLElement} */ (form.querySelector(".teach-seed"));
 const pucks = /** @type {HTMLElement} */ (form.querySelector(".teach-pucks"));
 const got = /** @type {HTMLElement} */ (form.querySelector(".teach-got"));
@@ -120,9 +124,12 @@ function layout() {
   const bytes = shown.reduce((sum, c) => sum + c.file.size, 0);
   total.textContent = size(bytes);
   const pile = list.clientWidth || 444;
-  const scale = Math.min(PX_PER_MB, bytes ? (pile * PILE_ROWS - TILE_GAP * shown.length) / (bytes / 1e6) : PX_PER_MB);
+  const largest = Math.max(1, ...shown.map((c) => c.file.size));
+  const scale = Math.min(PX_PER_MB, pile / (largest / 1e6),
+    bytes ? (pile * PILE_ROWS - TILE_GAP * shown.length) / (bytes / 1e6) : PX_PER_MB);
   for (const clip of shown) {
-    const width = Math.min(pile, Math.max(14, Math.round((scale * clip.file.size) / 1e6)));
+    // The one exception to the scale: a recording too small to see at it still gets a sliver.
+    const width = Math.max(MIN_TILE_PX, Math.round((scale * clip.file.size) / 1e6));
     clip.item.style.width = `${width}px`;
     drawWave(clip, width);
   }
@@ -436,6 +443,7 @@ function show(version, bytes, from) {
   };
   dialog.classList.add("taught");
   detectorSize.textContent = size(bytes);
+  detectorWhat.textContent = "the detector";
   const times = from.reduce((sum, c) => sum + c.file.size, 0) / bytes;
   claim.textContent = times >= 2 ? timesSmaller(times) : "";
   refresh();
@@ -451,13 +459,13 @@ const puckOf = new Map();
  * @param {import("../plan/plan.js").PlanSensor[]} sensors
  */
 function showSensors(sensors) {
-  const shown = sensors.slice(0, MAX_PUCKS);
+  pucks.classList.toggle("many", sensors.length > ROOMY_PUCKS);
   for (const [id, el] of puckOf) {
-    if (shown.some((s) => s.id === id)) continue;
+    if (sensors.some((s) => s.id === id)) continue;
     el.remove();
     puckOf.delete(id);
   }
-  for (const s of shown) {
+  for (const s of sensors) {
     let el = puckOf.get(s.id);
     if (!el) {
       el = document.createElement("i");
@@ -491,9 +499,12 @@ function showSensors(sensors) {
   got.textContent = sensors.length
     ? `${landed} of ${sensors.length} ${sensors.length === 1 ? "sensor has" : "sensors have"} it`
     : "";
-  // Every sensor online has it (or none is online): the dialog closes once it has been up long enough to read.
-  clearTimeout(now.closing);
-  if (sensors.every((s) => !s.online || now.landed.has(s.id))) {
+  // Every sensor online has it (or none is online): the dialog closes once it has been up long enough to read. The
+  // close is set once and stands through later replies, and is taken back only if a sensor without it comes online.
+  if (!sensors.every((s) => !s.online || now.landed.has(s.id))) {
+    clearTimeout(now.closing);
+    now.closing = undefined;
+  } else if (now.closing === undefined) {
     const wait = Math.max(now.at + SHOW_MS - Date.now(), now.landed.size ? AFTER_LAST_MS : 0);
     now.closing = setTimeout(() => dialog.close(), wait);
   }
@@ -540,6 +551,7 @@ dialog.addEventListener("close", () => {
   dialog.className = "teach c-wildlife";
   detectorBytes = ABOUT_DETECTOR_BYTES;
   detectorSize.textContent = size(ABOUT_DETECTOR_BYTES);
+  detectorWhat.textContent = ESTIMATE;
   claim.textContent = "";
   for (const el of puckOf.values()) el.classList.remove("has");
   for (const dot of dialog.querySelectorAll(".teach-fly")) dot.remove();

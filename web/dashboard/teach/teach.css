@@ -220,6 +220,12 @@ dialog.teach > .activity-alert {
 
 .teach-detector .teach-size b {
   color: var(--c);
+  transition: opacity 0.6s;
+}
+
+/* Until the sound is taught the detector's size is an estimate, and looks like one. */
+dialog.teach:not(.taught) .teach-detector .teach-size b {
+  opacity: 0.4;
 }
 
 .teach-hearing,
@@ -610,6 +616,16 @@ dialog.teach > .activity-alert {
 
 .teach-puck.offline {
   opacity: 0.38;
+}
+
+/* A plan with many sensors: smaller pucks, closer together, so each still has its place. */
+.teach-pucks.many {
+  gap: 2px;
+}
+
+.teach-pucks.many .teach-puck {
+  transform: scale(0.62);
+  margin: -6px 0;
 }
 
 .teach-puck.has b {
