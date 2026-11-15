@@ -48,6 +48,25 @@ worst. Training labels are noisy because every window of a recording is labelled
 where the bird is silent. Through the live page, the 17 held-out recordings (`heads/owl_holdout.json`) gave: 5/5
 boreal owls detected (110185 only weakly), 0/12 other owls, no alarm on babble.
 
+Gunshot (`gunshot.py`, `fetch_gunshots.sh`, `gunshot_check.py`): 507 forest gunshots (shotguns and hunting guns heard
+by recorders in Belize and Vietnam, 0 to 1,000 m away; Zenodo 13893977, CC BY 4.0) against forest background, ESC-50
+bangs, knocks and indoor sounds, people talking (LibriSpeech), the chainsaws, the hall and babble. Tested on occasions
+it never trained on: 94 gunshots from other days and recordings, 2 h of continuous forest background, held-out
+speakers, all 40 ESC-50 fireworks clips, and the half of the hall recordings it never heard (`gunshot_check.py`
+trains without it; the shipped detector hears the whole hall). The detector answers at a sensor's sensitivity as the
+regression would at 90%, which costs a few gunshots and silences people talking in the hall.
+
+| Held-out, at the default 50% sensitivity | Detector | Stock "Gunshot, gunfire" label |
+|---|---|---|
+| Gunshots, clean | 91/94 | 0/94 |
+| Gunshots, crowd +10 dB | 93/94 | 0/94 |
+| Gunshots, crowd +5 dB | 88/94 | 0/94 |
+| Gunshots, crowd 0 dB | 79/94 | 0/94 |
+| Forest background (2,391 clips, 2 h) | 4 false alarms | 0 |
+| Fireworks / speech / unheard hall | 0/40, 0/47, 0/12 | 0 |
+
+Without people talking in its training, it took the hall's talking for a gunshot (0.87 on an unheard stretch).
+
 ## Stock labels (ESC-50, 5 s clips, Mac CPU)
 
 | Model | Params | Chainsaw top-1 | Chainsaw top-5 | Chainsaw score >= 0.2 | Negatives >= 0.2 | ms / clip |

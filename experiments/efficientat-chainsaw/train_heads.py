@@ -8,7 +8,10 @@ The chainsaw detector never trains on an ESC-50 source recording the demo player
 web/bucket/player/samples.json), and records the source recordings it did train on, so the player's samples are
 provably new to it (demo-kit/player_samples.py check).
 
-usage: uv run python train_heads.py [chainsaw|owl ...] [--model mn10_as]
+The gunshot detector trains on the forest gunshots and everything else in gunshot.py's training set, never on its
+held-out set, which stays new to it for testing (gunshot_check.py) and for any gunshot the demo plays.
+
+usage: uv run python train_heads.py [chainsaw|owl|gunshot ...] [--model mn10_as]
 """
 import argparse
 import glob
@@ -21,9 +24,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
 from classifier import SAMPLE_RATE, Tagger
+import gunshot
 from probe import HERE, WIN, load_task, mix, windows
 
-HEADS = {"chainsaw": "Chainsaw", "owl": "Boreal owl"}
+HEADS = {"chainsaw": "Chainsaw", "owl": "Boreal owl", "gunshot": "Gunshot"}
 HOLDOUT_PER_KIND = {"Aegolius_funereus": 5}  # owl recordings kept out of training for live testing; others get 2
 
 
@@ -65,6 +69,19 @@ def main():
 
     for task in args.tasks:
         name = HEADS[task]
+        if task == "gunshot":
+            train = [it for it in gunshot.items() if not it[4]]
+            held = sorted({it[2] for it in gunshot.items() if it[4] and it[1] == 1})
+            # The whole of the babble and of every hall recording: gunshot_check.py measures on the halves left out.
+            named = [("babble", noise[0])] + [(os.path.basename(p), n) for p, n in
+                                              zip(sorted(glob.glob(f"{HERE}/samples/noise/*.wav")), noise[1:])]
+            X, Y = gunshot.training_set(gunshot.Embeddings(tagger), train, named)
+            w, b = gunshot.fit(X, Y)
+            save(task, name, args.model, w, b, {
+                "positive_clips": sum(it[1] for it in train), "negative_clips": sum(1 - it[1] for it in train),
+                "occasions": sorted({it[2] for it in train if it[1] == 1}), "held_out_occasions": held,
+            })
+            continue
         items = load_task(task)
         trained_on = {}
         if task == "chainsaw":
@@ -90,12 +107,16 @@ def main():
         # fold the scaler into the weights so the device needs only w . emb + b
         w = clf.coef_[0] / sc.scale_
         b = float(clf.intercept_[0] - np.sum(clf.coef_[0] * sc.mean_ / sc.scale_))
-        out = {"name": name, "model": args.model, "weights": w.astype(np.float32).tolist(), "bias": b,
-               "trained_on": {"positive_windows": int(y.sum()), "negative_windows": int((1 - y).sum() + len(E_noise)),
-                              **trained_on}}
-        path = f"{HERE}/heads/{task}.json"
-        json.dump(out, open(path, "w"))
-        print(f"{name}: {len(w)} weights, {len(w) * 4 + 4} bytes as float32 -> {os.path.relpath(path, HERE)}")
+        save(task, name, args.model, w, b, {"positive_windows": int(y.sum()),
+                                            "negative_windows": int((1 - y).sum() + len(E_noise)), **trained_on})
+
+
+def save(task, name, model, w, b, trained_on):
+    out = {"name": name, "model": model, "weights": np.asarray(w, dtype=np.float32).tolist(), "bias": float(b),
+           "trained_on": trained_on}
+    path = f"{HERE}/heads/{task}.json"
+    json.dump(out, open(path, "w"))
+    print(f"{name}: {len(w)} weights, {len(w) * 4 + 4} bytes as float32 -> {os.path.relpath(path, HERE)}")
 
 
 if __name__ == "__main__":

@@ -12,14 +12,10 @@ import { asSensor, referenceClip, replay, sensorName, silentWav, uniqueSensorId 
 import { SecondService } from "../fixtures/service.ts";
 import { soundsServicePorts } from "../ports.ts";
 
+// The seeded sound list: trained detectors only, no built-in labels.
 const SEEDED = [
   ["Chainsaw", "Logging", "Trained detector"],
-  ["Tools", "Logging", "Built-in label"],
-  ["Power tool", "Logging", "Built-in label"],
-  ["Vehicle", "Vehicle", "Built-in label"],
-  ["Engine", "Vehicle", "Built-in label"],
-  ["Aircraft", "Vehicle", "Built-in label"],
-  ["Gunshot", "Poaching", "Built-in label"],
+  ["Gunshot", "Poaching", "Trained detector"],
 ];
 
 const soundSwitch = (page: Page, name: string) => page.getByRole("switch", { name, exact: true });
@@ -215,6 +211,17 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
     expect(confidence!).toBeLessThan(0.7);
     expect(heard).toContain("0 event(s) still queued");
     await expect(rows.filter({ hasText: "Chainsaw" })).toHaveCount(3, { timeout: 3000 });
+
+    // A seeded sound can be deleted like a taught one: Gunshot leaves the list after its confirmation, and the
+    // sensor's next fetch carries a list without it.
+    await page.getByRole("button", { name: "Delete Gunshot" }).click();
+    await page.getByRole("dialog", { name: "Delete Gunshot?" }).getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(soundSwitch(page, "Gunshot")).toHaveCount(0);
+    const withoutGunshot = await (await page.request.get(`${origin}/dashboard/api/sounds`)).json();
+    expect(withoutGunshot.version).toBe(start + 5);
+    expect(withoutGunshot.sounds.map((s: { name: string }) => s.name)).toEqual(["Chainsaw"]);
+    expect(fetchedList(await replay({ sensorId, wavs: [silentWav()], stateDir, serverUrl: origin }), start + 5))
+      .not.toContain("Gunshot");
   } finally {
     await service.stop();
   }

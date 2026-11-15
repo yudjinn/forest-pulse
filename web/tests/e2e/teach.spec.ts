@@ -203,10 +203,8 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     expect(newOwl.weights).not.toEqual(taught.weights);
     expect(replaced.sounds).toHaveLength(after.sounds.length);
 
-    // Seeded sounds have no Delete; the service refuses one anyway.
-    const chainsaw = before.sounds.find((s: { name: string }) => s.name === "Chainsaw");
-    await expect(page.getByRole("button", { name: "Delete Chainsaw" })).toHaveCount(0);
-    expect((await page.request.delete(`${origin}/dashboard/api/sounds/${chainsaw.id}`)).status()).toBe(409);
+    // Every sound can be deleted, a seeded one too (the sounds journey deletes one).
+    await expect(page.getByRole("button", { name: "Delete Chainsaw" })).toHaveCount(1);
 
     // Deleting asks first, naming the sound. A delete that fails says so and keeps the sound.
     const owlRow = page.getByRole("listitem").filter({ has: owl });
