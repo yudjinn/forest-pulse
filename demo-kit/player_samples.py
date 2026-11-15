@@ -8,13 +8,18 @@ for the owls), so it needs no network. Run from the repository root in the exper
   uv run --project experiments/efficientat-chainsaw python demo-kit/player_samples.py check
   uv run --project experiments/efficientat-chainsaw python demo-kit/player_samples.py seed --version 2 \
       --migration web/migrations/<stamp>_retrained_chainsaw.sql
+  (cd experiments/efficientat-chainsaw && uv run python train_heads.py gunshot)
+  uv run --project experiments/efficientat-chainsaw python demo-kit/player_samples.py seed --sound gunshot \
+      --version 3 --migration web/migrations/<stamp>_seeded_gunshot.sql
 
 prepare  trims each sample to a seamless loop of at most 30 s, matches every sample to one RMS level, and writes
          them with their credits (samples.json) into web/bucket/player/, which the deploy mirrors into the bucket.
 check    reports whether any chainsaw sample shares an ESC-50 source recording with the clips the chainsaw detector
          (heads/chainsaw.json) trained on. Exits non-zero if one does, or if the detector does not record them.
-seed     copies the retrained chainsaw detector into the sensor library's built-in list at the given list version
-         and writes the service migration that replaces the seeded detector and bumps the served list version.
+seed     copies a trained detector (the chainsaw by default, or --sound gunshot) into the sensor library's built-in
+         list at the given list version, and writes the service migration that adds it or replaces it and bumps the
+         served list version. The built-in list holds trained detectors only: seeding drops the model's built-in
+         labels from it, and the migration deletes the seeded ones from the service (taught sounds stay).
 """
 import argparse
 import csv
@@ -177,22 +182,40 @@ def check(_args):
           f"source recordings ({', '.join(f'{f} from {r}' for r, f in sorted(mine.items()))})")
 
 
+# The detectors the built-in list can hold: id -> (name, category, what the migration says it was trained on).
+SEEDABLE = {
+    "chainsaw": ("Chainsaw", "logging", "retrained without the ESC-50 source recordings the demo player plays"),
+    "gunshot": ("Gunshot", "poaching", "trained on forest gunshots (experiments/efficientat-chainsaw/gunshot.py), never "
+                                       "on the held-out ones"),
+}
+
+
 def seed(args):
-    check(args)
-    head = json.load(open(HEAD))
+    if args.sound == "chainsaw":
+        check(args)
+    name, category, trained = SEEDABLE[args.sound]
+    head = json.load(open(os.path.join(EXP, "heads", f"{args.sound}.json")))
     weights = [round(float(w), 7) for w in head["weights"]]
+    entry = {"id": args.sound, "name": name, "category": category, "kind": "detector", "threshold": 0.5,
+             "weights": weights, "bias": head["bias"]}
     doc = json.load(open(SEED))
-    [chainsaw] = [s for s in doc["sounds"] if s["id"] == "chainsaw"]
-    chainsaw["weights"], chainsaw["bias"] = weights, head["bias"]
+    sounds = [s for s in doc["sounds"] if s["kind"] == "detector" and s["id"] != args.sound]
+    order = list(SEEDABLE)
+    doc["sounds"] = sorted(sounds + [entry], key=lambda s: order.index(s["id"]) if s["id"] in order else len(order))
     doc["version"] = args.version
     with open(SEED, "w") as fh:
         json.dump(doc, fh, ensure_ascii=False)
     sql = (
-        "-- The seeded chainsaw detector, retrained without the ESC-50 source recordings the demo player plays\n"
-        "-- (demo-kit/player_samples.py), verbatim from the sensor library's built-in list. Bumping the version makes\n"
-        "-- sensors already holding the old detector fetch the new one.\n\n"
-        f"UPDATE sounds SET weights = '{json.dumps(weights, separators=(',', ':'))}', bias = {head['bias']!r} "
-        "WHERE id = 'chainsaw';\n"
+        f"-- The seeded {name.lower()} detector, {trained}, verbatim from the sensor library's built-in list\n"
+        "-- (demo-kit/player_samples.py seed). It replaces a seeded sound with the same id, keeping whether it is switched\n"
+        "-- on. The seeded list holds trained detectors only, so the model's built-in labels seeded before are deleted\n"
+        "-- (a taught sound is never touched). Bumping the version makes every sensor fetch the new list.\n\n"
+        "INSERT INTO sounds (id, name, category, kind, threshold, weights, bias) VALUES "
+        f"('{args.sound}', '{name}', '{category}', 'detector', 0.5, '{json.dumps(weights, separators=(',', ':'))}', "
+        f"{head['bias']!r})\n"
+        "  ON CONFLICT (id) DO UPDATE SET name = excluded.name, category = excluded.category, kind = 'detector',\n"
+        "    label = NULL, weights = excluded.weights, bias = excluded.bias WHERE taught_at IS NULL;\n"
+        "DELETE FROM sounds WHERE kind = 'label' AND taught_at IS NULL;\n"
         "UPDATE sound_list SET version = version + 1 WHERE id = 1;\n"
     )
     with open(args.migration, "w") as fh:
@@ -206,6 +229,7 @@ def main():
     sub.add_parser("prepare").set_defaults(run=prepare)
     sub.add_parser("check").set_defaults(run=check)
     s = sub.add_parser("seed")
+    s.add_argument("--sound", choices=list(SEEDABLE), default="chainsaw")
     s.add_argument("--version", type=int, required=True)
     s.add_argument("--migration", required=True)
     s.set_defaults(run=seed)

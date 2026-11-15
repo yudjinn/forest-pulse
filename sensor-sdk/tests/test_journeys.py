@@ -60,7 +60,8 @@ def test_detects_reports_angle_and_follows_the_server_sound_list(tmp_path, model
         assert wait_for(lambda: "node-a" in state.sensors)
         assert wait_for(lambda: sensor.status["sound_list_version"] == SEED["version"])
 
-        # a chainsaw is reported once (repeats within 5 s suppressed), with the angle; rain and the hall are not
+        # a chainsaw is reported once (repeats within 5 s suppressed), with the angle; rain and the hall are not, and
+        # none of the three is taken for a gunshot
         play(sensor, "chainsaw.wav")
         play(sensor, "rain.wav")
         play(sensor, "hall.wav")
@@ -70,7 +71,7 @@ def test_detects_reports_angle_and_follows_the_server_sound_list(tmp_path, model
         assert len(chainsaw) == 1, state.events
         assert chainsaw[0]["angle_deg"] == 37.0 and chainsaw[0]["angle_confidence"] == 0.8
         assert chainsaw[0]["confidence"] >= 0.5
-        assert all(e["sound_id"] in {"chainsaw", "vehicle", "engine"} for e in state.events), state.events
+        assert all(e["sound_id"] == "chainsaw" for e in state.events), state.events  # no gunshot from any of them
         assert angles[0][1] == 3  # angle_fn got the 3-mic window that was classified
 
         # an invalid list from the server is refused; the sensor keeps reporting with the previous one
@@ -161,7 +162,7 @@ def test_checks_in_every_3_s_unless_the_config_file_says_otherwise_and_reports_i
         assert sensor.checkin_interval == 1
         sensor.start()
         assert wait_for(lambda: "node-e" in state.sensors)
-        assert state.sensors["node-e"]["sdk_version"] == "0.6.2"
+        assert state.sensors["node-e"]["sdk_version"] == "0.7.0"
     finally:
         sensor.stop()
         server.shutdown()

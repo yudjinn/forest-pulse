@@ -32,13 +32,12 @@ interface SoundRow {
   taught_at: number | null;
 }
 
-// `taught` marks a sound a researcher taught: only those can be deleted.
+// `taught` marks a sound a researcher taught; teaching under its name replaces its detector.
 const toSound = (r: SoundRow) => ({
   id: r.id, name: r.name, category: r.category, kind: r.kind, enabled: r.enabled === 1, taught: r.taught_at !== null,
 });
 const COLUMNS = "id, name, category, kind, enabled, taught_at";
 
-export const SEEDED_KEPT = "Only taught sounds can be deleted";
 
 // Every sound, switched on or off, in the sound list's order, with the list's current version and sensitivity, and
 // how far that version has reached: {sensors, reached}, the sensors on the plan and those that last reported it.
@@ -120,16 +119,15 @@ export async function switchSound(request: Request, { env, params }: RouteContex
   return json({ sound: toSound(row), version });
 }
 
-// Deletes a taught sound: sensors drop it at their next check-in, events for it arriving afterwards are answered as
-// dropped, and past events keep the name they were stored with. Replies {id, version}; 404 for an unknown sound,
-// 409 for a seeded one.
+// Deletes a sound, seeded or taught: sensors drop it at their next check-in, events for it arriving afterwards are
+// answered as dropped, and past events keep the name they were stored with. Replies {id, version}; 404 for an
+// unknown sound. A deleted seeded sound comes back only by teaching it again under its name.
 export async function deleteSound(_request: Request, { env, params }: RouteContext): Promise<Response> {
   const current = await env.DB.prepare(`SELECT ${COLUMNS} FROM sounds WHERE id = ?`).bind(params.sound).first<SoundRow>();
   if (!current) return json({ error: "no such sound" }, 404);
-  if (current.taught_at === null) return json({ error: SEEDED_KEPT }, 409);
   const { result, version } = await changeSoundList(
     env.DB,
-    env.DB.prepare("DELETE FROM sounds WHERE id = ? AND taught_at IS NOT NULL RETURNING id").bind(params.sound),
+    env.DB.prepare("DELETE FROM sounds WHERE id = ? RETURNING id").bind(params.sound),
   );
   if (!result.results.length) return json({ error: "no such sound" }, 404); // deleted meanwhile
   logLine("sound_deleted", { sound: current.id, name: current.name, version });

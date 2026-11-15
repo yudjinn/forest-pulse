@@ -1,5 +1,5 @@
 // What the sensors listen for, down the right of the map: every sound sensors can report, each with its switch, and
-// a Delete for each taught sound behind a confirmation; Teach a new sound opens the teach dialog, whose module loads
+// a Delete for each behind a confirmation; Teach a new sound opens the teach dialog, whose module loads
 // on first use. The sensitivity every sound must reach sits in the Devices panel. The list follows the shell's 2 s
 // poll; a switch or the sensitivity saves at once and goes back to the saved value if the save fails. Once this
 // researcher changes the list (here, or by teaching), a line says how many sensors on the plan have the latest
@@ -76,7 +76,6 @@ function makeRow(id) {
   use.setAttribute("href", "#icon-close");
   cross.append(use);
   remove.append(cross);
-  remove.hidden = true;
   const row = document.createElement("div");
   row.className = "sound-row";
   row.append(label, remove, toggle);
@@ -249,7 +248,6 @@ function render(data) {
     row.item.title = KIND[s.kind] ?? s.kind;
     if (!row.saving) row.toggle.checked = s.enabled;
     row.item.className = `c-${s.category}${row.toggle.checked ? "" : " off"}`;
-    row.remove.hidden = !s.taught;
     row.remove.setAttribute("aria-label", `Delete ${s.name}`);
     return row.item;
   });

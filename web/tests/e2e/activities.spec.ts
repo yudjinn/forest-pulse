@@ -1,4 +1,4 @@
-// Activities journey: a researcher watches a chainsaw and a vehicle become one Logging and one Vehicle activity, a
+// Activities journey: a researcher watches a chainsaw and a gunshot become one Logging and one Poaching activity, a
 // sensor with a clock 5 minutes behind join the right one by corrected time, then clears the rehearsal noise.
 // It runs on its own fresh service: clearing removes every event, which other journeys on the shared service read.
 import { execFile } from "node:child_process";
@@ -11,7 +11,7 @@ import { SecondService } from "../fixtures/service.ts";
 import { activitiesServicePorts, activitiesServiceStateDir, webRoot } from "../ports.ts";
 
 const run = promisify(execFile);
-const SEEDED = ["Chainsaw", "Tools", "Power tool", "Vehicle", "Engine", "Aircraft", "Gunshot"];
+const SEEDED = ["Chainsaw", "Gunshot"];
 
 const activities = (page: Page) => page.getByRole("list", { name: "Activities" }).getByRole("listitem");
 const activity = (page: Page, category: string) =>
@@ -50,19 +50,19 @@ test("events become activities by category and corrected time, and Clear events 
     await expect(logging.getByText(/^\d{2}:\d{2}:\d{2}$/)).toBeVisible();
     await expect(page.getByText("Nothing heard yet")).toBeHidden();
 
-    // Within 60 s a second sensor reports a vehicle (through the library's own client): its own Vehicle activity.
+    // Within 60 s a second sensor reports a gunshot (through the library's own client): its own Poaching activity.
     const road = uniqueSensorId("act-road");
     const [posted] = await asSensor(road, [{ call: "post_events", events: [
-      { event_id: "vehicle-1", detected_at: new Date().toISOString(), sound_id: "vehicle", confidence: 0.8 },
+      { event_id: "gunshot-1", detected_at: new Date().toISOString(), sound_id: "gunshot", confidence: 0.8 },
     ] }], devVars().DEVICE_KEY, origin);
-    expect(posted.results).toEqual([{ event_id: "vehicle-1", status: "accepted" }]);
-    const vehicle = activity(page, "Vehicle");
-    await expect(vehicle).toHaveCount(1, { timeout: 3000 });
-    await expect(vehicle).toContainText("Vehicle");
-    await expect(vehicle).toContainText("1 event");
-    await expect(vehicle.getByText(await sensorName(page.request, road, origin), { exact: true })).toBeVisible();
+    expect(posted.results).toEqual([{ event_id: "gunshot-1", status: "accepted" }]);
+    const poaching = activity(page, "Poaching");
+    await expect(poaching).toHaveCount(1, { timeout: 3000 });
+    await expect(poaching).toContainText("Gunshot");
+    await expect(poaching).toContainText("1 event");
+    await expect(poaching.getByText(await sensorName(page.request, road, origin), { exact: true })).toBeVisible();
     await expect(activities(page)).toHaveCount(2);
-    for (const [card, icon] of [[logging, "logging"], [vehicle, "vehicle"]] as const) {
+    for (const [card, icon] of [[logging, "logging"], [poaching, "poaching"]] as const) {
       await expect(card.getByTestId("activity-icon")).toHaveAttribute("src", `/dashboard/icons/${icon}.svg`);
       expect(await card.getByTestId("activity-icon").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
     }
