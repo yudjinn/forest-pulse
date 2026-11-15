@@ -1,5 +1,7 @@
 # Dashboard invariants
 
+- One page, two audiences: the researchers' dashboard at `/` and the public demo at `/dashboard/`, which is the same file with `demo/demo.js` and `demo/demo.css` added by the Worker. A new control that changes anything is hidden in `demo/demo.css`, and a new data path gets a simulated reply in `demo/demo.js`, or the demo shows a broken control or an empty view (agent-made).
+
 - Scripts load only from files: `_headers` gives `/dashboard/*` its own Content-Security-Policy after detaching the site-wide one (`! Content-Security-Policy`). Without the detach both policies are sent and enforced together, so the site-wide `default-src 'none'` and `form-action 'none'` block every script and the sign-in form. A page that needs more (WebAssembly, a worker) adds it to that one rule.
 - Live views poll through `poll()` in `shell.js`, never their own timer: the connection-lost line counts failures across every poller on the page and only `poll()` feeds it.
 - After a page action that changes what other views poll (Clear events), call `refresh()` from `shell.js`. A poll already in flight may have been answered before the change, and without it that reply redraws the old data for one cycle.

@@ -1,4 +1,4 @@
-"""Prepare the landing page, the dashboard files and shared brand assets for Cloudflare Workers."""
+"""Prepare the dashboard files and shared brand assets for Cloudflare Workers."""
 
 from pathlib import Path
 import shutil
@@ -17,8 +17,7 @@ def main():
     if DIST.exists():
         shutil.rmtree(DIST)
     (DIST / "brand").mkdir(parents=True)
-    for name in ("index.html", "styles.css", "_headers"):
-        shutil.copy2(ROOT / name, DIST / name)
+    shutil.copy2(ROOT / "_headers", DIST / "_headers")
     shutil.copytree(ROOT / "dashboard", DIST / "dashboard", ignore=shutil.ignore_patterns("tsconfig.json", "*.md"))
     for file in BRAND.glob("*.svg"):
         if file.name != "preview.svg":
@@ -31,7 +30,7 @@ def main():
     shutil.copy2(SENSOR_MODEL, DIST / "model" / SENSOR_MODEL.name)
     for name in ORT_FILES:
         shutil.copy2(ORT / name, DIST / "model" / name)
-    print(f"Built landing page in {DIST}")
+    print(f"Built the site in {DIST}")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ additive-only hot files never count as overlap.
 
 | Area | Paths |
 |---|---|
-| Service core: Worker entry, sign-in, sensor API intake, event log | web/src/* (top level), web/src/auth/**, web/src/api/**, web/dashboard/* (shell), web/dashboard/log/** |
+| Service core: Worker entry, sign-in, sensor API intake, event log | web/src/* (top level), web/src/auth/**, web/src/api/**, web/dashboard/* (shell), web/dashboard/log/**, web/dashboard/demo/** |
 | Sensors and plan | web/src/sensors/**, web/dashboard/plan/** |
 | Activities | web/src/activities/**, web/dashboard/activities/**, web/dashboard/icons/** |
 | Sounds list and switches | web/src/sounds/**, web/dashboard/sounds/** |

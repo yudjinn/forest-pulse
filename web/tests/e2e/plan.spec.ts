@@ -47,7 +47,7 @@ test("sensors join the plan on first check-in, researchers place them, and the p
   try {
     const context = await browser.newContext({ baseURL: service.url });
     const page = await context.newPage();
-    await signIn(page, "/dashboard/", service.url);
+    await signIn(page, "/", service.url);
     await showDevices(page);
     await expect(page.getByText("No sensors yet. Sensors appear here when they first check in.")).toBeVisible();
 
@@ -88,7 +88,7 @@ test("sensors join the plan on first check-in, researchers place them, and the p
 
     // A second researcher watches the same plan.
     const other = await context.newPage();
-    await other.goto("/dashboard/");
+    await other.goto("/");
     await showDevices(other);
     await expect(position(card(other, b))).toHaveText("x 3.0 m, y 0.0 m", { timeout: 3000 });
 

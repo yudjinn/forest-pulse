@@ -1,9 +1,12 @@
 # Forest Pulse web
 
 The Forest Pulse service at https://forestpulse.paxid.com/ on Cloudflare
-Workers, using the existing paid paxID account: the static landing page, the
-researchers' dashboard under `/dashboard/` (one shared password, a 7-day
-session) and the sensor API under `/api/v1/` ([../docs/device-api.md](../docs/device-api.md)).
+Workers, using the existing paid paxID account: the researchers' dashboard at
+`/` (one shared password, a 7-day session, sign-in at `/signin`), a public
+read-only demo of it at `/dashboard/` that anyone can open without a password,
+and the sensor API under `/api/v1/` ([../docs/device-api.md](../docs/device-api.md)).
+The demo is the same page answered by a scripted forest in the visitor's
+browser: it never reads or changes the researchers' data.
 Python 3 and Wrangler 4 are the only build and deployment tools required.
 
 ## Layout
@@ -12,8 +15,9 @@ Python 3 and Wrangler 4 are the only build and deployment tools required.
   sensor intake hooks; `src/router.ts` enforces each route's access and serves
   the files.
 - `dashboard/` the researchers' dashboard, one page: plain HTML, CSS and
-  JavaScript modules, served only to a signed-in researcher (the sign-in page
-  and its stylesheet excepted). `dashboard/plan/scene.js` draws the map on one
+  JavaScript modules. The page at `/` is served only to a signed-in researcher
+  and its data only through a session; the code files are public, because the
+  demo (`dashboard/demo/`) runs them too. `dashboard/plan/scene.js` draws the map on one
   canvas; `dashboard/shell.js` holds the 2 s live polling with the
   connection-lost line. Teaching and the presenter's player load their modules
   when first opened.
@@ -39,7 +43,7 @@ FP_E2E_PORT_BASE=8800 npm run serve
 
 `npm run serve` builds the site and runs the Worker on 127.0.0.1 at the port
 base with fresh local D1 and R2 state (migrations applied). Open
-`/dashboard/` there, and point a sensor at it with the sensor library's replay
+`/` there (or `/dashboard/` for the demo), and point a sensor at it with the sensor library's replay
 command and a config whose `server_url` is that address and `sensor_key` the
 local one. Use the project's pinned Wrangler
 (`npx wrangler`): an older global install cannot run this compatibility date.
@@ -94,7 +98,7 @@ The bucket's stored files are committed in `bucket/` and mirrored into it by
 relative path (`bucket/README.md`).
 
 R2 supports an EU storage jurisdiction but no selectable Finland-only location.
-The landing page is served through Cloudflare's global edge network.
+The site is served through Cloudflare's global edge network.
 
 The custom domain is declared in `wrangler.jsonc`; Wrangler manages the domain
 attachment and certificate. Both `workers.dev` and version preview URLs are

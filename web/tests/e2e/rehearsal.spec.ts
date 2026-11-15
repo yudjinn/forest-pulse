@@ -186,7 +186,7 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
             expect(output).toMatch(/^done: 0 event\(s\) still queued$/m);
           }
           names[ids.c] = await sensorName(request, ids.c, origin);
-          await page.goto(`${origin}/dashboard/`);
+          await page.goto(`${origin}/`);
           await showEventLog(page);
           await expect(logRows(page, nameOf(ids.a), name).first()).toBeVisible(seen);
           await expect(logRows(page, nameOf(ids.b), name).first()).toBeVisible(seen);
@@ -195,7 +195,7 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
         });
 
       await demoStep(`delete "${name}" from the sound list`, "it leaves the list after its confirmation", async () => {
-        await page.goto(`${origin}/dashboard/`);
+        await page.goto(`${origin}/`);
         await page.getByRole("button", { name: `Delete ${name}`, exact: true }).click();
         await page.getByRole("dialog", { name: `Delete ${name}?` }).getByRole("button", { name: "Delete", exact: true })
           .click();
@@ -203,7 +203,7 @@ test("the demo script: a chainsaw's direction and location, the teaching pack ta
       });
 
       await demoStep("remove the rehearsal sensors from the plan", "their cards gone from the plan", async () => {
-        await page.goto(`${origin}/dashboard/`);
+        await page.goto(`${origin}/`);
         await showDevices(page);
         for (const id of mine) {
           await sensorCard(page, id).getByRole("button", { name: `Remove ${nameOf(id)}` }).click();

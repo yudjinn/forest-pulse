@@ -59,11 +59,11 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
   await service.start();
   try {
     const origin = service.url;
-    await signIn(page, "/dashboard/", origin);
+    await signIn(page, "/", origin);
     // The sensitivity and the sensors' cards are in the Devices panel, which opens over the sound list: a second
     // tab keeps it open.
     const panel = await context.newPage();
-    await panel.goto(`${origin}/dashboard/`);
+    await panel.goto(`${origin}/`);
     await showDevices(panel);
     // Each switch moves the list's version on by one from wherever this fresh service starts.
     const start: number = (await (await page.request.get(`${origin}/dashboard/api/sounds`)).json()).version;
@@ -101,7 +101,7 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
 
     // A sensor that keeps its state hears a chainsaw; the row shows in the live log.
     const log = await context.newPage();
-    await log.goto(`${origin}/dashboard/`);
+    await log.goto(`${origin}/`);
     await showEventLog(log);
     const sensorId = uniqueSensorId("sounds");
     const stateDir = path.join(mkdtempSync(path.join(os.tmpdir(), "fp-sounds-")), "state");
@@ -170,7 +170,7 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
     // Another researcher has the page open when the sensitivity moves to 70%; their page follows at its next poll.
     const other = await browser.newContext();
     const otherPage = await other.newPage();
-    await signIn(otherPage, "/dashboard/", origin);
+    await signIn(otherPage, "/", origin);
     await showDevices(otherPage);
     await expect(otherPage.getByRole("slider")).toHaveValue("50");
     await sensitivity.fill("70");

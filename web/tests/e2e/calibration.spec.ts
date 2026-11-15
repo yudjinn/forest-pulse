@@ -30,7 +30,7 @@ test("two sensors measure their distance and facings and appear as they stand; a
   try {
     const context = await browser.newContext({ baseURL: origin });
     const page = await context.newPage();
-    await signIn(page, "/dashboard/", origin);
+    await signIn(page, "/", origin);
     await showDevices(page);
     const calibrate = page.getByRole("button", { name: "Calibrate" });
 
@@ -166,7 +166,7 @@ test("three sensors calibrate into a triangle on the side of the line they stand
   try {
     const context = await browser.newContext({ baseURL: origin });
     const page = await context.newPage();
-    await signIn(page, "/dashboard/", origin);
+    await signIn(page, "/", origin);
     await showDevices(page);
     const calibrate = page.getByRole("button", { name: "Calibrate" });
 

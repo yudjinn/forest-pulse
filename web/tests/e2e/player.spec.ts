@@ -25,10 +25,11 @@ test("a presenter's phone loops one sample at a time until it is tapped again, w
   // One recording fails to load; the rest of the player keeps working.
   await page.route(`**/dashboard/api/player/samples/${tawny.file}`, (route) => route.abort());
 
-  // The player's old address lands on the dashboard (signed out: its sign-in); the speaker button opens the player.
-  for (const old of ["/dashboard/player/", "/dashboard/player", "/dashboard/sounds/index.html"]) {
+  // The player's old address lands on the dashboard (signed out: its sign-in), as does the old sign-in address; the
+  // speaker button opens the player.
+  for (const old of ["/dashboard/player/", "/dashboard/player", "/dashboard/sounds/index.html", "/dashboard/signin"]) {
     await page.goto(old);
-    await expect(page).toHaveURL(/\/dashboard\/signin$/);
+    await expect(page).toHaveURL(/\/signin$/);
   }
   await signIn(page);
   const opener = page.getByRole("button", { name: "Play sounds", exact: true });

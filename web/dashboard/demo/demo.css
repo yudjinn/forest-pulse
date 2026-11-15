@@ -1,0 +1,48 @@
+/* The public demo (the page at /dashboard/, `demo` on its root): the controls that would change the service, and the
+   player, whose recordings are the researchers', are not shown. A rule here wins over a module that unhides one. */
+.demo #open-player,
+.demo .teach-open,
+.demo .sound-row input,
+.demo .sound-delete,
+.demo .calibrate,
+.demo .sensitivity,
+.demo .plan-card-actions,
+.demo .activities-clear,
+.demo .activity-actions {
+  display: none !important;
+}
+
+.demo .sound {
+  pointer-events: none;
+}
+
+.demo .demo-note {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 520px);
+  margin: 0;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: var(--amber);
+  color: var(--ink);
+  font-size: 15px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 900px) {
+  .demo .demo-note {
+    top: auto;
+    bottom: 16px;
+    max-width: calc(100% - 32px);
+    border-radius: 14px;
+  }
+
+  .demo body {
+    padding-bottom: 96px;
+  }
+}

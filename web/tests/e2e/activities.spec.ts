@@ -31,7 +31,7 @@ test("events become activities by category and corrected time, and Clear events 
   await service.start();
   try {
     const origin = service.url;
-    await signIn(page, "/dashboard/", origin);
+    await signIn(page, "/", origin);
     await expect(page.getByText("Nothing heard yet")).toBeVisible();
     await showEventLog(page);
     await expect(page.getByRole("button", { name: "Clear events" })).toBeDisabled();

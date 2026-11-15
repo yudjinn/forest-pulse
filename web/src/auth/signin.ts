@@ -33,7 +33,7 @@ export async function signIn(request: Request, { env }: RouteContext): Promise<R
 // the error shown.
 async function page(request: Request, env: RouteContext["env"], next: string, wrong: boolean, status: number) {
   const file = await env.ASSETS.fetch(new Request(new URL("/dashboard/signin", request.url)));
-  const action = next === "/dashboard/" ? "/dashboard/signin" : `/dashboard/signin?next=${encodeURIComponent(next)}`;
+  const action = next === "/" ? "/signin" : `/signin?next=${encodeURIComponent(next)}`;
   const rewritten = new HTMLRewriter()
     .on("form#signin", { element: (el) => void el.setAttribute("action", action) })
     .on("#signin-error", { element: (el) => void (wrong && el.removeAttribute("hidden")) })

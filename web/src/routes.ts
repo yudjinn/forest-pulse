@@ -1,7 +1,7 @@
 // The route table: every path the Worker answers itself, with who may call it, and the hooks that run on sensor
 // intake. Additive only: add a line, never reorder or rewrite one (docs/agents/ownership.md).
-// Paths: researcher pages and data under /dashboard (data under /dashboard/api), the sensor API under /api/v1.
-// Any other /dashboard file is served from web/dashboard/ to a signed-in researcher; the rest is the landing page.
+// Paths: the researchers' page at / with its sign-in at /signin and its data under /dashboard/api, the sensor API
+// under /api/v1. The page and code files under /dashboard are served by router.ts (the public demo at /dashboard/).
 import type { Route } from "./router.ts";
 import type { IntakeHooks } from "./api/intake.ts";
 import { signIn, signInPage } from "./auth/signin.ts";
@@ -18,8 +18,8 @@ import { calibrationState, postReport, startCalibration } from "./calibration/ca
 import { dismissAlert, sendWarning } from "./warnings/warnings.ts";
 
 export const routes: Route[] = [
-  { method: "GET", path: "/dashboard/signin", access: "public", handle: signInPage },
-  { method: "POST", path: "/dashboard/signin", access: "public", handle: signIn },
+  { method: "GET", path: "/signin", access: "public", handle: signInPage },
+  { method: "POST", path: "/signin", access: "public", handle: signIn },
   { method: "GET", path: "/dashboard/api/events", access: "researcher", handle: listEvents },
   { method: "POST", path: "/api/v1/sensors/:sensor/checkin", access: "sensor", handle: checkin },
   { method: "GET", path: "/api/v1/sensors/:sensor/sounds", access: "sensor", handle: soundList },

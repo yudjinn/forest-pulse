@@ -9,7 +9,7 @@ const VERSION = "v1";
 export async function sessionCookie(env: Env, now = Date.now()): Promise<string> {
   const payload = `${VERSION}.${now + SESSION_SECONDS * 1000}`;
   const sig = await crypto.subtle.sign("HMAC", await key(env), new TextEncoder().encode(payload));
-  return `${SESSION_COOKIE}=${payload}.${base64url(sig)}; Path=/dashboard; Max-Age=${SESSION_SECONDS}; HttpOnly; Secure; SameSite=Lax`;
+  return `${SESSION_COOKIE}=${payload}.${base64url(sig)}; Path=/; Max-Age=${SESSION_SECONDS}; HttpOnly; Secure; SameSite=Lax`;
 }
 
 export async function hasSession(request: Request, env: Env, now = Date.now()): Promise<boolean> {
@@ -27,14 +27,12 @@ export async function hasSession(request: Request, env: Env, now = Date.now()): 
 // Where a signed-out page request goes: the sign-in page, remembering the page that was asked for.
 export function signInLocation(url: URL): string {
   const back = url.pathname + url.search;
-  return back === "/dashboard/" ? "/dashboard/signin" : `/dashboard/signin?next=${encodeURIComponent(back)}`;
+  return back === "/" ? "/signin" : `/signin?next=${encodeURIComponent(back)}`;
 }
 
-// The page to return to after signing in: only a dashboard page on this site.
+// The page to return to after signing in: only the researchers' dashboard, with its query if it had one.
 export function safeNext(next: string | null): string {
-  if (!next || !next.startsWith("/dashboard/") || next.startsWith("/dashboard/signin") || next.includes("\\")) {
-    return "/dashboard/";
-  }
+  if (!next || (next !== "/" && !next.startsWith("/?")) || next.includes("\\")) return "/";
   return next;
 }
 

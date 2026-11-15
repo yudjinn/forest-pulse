@@ -1,6 +1,7 @@
 // Matches a request against the route table, enforces each route's access, and falls back to the static files.
-// Researcher pages and data live under /dashboard and need a session; the sensor API lives under /api/v1 and
-// needs the sensor key; everything else is the public landing page, served from the files.
+// The researchers' dashboard is the page at / and its data lives under /dashboard/api; both need a session. The page
+// at /dashboard/ is the public demo: the same page answered by a simulated service in the browser. The sensor API
+// lives under /api/v1 and needs the sensor key. The dashboard's code under /dashboard/ and the brand files are public.
 import type { Env } from "./env.ts";
 import { json, redirect } from "./http.ts";
 import { logLine } from "./log.ts";
@@ -27,11 +28,13 @@ export interface Route {
   handle(request: Request, ctx: RouteContext): Response | Promise<Response>;
 }
 
-// Dashboard files anyone may fetch: what the sign-in page itself needs.
-const PUBLIC_DASHBOARD_FILES = new Set(["/dashboard/shell.css"]);
-// Pages the one-page dashboard replaced, with or without the trailing slash or index.html: an old bookmark lands on
-// the dashboard. The modules still served from those folders (teach.js, player.css) are not pages.
-const RETIRED_PAGE = /^\/dashboard\/(sounds|teach|player)(\/(index\.html)?)?$/;
+// Where the one dashboard page lives in the files: served at / to a researcher and, rewritten, at /dashboard/ as
+// the demo.
+const DASHBOARD_FILE = "/dashboard/";
+// Pages the one-page dashboard replaced, with or without the trailing slash or index.html, and its old sign-in
+// address: an old bookmark lands on the researchers' dashboard (signed out: its sign-in). The modules still served
+// from those folders (teach.js, player.css) are not pages.
+const RETIRED_PAGE = /^\/dashboard\/((sounds|teach|player)(\/(index\.html)?)?|signin(\.html)?)$/;
 
 export async function route(
   request: Request,
@@ -55,15 +58,45 @@ export async function route(
   if (pathMatched) return json({ error: "method not allowed" }, 405);
 
   if (path.startsWith("/api/")) return json({ error: "not found" }, 404);
-  if (path === "/dashboard" || RETIRED_PAGE.test(path)) return redirect("/dashboard/");
-  if (path.startsWith("/dashboard/")) {
-    if (request.method !== "GET" && request.method !== "HEAD") return json({ error: "method not allowed" }, 405);
-    if (!PUBLIC_DASHBOARD_FILES.has(path)) {
-      const denied = await deny("researcher", request, env, url);
-      if (denied) return denied;
-    }
+  if (path === "/") {
+    const denied = await deny("researcher", request, env, url);
+    if (denied) return denied;
+    return env.ASSETS.fetch(new Request(new URL(DASHBOARD_FILE, url), request));
+  }
+  if (path === "/dashboard" || path === "/dashboard/index.html") return redirect("/dashboard/");
+  if (RETIRED_PAGE.test(path)) return redirect("/");
+  if (path === "/dashboard/") return demoPage(request, env);
+  if (path.startsWith("/dashboard/api/")) return json({ error: "not found" }, 404);
+  if (path.startsWith("/dashboard/") && request.method !== "GET" && request.method !== "HEAD") {
+    return json({ error: "method not allowed" }, 405);
   }
   return env.ASSETS.fetch(request);
+}
+
+// The public demo: the dashboard page with the demo's simulated service loaded before any other script, so no
+// request from it reaches the researchers' data, and the controls that change anything hidden.
+async function demoPage(request: Request, env: Env): Promise<Response> {
+  // Fetched unconditionally: the page's file validators say nothing about what the rewrite adds.
+  const file = await env.ASSETS.fetch(new Request(new URL(DASHBOARD_FILE, request.url), { method: request.method }));
+  const rewritten = new HTMLRewriter()
+    .on("html", { element: (el) => void el.setAttribute("class", "demo") })
+    .on("title", { element: (el) => void el.setInnerContent("Forest Pulse demo") })
+    .on('script[src="/dashboard/shell.js"]', {
+      element: (el) => void el.before(
+        '<link rel="stylesheet" href="/dashboard/demo/demo.css">\n    <script type="module" src="/dashboard/demo/demo.js"></script>\n    ',
+        { html: true }),
+    })
+    .on("body", {
+      element: (el) => void el.prepend(
+        '<p class="demo-note" role="note"><b>This is a demo with simulated sounds.</b> '
+          + "Forest Pulse is a working product, running on real sensors.</p>",
+        { html: true }),
+    })
+    .transform(file);
+  const headers = new Headers(rewritten.headers);
+  headers.delete("ETag");
+  headers.set("Cache-Control", "no-store");
+  return new Response(rewritten.body, { status: rewritten.status, headers });
 }
 
 async function deny(access: Access, request: Request, env: Env, url: URL): Promise<Response | null> {

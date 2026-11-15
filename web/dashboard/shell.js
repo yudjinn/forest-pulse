@@ -33,7 +33,7 @@ export function serviceClock(now) {
 
 /** A signed-out reply: the researcher signs in and comes back. */
 export function signIn() {
-  location.assign("/dashboard/signin");
+  location.assign("/signin");
 }
 
 function showConnection() {

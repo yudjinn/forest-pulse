@@ -1,4 +1,4 @@
-// The Forest Pulse Worker: the landing page, the researchers' dashboard and the sensor API.
+// The Forest Pulse Worker: the researchers' dashboard, its public demo and the sensor API.
 import type { Env } from "./env.ts";
 import { route } from "./router.ts";
 import { hooks, routes } from "./routes.ts";

@@ -9,8 +9,9 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "none",
-    // The landing page is served straight from the files; these go through the Worker first.
-    "run_worker_first": ["/dashboard", "/dashboard/*", "/api/*"]
+    // The brand files are served straight from the files; these go through the Worker first. "/" is the
+    // researchers' dashboard: dropping it serves no page there, as there is no file at the root.
+    "run_worker_first": ["/", "/signin", "/dashboard", "/dashboard/*", "/api/*"]
   },
   "routes": [
     {

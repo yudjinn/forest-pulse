@@ -51,11 +51,11 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
   await service.start();
   try {
     const origin = service.url;
-    await signIn(page, "/dashboard/", origin);
+    await signIn(page, "/", origin);
     const before = await (await page.request.get(`${origin}/dashboard/api/sounds`)).json();
     // The sound list in another tab, following the 2 s poll.
     const sounds = await context.newPage();
-    await sounds.goto(`${origin}/dashboard/`);
+    await sounds.goto(`${origin}/`);
     await expect(sounds.getByRole("switch")).toHaveCount(before.sounds.length);
 
     const teaching = await openTeach(page);
@@ -129,7 +129,7 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     // Two sensors check in and pull the new list. One hears a boreal owl the detector never heard; the other hears
     // a tawny owl. Only the first is reported as Boreal owl in the live log.
     const log = await context.newPage();
-    await log.goto(`${origin}/dashboard/`);
+    await log.goto(`${origin}/`);
     await showEventLog(log);
     const borealSensor = uniqueSensorId("teach-boreal");
     const tawnySensor = uniqueSensorId("teach-tawny");

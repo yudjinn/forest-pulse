@@ -67,7 +67,7 @@ test("a sensor shows where it heard a sound from, and two sensors' crossing line
     const origin = service.url;
     const context = await browser.newContext({ baseURL: origin });
     const page = await context.newPage();
-    await signIn(page, "/dashboard/", origin);
+    await signIn(page, "/", origin);
     await showDevices(page);
 
     // Two sensors check in and are placed 3 m apart, facing each other: a at the origin facing right, b to its right.

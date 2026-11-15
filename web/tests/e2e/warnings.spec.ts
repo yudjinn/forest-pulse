@@ -91,7 +91,7 @@ test("boards that heard the logging play the warning's alarm and the card report
     expect(refused.status()).toBe(401);
     await anonymous.dispose();
 
-    await signIn(page, "/dashboard/", origin);
+    await signIn(page, "/", origin);
 
     // Logging heard 6 minutes ago: its card offers no Send warning.
     const early = uniqueSensorId("warn-early");
@@ -193,7 +193,7 @@ test("boards that heard the logging play the warning's alarm and the card report
     const other = await browser.newContext();
     try {
       const page2 = await other.newPage();
-      await signIn(page2, "/dashboard/", origin);
+      await signIn(page2, "/", origin);
       const seededAt = Date.now() - 45_000;
       await asSensor(a, [{ call: "post_events", events: [chainsawAt("seed-1", seededAt)] }], key, origin);
       for (const p of [page, page2]) {

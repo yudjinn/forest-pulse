@@ -39,10 +39,10 @@ export function rehearsalSecrets(): { password: string; key: string } {
 
 // Opens the dashboard signed out, signs in with `password` and waits to be back on it.
 export async function signInWith(page: Page, origin: string, password: string) {
-  await page.goto(`${origin}/dashboard/`);
+  await page.goto(`${origin}/`);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(`${origin}/dashboard/`);
+  await expect(page).toHaveURL(`${origin}/`);
 }
 
 
@@ -90,7 +90,7 @@ export function teachingPack(): TeachingPack | null {
 // Teaches a sound from the pack through Teach a new sound, as on stage, and waits for it to be listed switched on.
 // The page must be signed in on `origin`.
 export async function teachThePack(page: Page, origin: string, name: string, pack: TeachingPack) {
-  await page.goto(`${origin}/dashboard/`);
+  await page.goto(`${origin}/`);
   const teaching = await openTeach(page);
   await page.getByLabel("Name").fill(name);
   await expect(teaching.getByRole("radio", { name: "Wildlife" })).toBeChecked();

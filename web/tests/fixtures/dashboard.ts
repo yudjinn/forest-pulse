@@ -44,7 +44,7 @@ async function opened(button: Locator, shown: Locator) {
 }
 
 // Opens a dashboard page signed out, signs in on the page it is sent to, and waits to be back on that page.
-export async function signIn(page: Page, dashboardPath = "/dashboard/", origin = "") {
+export async function signIn(page: Page, dashboardPath = "/", origin = "") {
   await page.goto(origin + dashboardPath);
   await page.getByLabel("Password").fill(devVars().DASHBOARD_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();

@@ -134,7 +134,7 @@ test("the dashboard shows when it has lost the service, and clears it when the s
   const service = new SecondService();
   await service.start();
   try {
-    await signIn(page, "/dashboard/", secondServiceURL);
+    await signIn(page, "/", secondServiceURL);
     await showEventLog(page);
     await expect(page.getByText("No events yet")).toBeVisible(); // the first poll has landed
     const lost = page.getByText(/^Connection lost, last update \d{2}:\d{2}:\d{2}$/);
