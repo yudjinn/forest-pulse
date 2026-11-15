@@ -14,7 +14,7 @@ Fast typecheck: cd web && npm run typecheck. Lint changed files: no linter is co
 Fast development loop: FP_E2E_PORT_BASE=<base> npm run serve in web/, then reload the browser.
 
 ## Ports
-FP_E2E_PORT_BASE=8800; app = base, inspector = base+1, base+2 to base+9 reserved. A second block, base+50 to base+59 (five pairs), serves journeys that need their own fresh service, one pair each; the activities journey takes base+50/+51, the location journey base+52/+53, the rehearsal journey base+54/+55, the calibration journeys base+56/+57 (one at a time, serial in one spec file), the warnings journey base+58/+59 (the block is full). Overrides: FP_E2E_APP_PORT, FP_E2E_INSPECTOR_PORT. Derived only in web/tests/ports.ts.
+FP_E2E_PORT_BASE=8800; app = base, inspector = base+1, base+2 to base+9 reserved. A second block, base+50 to base+59 (five pairs), serves journeys that need their own fresh service, one pair each; the activities journey takes base+50/+51, the location journey base+52/+53, the rehearsal journey base+54/+55, the calibration journeys base+56/+57 (one at a time, serial in one spec file), the warnings journey base+58/+59 (the block is full). Overrides: FP_E2E_APP_PORT, FP_E2E_INSPECTOR_PORT. Derived only in web/tests/ports.ts. A journey's own service accepts any server already answering on its pair (web/tests/AGENTS.md), so before classifying or rerunning a red journey, confirm its pair was free.
 Orchestrator allocation: wave gate uses base 8800; implementers take base 8810, 8820, 8830.
 
 ## Running one spec
