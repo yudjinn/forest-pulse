@@ -9,7 +9,8 @@
         -> LED matrix (arrow / CAL / ticker), status LED, event summaries to the
            STM32 sketch over the Bridge
 
-The sketch reports the ESP32 notify line (header D7), the Modulino Thermo
+Events (and their trigger time) come from the packet stream alone: no wire from
+the ESP32 to the sketch. The sketch reports the Modulino Thermo
 (temperature / humidity -> speed of sound) and Modulino presence, and plays
 calibration sweeps on the Modulino Buzzer. Everything except this file is
 plain Python (no App Lab imports) so it runs and is tested on a laptop:
@@ -67,41 +68,6 @@ def notify(name: str, *args) -> None:
         Bridge.notify(name, *args)
     except Exception as e:  # MCU not ready yet, router busy, ...
         log(f"[bridge] notify {name} failed: {e}")
-
-
-# ---------------------------------------------------------------- notify pin (D7)
-
-_trigger_lock = threading.Lock()
-_trigger_state = None   # last reported level (0/1), None until the first report
-_trigger_rise = None    # time.time() of the last rising edge
-_trigger_unused = False  # rise not yet attached to an event
-
-
-def on_trigger_pin(state) -> None:
-    """Sketch: Bridge.notify("trigger_pin", 0/1) on every D7 edge (+ periodic resend)."""
-    global _trigger_state, _trigger_rise, _trigger_unused
-    state = 1 if int(state) else 0
-    with _trigger_lock:
-        prev = _trigger_state
-        if state == prev:
-            return
-        _trigger_state = state
-        if prev is not None and state:
-            _trigger_rise, _trigger_unused = time.time(), True
-    if prev is None:
-        log(f"[trigger] D7 {'HIGH' if state else 'LOW'} (initial level)")
-    else:
-        log(f"[trigger] D7 {'HIGH (event starting)' if state else 'LOW'}")
-
-
-def take_trigger_rise():
-    """Receiver: precise trigger time for a new event, if D7 rose recently."""
-    global _trigger_unused
-    with _trigger_lock:
-        if _trigger_unused and _trigger_rise is not None and time.time() - _trigger_rise < 10:
-            _trigger_unused = False
-            return _trigger_rise
-    return None
 
 
 # ------------------------------------------------------------------ pipeline
@@ -270,8 +236,7 @@ def _reader() -> None:
                     log(f"[atech] {line}")
                 trigger.on_text(line)  # INFO / SET: track thresholds, re-apply after an ESP32 reset
 
-            rx = _rx = Receiver(tee, on_text=on_text, log=log,
-                          trigger_rise=take_trigger_rise)
+            rx = _rx = Receiver(tee, on_text=on_text, log=log)
             tries, last = 0, 0.0
             while True:
                 now = time.monotonic()
@@ -308,7 +273,6 @@ def _reader() -> None:
 
 
 Bridge.provide("send_to_board", send_command)   # sketch -> ESP32 commands
-Bridge.provide("trigger_pin", on_trigger_pin)   # sketch reports D7
 Bridge.provide("climate", on_climate)           # sketch reports the Modulino Thermo
 _modulino_last = None
 
@@ -333,7 +297,7 @@ STATUS_POLL_S = 0.25   # changes (event start/end) go out within this
 
 def _status_loop() -> None:
     """Status LED (sketch LED3): ESP32 connected, server reachable, event being recorded
-    (from the packet stream, not the D7 wire)."""
+    (from the packet stream)."""
     last, last_log, sent_at = None, None, 0.0
     while True:
         rx = _rx

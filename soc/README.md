@@ -37,13 +37,10 @@ For the system picture, see the [repo README](../README.md).
 - **After an MCU reset or flash,** the first command can land while the chip boots. Retry `I` until an `INFO` line comes back.
 - **Reference implementation:** `mcu/tools/fe_serial.py` (port handling) and `mcu/tools/fe_protocol.py` (parser and event assembler). Reuse them.
 
-### Notify line
-- **What it is:** ATech port 6 D1 (ESP32 GPIO13), **3.3 V logic**. HIGH from trigger until the event's END packet.
-- **Optional:** the packet stream alone is enough to detect events. The line is useful for waking processing or for LEDs.
-- **Wiring:** connected to Uno Q STM32 header pin **D7** (3.3 V, no level shifter). The sketch in `atech-serial-listener/` reports each edge to Linux over the bridge.
-  - The Uno Q's STM32 header pins are 3.3 V.
-  - The Linux SoC's own GPIOs are 1.8 V, so they **need a level shifter**.
-  - Through the STM32 side, the Linux app gets the state over the Arduino App Lab bridge/RPC.
+### Notify line (not used)
+- **What it is:** ATech port 6 D1 (ESP32 GPIO13), **3.3 V logic**, HIGH from trigger until the event's END packet. The firmware still drives it.
+- **Not wired:** the app takes everything from the packet stream: an event starts with its first packet, ends with the END packet, and the first pre-trigger packet's arrival is the trigger time. Leave port 6 unconnected (no jumper to the Uno Q's D7); the sketch doesn't read D7.
+- If it's ever needed again: the Uno Q's STM32 header pins are 3.3 V (no level shifter); the Linux SoC's own GPIOs are 1.8 V and would need one.
 
 ### Packets
 Little-endian. CRC32 (IEEE, same as `zlib.crc32`) over header + PCM. Full details are in [`mcu/README.md`](../mcu/README.md#6-streamer-and-packets-streamc-protocolc).
@@ -88,13 +85,13 @@ USB ──► parser (CRC, resync) ──► event assembler ──► SensorTee
 ### Array geometry (board frame)
 The mics form a **right triangle with the right angle at mic 2**:
 - mic 1 ↔ mic 2 ≈ **4 cm** (along the top of the board);
-- mic 2 ↔ mic 3 ≈ **6 cm** (down the right side).
+- mic 2 ↔ mic 3 ≈ **8 cm** (down the right side).
 
 | Mic | Board port | x (cm) | y (cm) |
 |---|---|---|---|
 | mic1 | 1-2 (top-left) | −4.0 | 0.0 |
 | mic2 | 9-10 (top-right) | 0.0 | 0.0 |
-| mic3 | 13-14 (lower-right) | 0.0 | −6.0 |
+| mic3 | 13-14 (lower-right) | 0.0 | −8.0 |
 
 - **Board frame:** +x points from mic1 toward mic2 (left → right across the top); +y points toward the top of the board, away from mic3. The array plane is the board plane.
 - **Bearing θ** is measured in that plane, counter-clockwise from +x: 0° = the mic2 side, 90° = the top edge.
@@ -106,8 +103,8 @@ Largest possible delay (`d / c · fs`, c = 343 m/s, fs = 48 kHz):
 | Pair | Spacing | Max delay |
 |---|---|---|
 | mic1–mic2 | 4.0 cm | 117 µs = **5.6 samples** |
-| mic2–mic3 | 6.0 cm | 175 µs = **8.4 samples** |
-| mic1–mic3 | 7.2 cm | 210 µs = **10.1 samples** |
+| mic2–mic3 | 8.0 cm | 233 µs = **11.2 samples** |
+| mic1–mic3 | 8.9 cm | 261 µs = **12.5 samples** |
 
 ### Algorithm
 For each analysis window (0.5 s, 0.25 s hop; `config.json` `bearing`):
@@ -126,7 +123,7 @@ For each analysis window (0.5 s, 0.25 s hop; `config.json` `bearing`):
 
 ### Limitations
 - **2-D only.** Three mics in one plane give azimuth but not elevation. A source above the board can't be told from its mirror image below it, which is fine with the board mounted level and sources near the ground.
-- **Far-field assumption.** The array is ~7 cm across, so treating the sound as a flat wave is accurate beyond ~1 m.
+- **Far-field assumption.** The array is ~9 cm across, so treating the sound as a flat wave is accurate beyond ~1 m.
 - **Speed of sound** varies about 0.17% per °C. The app uses c = 331.3 + 0.606·T + 0.0124·RH from the Modulino Thermo, or 343 m/s without a fresh reading (`climate.py`).
 - **Resolution is direction-dependent.** It's best broadside to a pair and worst end-on. The triangle's two pairs at 90° to each other cover each other's weak directions.
 - **Echoes.** Indoors (the hall), expect noisy bearings: PHAT weighting plus averaging over time are essential. Outdoors, a few degrees should be achievable.
@@ -145,7 +142,7 @@ For each analysis window (0.5 s, 0.25 s hop; `config.json` `bearing`):
   "node_id": "node-01",
   "event_id": "node-01-20261114T123456-123",
   "t_trigger_utc": "2026-11-14T12:34:56.789Z",
-  "t_trigger_source": "notify_pin",
+  "t_trigger_source": "first_packet",
   "duration_s": 9.6,
   "pre_trigger_s": 4.0,
   "sample_rate": 48000,
@@ -157,7 +154,7 @@ For each analysis window (0.5 s, 0.25 s hop; `config.json` `bearing`):
 }
 ```
 
-`t_trigger_source` is `notify_pin` when the D7 rise was seen, otherwise `end_minus_live` (event end minus the live length).
+`t_trigger_source` is `first_packet` (the first pre-trigger packet's arrival: the ESP32 sends it the moment it triggers, so this is within USB/OS buffering of the trigger), or `end_minus_live` (event end minus the live length) when the app joined mid-event.
 
 ## 5. Multi-node
 
@@ -170,6 +167,5 @@ For each analysis window (0.5 s, 0.25 s hop; `config.json` `bearing`):
 ## TODO
 
 - [ ] **Measure the real mic sound-port positions** (±1 mm) → `config.json` `mic_positions_cm`; validate with claps at known angles.
-- [ ] **Notify line (D7) reads HIGH all the time** on the bench: probably wiring. The status LED no longer needs it, but without a rise event times fall back to `end_minus_live`.
 - [ ] **Noise floor on the plan card (optional):** the SDK's trigger health hook can also report `noise_floor_dbfs()`; `TriggerSettings` doesn't provide it yet (the ESP32's INFO has `floor_dbfs`).
-- [ ] **Bearings on the current nodes:** both run calibration with `test_mono_mic` (distance only), and `forestpulse2` (mic2 only) sends detections without a direction (`bearing.detections: false`). Facings come from the plan until a node has a full array whose bearings pass in the sweep's 3–5 kHz band.
+- [ ] **Bearings on the current nodes:** `forestpulse1` runs calibration with `test_mono_mic: 1` (distance only; its facing comes from the plan). `forestpulse2` now runs on all 3 mics (calibration bearings and detection directions on); check its bearings once mic1 and mic3 are fitted, and whether they hold up in the sweep's 3–5 kHz band.

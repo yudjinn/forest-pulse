@@ -12,9 +12,8 @@ PRE_TRIGGER_FRAMES = 192_000  # every event starts with exactly 4 s of pre-trigg
 @dataclass
 class EventStart:
     seq: int                 # first packet's seq_num
-    t_wall: float            # time.time() when the first packet arrived
+    t_wall: float            # time.time() when the first packet arrived = the trigger time (unless joined mid-event)
     joined_mid_event: bool   # first packet was LIVE (we missed the pre-trigger part)
-    trigger_wall: float | None = None  # time.time() of the notify-line (D7) rise, if seen
 
 
 @dataclass

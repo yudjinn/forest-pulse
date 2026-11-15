@@ -12,7 +12,8 @@ Nodes are found by their wlan0 MAC (scripts/nodes.txt), not by IP: the script lo
 laptop's neighbour table and, if any is missing, pings the local subnet once to fill it.
 
 Per node: upload the app -> stop it -> flash the ESP32 through the Uno Q -> start the app (App Lab compiles
-and flashes the sketch) -> optionally reinstall the SDK -> wait for "[status] ESP32 OK, server OK".
+and flashes the sketch) -> set it as the default app (started at boot) -> optionally reinstall the SDK
+-> wait for "[status] ESP32 OK, server OK".
 
 What it writes on a node (~/ArduinoApps/atech-serial-listener):
 - every tracked/untracked-but-not-ignored file of soc/atech-serial-listener, so config.json is the repo's with
@@ -180,6 +181,11 @@ def deploy(node: Node, args, app: bytes | None, fw: bytes | None, offsets: dict[
         # A node's first start downloads App Lab's ~0.9 GB Python base image and installs the packages: allow it.
         node.ssh(f"arduino-app-cli app start {APP_ID} 2>&1 | tail -3", timeout=START_TIMEOUT_S)
         started = node.ssh("docker inspect -f '{{.State.StartedAt}}' atech-serial-listener-main-1", timeout=60).strip()
+        # App Lab starts only the board's default app at boot; without it the node stays deaf after a reboot.
+        out = node.ssh(f"arduino-app-cli properties set default {APP_ID} >/dev/null 2>&1; "
+                       "arduino-app-cli properties get default 2>&1", timeout=60)
+        if "atech-serial-listener" not in out:
+            warnings.append("not set as the default app (won't start at boot)")
 
         if args.sdk:
             node.begin("reinstall SDK")

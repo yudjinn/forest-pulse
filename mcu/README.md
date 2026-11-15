@@ -50,7 +50,7 @@ ESP32-S3 GPIO, with no mux. That is what "1:1 mapping" means on this board.
 | 1-2 | Microphone 1 (ICS-43434) | **port 2**: D1 LR → GPIO5, D2 WS → GPIO4 · **port 1**: D1 SCK → GPIO9, D2 SD → GPIO8 |
 | 9-10 | Microphone 2 | port 9: LR → GPIO40, WS → GPIO41 · port 10: SCK → GPIO1, SD → GPIO2 |
 | 13-14 | Microphone 3 | port 13: LR → GPIO39, WS → GPIO38 · port 14: SCK → GPIO36, SD → GPIO35 |
-| 6 | Data-out ("data incoming") to the Uno Q | D1 → GPIO13, HIGH for the whole event (3.3 V) |
+| 6 | Data-out ("data incoming") | D1 → GPIO13, HIGH for the whole event (3.3 V). Still driven, but not wired on the current nodes: the Uno Q app uses the packet stream only |
 | 8 | USB-C (to the Uno Q; also flashing) | native USB-Serial/JTAG |
 | 3-4 | Speaker (ATech Speaker v2.2, MAX98357A) | **port 4**: D1 LRCLK → GPIO16, D2 BCLK → GPIO15 · **port 3**: D1 not connected, D2 DIN → GPIO18 |
 | 7 | *(nothing plugged in)* | D2 GPIO7 is used **internally** as the camera VSYNC control pad; keep port 7 empty |
@@ -83,7 +83,7 @@ stayed silent. All pins live in [`main/board_pins.h`](main/board_pins.h).
                  │                          PSRAM ring (6 s, 1.73 MB)         ▼          │
                  │                                     │       core 1: stream task       │
                  │                                     └──► packetizer + CRC32 ──► USB ──┼──► Uno Q
-                 │                                                    notify GPIO13 ─────┼──► Uno Q
+                 │                                                    notify GPIO13 ─────┼──► (unused)
                  └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -173,7 +173,7 @@ That means zero inter-channel offset, and no drift is possible.
 - **Single reader:** the stream task (core 1) copies frames out, then *re-checks* `write_idx` (seqlock style). The copy is valid only if its first frame is still at least `capacity − one block` behind the writer, because the writer may be partway through overwriting the next block.
 - **If the reader is lapped:** it jumps to the oldest intact frame and the next packet carries flag bit 0 (overrun).
 
-**Timing budget:** 4 s pre-trigger plus 2 s headroom. The Uno Q must start reading within about 2 s of the notify line going high. After that, USB at 768 KB/s drains the backlog about 2.7× faster than real time.
+**Timing budget:** 4 s pre-trigger plus 2 s headroom. The Uno Q must start reading within about 2 s of the trigger. After that, USB at 768 KB/s drains the backlog about 2.7× faster than real time.
 
 ### 5. Trigger (`trigger.c`, every 20 ms block)
 

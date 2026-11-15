@@ -83,7 +83,7 @@ def test_static_facts():
     hooks, *_ = make()
     assert hooks.fs == 48000
     assert hooks.emitter_offset_m == pytest.approx(0.03)
-    assert np.allclose(hooks.mic_positions_m, [(-0.04, 0.0), (0.0, 0.0), (0.0, -0.06)])  # board frame
+    assert np.allclose(hooks.mic_positions_m, [(-0.04, 0.0), (0.0, 0.0), (0.0, -0.08)])  # board frame
     assert hooks.forward_ccw_deg == 90.0
     assert hooks.speed_of_sound() == pytest.approx(343.0)
 

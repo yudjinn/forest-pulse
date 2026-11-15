@@ -26,7 +26,7 @@ atech ESP32 --USB CDC--> /dev/ttyACM0 (Linux host)
   matrix thread:  MatrixDisplay (arrow > CAL > ticker)
         |
         +--Bridge "led_frame", "serial_event", "node_status", "emit"--------> [STM32 sketch]
-        <--Bridge "trigger_pin" (D7), "climate", "modulino_status", "emit_done"--
+        <--Bridge "climate", "modulino_status", "emit_done"-------------------
         <--Bridge "send_to_board" (ESP32 commands)--------------------------
 ```
 
@@ -34,7 +34,7 @@ atech ESP32 --USB CDC--> /dev/ttyACM0 (Linux host)
 
 **Hardware:**
 - The UNO Q's USB-C port only acts as a USB host through a **powered USB-C hub**. Without one, nothing shows up in `lsusb`.
-- The ESP32's notify line (ATech port 6 D1, 3.3 V, HIGH from trigger until the event's END packet) goes to UNO Q header pin **D7**. Its rising edge gives each event a precise trigger time. Optional: on the current nodes it reads HIGH all the time (likely wiring), so event times fall back to the end of the event minus its live length.
+- **Only USB between the atech board and the Uno Q.** No jumper wire: events, their trigger time and the recording state all come from the packet stream (the ESP32's notify line on port 6 is left unconnected).
 - **Modulino Buzzer** on the Qwiic connector: plays the calibration sweeps and the alarm (`calibration.emitter: "buzzer"`, the default). The sketch rescans the Qwiic bus every 5 s and logs `[modulino]` changes.
 - **ATech Speaker module** (optional, MAX98357A on the atech board's ports 3-4): with `calibration.emitter: "speaker"` the ESP32 plays the sweeps instead (`P` command, `calibration.speaker_volume` 0..255, default 96), on the mics' own clock. Too loud and the board's mics clip on its own beep, which invalidates the round. Set `emitter_offset_cm` to the speaker's distance from the array's centre.
 - **Modulino Thermo** on the Qwiic connector (optional): temperature + humidity → speed of sound `c = 331.3 + 0.606·T + 0.0124·RH`. Without it, or after 60 s with no valid reading, 343 m/s is used. Each event record shows which value was used.
@@ -84,7 +84,7 @@ Highest priority first:
 | LED | Meaning |
 |---|---|
 | red, solid | the ESP32 isn't connected or hasn't answered `INFO`, or the Python app stopped reporting (no `node_status` for 10 s), e.g. while the app restarts |
-| blue, solid | an event is being recorded (from the packet stream; the D7 wire isn't needed) |
+| blue, solid | an event is being recorded (from the packet stream) |
 | yellow, slow blink (1 s on / 1 s off) | no server connection: no successful SDK check-in for 30 s, the key was rejected, or no `forestpulse.toml` |
 | green, solid | all good |
 

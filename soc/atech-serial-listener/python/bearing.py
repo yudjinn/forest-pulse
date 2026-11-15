@@ -44,7 +44,7 @@ class Geometry:
 
 # Nominal geometry (right triangle, right angle at mic2). Replace with
 # caliper-measured sound-port positions (config.json "mic_positions_cm").
-NOMINAL = Geometry.from_cm([[-4.0, 0.0], [0.0, 0.0], [0.0, -6.0]])
+NOMINAL = Geometry.from_cm([[-4.0, 0.0], [0.0, 0.0], [0.0, -8.0]])
 
 
 @dataclass

@@ -3,3 +3,4 @@
 # (On a board: cat /sys/class/net/wlan0/address. Its sensor_id is fp-<MAC without colons>.)
 14:b5:cd:0f:39:99  forestpulse1
 14:b5:cd:e2:25:21  forestpulse2
+14:b5:cd:0f:41:4f  forestpulse3

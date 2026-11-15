@@ -262,14 +262,16 @@ class Pipeline:
         chainsaw = cls is not None and cls["chainsaw"] >= thr  # label: classifier only
 
         live_s = max(0, len(audio) - PRE_TRIGGER_FRAMES) / FS
-        trigger_wall = ev.start.trigger_wall or (end.t_wall - live_s)  # D7 rise, else end - live length
+        # first pre-trigger packet's arrival; joined mid-event: end - live length
+        joined = ev.start.joined_mid_event
+        trigger_wall = (end.t_wall - live_s) if joined else ev.start.t_wall
         event_id = f"{self.cfg['node_id']}-{time.strftime('%Y%m%dT%H%M%S', time.gmtime(trigger_wall))}-{end.seq}"
         record = {
             "node_id": self.cfg["node_id"],
             "event_id": event_id,
             "t_trigger_utc": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(trigger_wall))
             + f".{int((trigger_wall % 1) * 1000):03d}Z",
-            "t_trigger_source": "notify_pin" if ev.start.trigger_wall else "end_minus_live",
+            "t_trigger_source": "end_minus_live" if joined else "first_packet",
             "duration_s": round(len(audio) / FS, 3),
             "pre_trigger_s": round(min(len(audio), PRE_TRIGGER_FRAMES) / FS, 3) if not ev.start.joined_mid_event else 0.0,
             "sample_rate": FS,

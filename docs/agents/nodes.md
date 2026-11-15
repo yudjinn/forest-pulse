@@ -7,7 +7,7 @@ How an agent reaches, watches and updates the physical Forest Pulse nodes from t
   - the atech board (an ESP32-S3 and the mics) on USB;
   - a Modulino Thermo and Buzzer on its Qwiic connector;
   - optionally an ATech Speaker module on the atech board's ports 3-4 (both current nodes have one and use it for calibration).
-- **`scripts/nodes.txt`:** lists every node by its **wlan0 MAC** and a short name (`forestpulse1`, `forestpulse2`, the boards' hostnames).
+- **`scripts/nodes.txt`:** lists every node by its **wlan0 MAC** and a short name (`forestpulse1` to `forestpulse3`, the boards' hostnames).
   - IPs change between venues and DHCP leases; the MAC doesn't.
   - To add a board, add a line. Its MAC is in `cat /sys/class/net/wlan0/address` on the board, and its sensor ID is `fp-<MAC without colons>`.
 - **Discovery (`scripts/fp_nodes.py`):** finds each node's IP from the laptop's neighbour table (`ip neigh` on Linux, `arp -an` on macOS). If a MAC is missing, it pings the local subnet once (up to /20, about 25 s) and looks again. A node that's off or on another network is reported as not found and skipped.
@@ -45,14 +45,14 @@ As an agent, always pass `--no-follow`, which gives a snapshot and exits, or wra
 | `[atech]` | ESP32 stream: `=== event start/end`, per-second `peak dBFS`, `INFO` (polled, logged once a minute) |
 | `[event]` | a finished recording, with its direction |
 | `[calib]` | location calibration hooks, and test modes |
-| `[trigger]` | ESP32 trigger thresholds and the D7 pin |
+| `[trigger]` | ESP32 trigger thresholds |
 | `[modulino]` | thermo / buzzer presence and the Qwiic bus |
 | `[climate]` | temperature → speed of sound |
 | `[led]`, `[matrix]` | LED matrix |
 
 ## 3. Deploy: `scripts/deploy-nodes.py`
 Updates all nodes in parallel and shows one progress line per node.
-- **Steps:** upload the app → stop it → flash the ESP32 through the Uno Q → start the app (App Lab compiles and flashes the sketch) → verify from the log (`ESP32 OK, server OK`).
+- **Steps:** upload the app → stop it → flash the ESP32 through the Uno Q → start the app (App Lab compiles and flashes the sketch) → set it as the board's default app → verify from the log (`ESP32 OK, server OK`).
 - **Options:**
   - `--soc-only`: app only;
   - `--mcu-only`: firmware only;
@@ -71,9 +71,9 @@ In `~/ArduinoApps/atech-serial-listener/python/` on each board:
   - Don't print the key.
   - All nodes share one key; the sensor ID tells them apart.
 - **`config.local.json`:** per-board overrides merged over `config.json`. Currently (read from the boards):
-  - both: `calibration.emitter: "speaker"`, `speaker_volume: 64`, `test_dump_calibration: true`;
-  - forestpulse1: `test_mono_mic: 1`. Its three mics time the other board's beep up to 25 samples apart (reflections in the hall), and in the beep's band (3 to 5 kHz) its 4-7 cm spacing can't give a reliable bearing, so it ranges on one mic;
-  - forestpulse2: `test_mono_mic: 2`, `trigger.coherence: 0` and `bearing.detections: false`, because only its mic2 is fitted. Without `detections: false` every detection would carry a direction computed from two empty channels, and the plan would draw its line and location in the wrong place.
+  - both: `calibration.emitter: "speaker"`, `speaker_volume: 32`, `emitter_offset_cm: 15.0` (the speaker's distance from the array's centre), `test_dump_calibration: true`;
+  - forestpulse1: `test_mono_mic: 1`. Its three mics time the other board's beep up to 25 samples apart (reflections in the hall), and in the beep's band (3 to 5 kHz) its 4-9 cm spacing can't give a reliable bearing, so it ranges on one mic. It also has looser detection-bearing settings: `bearing.band_hz: [200, 2400]`, `max_closure_samples: 2.0`, `min_peak_ratio: 2.0`, `min_windows: 2`;
+  - forestpulse2: no mic workarounds (it used to run on mic2 only). It calibrates on all 3 mics with bearings, sends detection directions, and uses the default trigger coherence of 0.60. mic1 and mic3 are being fitted: until they are, its INFO shows `m1_dbfs`/`m3_dbfs` at -180, the coherence gate keeps it from triggering, and its bearings are noise.
 
   What the settings do:
   - A board in mono mode (`test_mono_mic`) answers every calibration bearing with None (`test_fake_bearing_deg` is then ignored), so a run calibrates the distance only and keeps the facings typed on the plan.
@@ -83,6 +83,8 @@ In `~/ArduinoApps/atech-serial-listener/python/` on each board:
   The app logs `[app] board overrides from config.local.json` when one exists.
 
 ## Things that bite
+- **App not running after a reboot:** App Lab starts only the board's *default* app at boot. Check with `arduino-app-cli properties get default` (and `arduino-app-cli app ps`); fix with `arduino-app-cli properties set default user:atech-serial-listener`, then `arduino-app-cli app start user:atech-serial-listener`. `deploy-nodes.py` sets it on every run.
+- **`docker logs` fails with `invalid character '\x00'`** after an unclean reboot: the container's log file is damaged. `scripts/node-logs.py -n 50` (a tail) still works; the next deploy recreates the container.
 - **sudo** on a board needs the user's password. System updates (`apt`, `hostnamectl`) are the user's job.
 - **Venue Wi-Fi drops:** SDK lines like `server unavailable … name resolution` are usually the venue's network, not the code. The SDK queues events and retries.
-- **Shared hardware:** both nodes run the same app. Don't stop a node's app, reflash it, or change its config while the user is demoing or testing on it, unless asked.
+- **Shared hardware:** all nodes run the same app. Don't stop a node's app, reflash it, or change its config while the user is demoing or testing on it, unless asked.

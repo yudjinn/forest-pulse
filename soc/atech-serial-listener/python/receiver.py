@@ -29,14 +29,10 @@ class Receiver:
         sink,
         on_text: Callable[[str], None] | None = None,
         log: Callable[[str], None] = lambda s: print(s, flush=True),
-        trigger_rise: Callable[[], float | None] | None = None,
     ):
-        """trigger_rise: returns time.time() of an unused notify-line rise (and
-        marks it used), or None. Lets events carry the precise trigger time."""
         self.sink = sink
         self.on_text = on_text or (lambda s: None)
         self.log = log
-        self.trigger_rise = trigger_rise or (lambda: None)
         self.parser = StreamParser()
         self.last_seq = None
         self.in_event = False
@@ -119,11 +115,10 @@ class Receiver:
         self._reset()
         self.in_event = True
         joined = p.msg_type != PRE_TRIGGER
-        rise = self.trigger_rise()
-        self.sink.put(EventStart(p.seq_num, time.time(), joined, rise))
+        # The ESP32 sends the first pre-trigger packet the moment it triggers, so its arrival is the trigger time
+        # (to within USB/OS buffering, ~ms while the reader keeps up).
+        self.sink.put(EventStart(p.seq_num, time.time(), joined))
         extra = " (joined mid-event, live audio only)" if joined else ""
-        if rise is not None:
-            extra += f", D7 rose {time.time() - rise:.3f}s before first packet"
         self.log(f"[atech] === event start, packet #{p.seq_num}{extra}")
 
     def _end(self, p):

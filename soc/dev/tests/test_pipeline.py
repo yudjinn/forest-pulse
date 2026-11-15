@@ -29,6 +29,7 @@ def test_event_record_and_storage(tmp_path):
     assert abs(err) <= 3
     assert rec["bearing"]["confidence"] > 0.8
     assert rec["pre_trigger_s"] == 4.0 and rec["duration_s"] == 7.0
+    assert rec["t_trigger_source"] == "first_packet"  # no D7 wire: the first pre-trigger packet's arrival
     assert rec["integrity"] == {"seq_gaps": 0, "breaks": 0, "overrun": False, "sync_loss": False,
                                 "joined_mid_event": False}
     assert rec["bearing"]["speed_of_sound"]["source"] == "default"

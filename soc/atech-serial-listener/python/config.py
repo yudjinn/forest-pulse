@@ -17,7 +17,7 @@ DEFAULTS = {
     "node_id": "node-01",
     "data_dir": None,  # default: <app>/data (next to python/)
     "keep_events": 50,
-    "mic_positions_cm": [[-4.0, 0.0], [0.0, 0.0], [0.0, -6.0]],
+    "mic_positions_cm": [[-4.0, 0.0], [0.0, 0.0], [0.0, -8.0]],
     "speed_of_sound_mps": 343.0,
     "test_tone_hz": 0,  # TEST: LED arrow for a pure tone at this frequency (match FE_TEST_TONE_HZ); 0 = off
     "forward_ccw_deg": 90.0,  # board's marked forward in the board frame (90 = top edge, away from mic3)

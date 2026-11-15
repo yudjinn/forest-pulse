@@ -1,6 +1,6 @@
 # Forest Pulse glossary
 
-- **Sensor**: one deployed device: ESP32-S3 audio front-end with three microphones in a right triangle (4 cm and 6 cm sides, see soc/README.md), plus an Arduino Uno Q that runs the sound model.
+- **Sensor**: one deployed device: ESP32-S3 audio front-end with three microphones in a right triangle (4 cm and 8 cm sides, see soc/README.md), plus an Arduino Uno Q that runs the sound model.
 - **Sound model**: EfficientAT mn10_as, identical on every sensor. Turns 10 s of audio into built-in label scores and a 960-number embedding.
 - **Detector**: a small classifier trained on the embedding for one sound (for example chainsaw, boreal owl). About 4 KB as raw numbers. Alerts come from detectors.
 - **Seeded sounds**: the sound list a fresh service and a new sensor start with: the Chainsaw and Gunshot detectors, trained before the demo. Any sound can be deleted, a seeded one too.

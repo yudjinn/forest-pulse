@@ -3,7 +3,7 @@
   "data_dir": null,
   "keep_events": 50,
 
-  "mic_positions_cm": [[-4.0, 0.0], [0.0, 0.0], [0.0, -6.0]],
+  "mic_positions_cm": [[-4.0, 0.0], [0.0, 0.0], [0.0, -8.0]],
   "speed_of_sound_mps": 343.0,
   "forward_ccw_deg": 90.0,
   "test_tone_hz": 0,
