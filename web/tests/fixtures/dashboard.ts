@@ -36,13 +36,11 @@ export async function openTeach(page: Page): Promise<Locator> {
   return dialog;
 }
 
-// Presses a button until what it opens shows. A press in the first moments after the page loads can land before
-// the page's scripts are listening, which no researcher is fast enough to do.
+// Presses a button unless what it opens already shows. The page keeps these buttons disabled until its scripts are
+// listening, so a press right after the page loads waits for them.
 async function opened(button: Locator, shown: Locator) {
-  await expect(async () => {
-    if (!(await shown.isVisible())) await button.click();
-    await expect(shown).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 15_000 });
+  if (!(await shown.isVisible())) await button.click();
+  await expect(shown).toBeVisible();
 }
 
 // Opens a dashboard page signed out, signs in on the page it is sent to, and waits to be back on that page.

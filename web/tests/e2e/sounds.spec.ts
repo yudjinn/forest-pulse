@@ -73,7 +73,7 @@ test("a researcher switches Chainsaw off and on and moves the sensitivity; a sen
       await expect(soundSwitch(page, name)).toBeChecked();
       const row = page.getByRole("listitem").filter({ has: soundSwitch(page, name) });
       await expect(row).toContainText(category);
-      await expect(row).toHaveAttribute("title", kind);
+      await expect(row).toContainText(kind);
     }
 
     // The sensitivity starts at 50%. A save of it that fails puts the slider back and says so.

@@ -98,8 +98,7 @@ test("a researcher teaches, reteaches and deletes Boreal owl; sensors follow at 
     await expect(teaching).toBeHidden({ timeout: 60_000 });
     const owl = page.getByRole("switch", { name: "Boreal owl", exact: true });
     await expect(owl).toBeChecked();
-    await expect(page.getByRole("listitem").filter({ has: owl })).toContainText("Wildlife");
-    await expect(page.getByRole("listitem").filter({ has: owl })).toHaveAttribute("title", "Trained detector");
+    await expect(page.getByRole("listitem").filter({ has: owl })).toContainText("Wildlife · Trained detector");
     await expect(sounds.getByRole("switch", { name: "Boreal owl", exact: true })).toBeChecked({ timeout: 5000 });
     const after = await (await page.request.get(`${origin}/dashboard/api/sounds`)).json();
     expect(after.version).toBe(before.version + 1);

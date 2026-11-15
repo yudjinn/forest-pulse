@@ -61,6 +61,8 @@ const drawn = new Map();
 const beats = new Map();
 /** Sensors sounding the warning alarm now. @type {Set<string>} */
 let alarming = new Set();
+// What the map last drew of the sensors: a reply that changes none of it draws nothing.
+let mapped = "";
 /** @type {((sensors: PlanSensor[]) => void)[]} */
 const watchers = [];
 /** @type {((at: number) => void)[]} */
@@ -82,8 +84,9 @@ export function onBeat(watch) {
 
 /** The sensors a warning is on its way to: they strobe on the map as their buzzers sound. @param {Set<string>} ids */
 export function setAlarming(ids) {
+  const changed = ids.size !== alarming.size || [...ids].some((id) => !alarming.has(id));
   alarming = ids;
-  invalidate();
+  if (changed) draw();
 }
 
 /** The sensor as this page shows it: the poll's data with any value it has saved and not yet seen back. */
@@ -106,7 +109,9 @@ function render(data) {
     if (b?.checkin === s.last_checkin_at) continue;
     // What the first reply shows already happened: only a check-in seen arriving beats.
     beats.set(s.id, { checkin: s.last_checkin_at, at: loaded && s.online ? now : 0 });
-    if (loaded && s.online) for (const watch of beatWatchers) watch(now);
+    if (!loaded || !s.online) continue;
+    for (const watch of beatWatchers) watch(now);
+    invalidate();
   }
   loaded = true;
   // Another researcher removed the sensor being dragged: the drag ends with it.
@@ -144,6 +149,10 @@ function draw() {
   drawMarkers(items);
   drawCards(items);
   for (const watch of watchers) watch(items);
+  const key = JSON.stringify(items.map((s) => [s.id, s.number, s.x_m, s.y_m, s.facing_deg, s.online, s.sound_list,
+    s.shared_name, alarming.has(s.id)]));
+  if (key === mapped) return;
+  mapped = key;
   invalidate();
 }
 
@@ -265,6 +274,15 @@ function drawPuck(g, view, now, s, at, x, y, k) {
     g.fillText(String(s.number), 0, 0);
     g.restore();
   }
+  if (s.shared_name) {
+    // Two devices check in under this id: a broken ring around the puck.
+    disc(y, rx * 1.3);
+    g.setLineDash([5, 4]);
+    g.strokeStyle = COLOR.vehicle;
+    g.lineWidth = 2;
+    g.stroke();
+    g.setLineDash([]);
+  }
   if (s.sound_list === "outdated") {
     g.fillStyle = COLOR.vehicle;
     g.beginPath();
@@ -296,8 +314,9 @@ function drawMarkers(items) {
       markers.set(s.id, m);
       overlay.append(m.button);
     }
-    const outdated = s.sound_list === "outdated";
-    m.button.setAttribute("aria-label", outdated ? `Move ${s.name}, outdated sound list` : `Move ${s.name}`);
+    const notes = [...(s.sound_list === "outdated" ? ["outdated sound list"] : []),
+      ...(alarming.has(s.id) ? ["sounding the alarm"] : [])];
+    m.button.setAttribute("aria-label", [`Move ${s.name}`, ...notes].join(", "));
     m.label.textContent = s.name;
   }
   for (const [id, m] of markers) {

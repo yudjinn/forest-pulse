@@ -140,6 +140,10 @@ test("boards that heard the logging play the warning's alarm and the card report
     const line = card.getByText(/^Warning sent \d{2}:\d{2}:\d{2} · /);
     await expect(line).toHaveCount(1);
     await expect(line).toContainText(`on its way to ${[na, nb].sort(byName).join(", ")}`);
+    // On the map the two boards it is on its way to sound the alarm.
+    for (const name of [na, nb]) {
+      await expect(page.getByRole("button", { name: `Move ${name}, sounding the alarm`, exact: true })).toBeVisible();
+    }
     // A warning sent takes the alert away.
     await expect(alertBanner(page)).toBeHidden();
 

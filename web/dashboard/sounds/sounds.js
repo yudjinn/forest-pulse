@@ -56,7 +56,7 @@ function makeRow(id) {
   const name = document.createElement("span");
   name.className = "sound-name";
   name.id = `sound-name-${nextId++}`;
-  // The category, which the icon and its colour show, in words for a screen reader.
+  // The category, which the icon and its colour show, and the kind, in words for a screen reader.
   const meta = document.createElement("span");
   meta.className = "aside-text";
   const toggle = document.createElement("input");
@@ -238,7 +238,7 @@ function render(data) {
       rows.set(s.id, row);
     }
     row.name.textContent = s.name;
-    row.meta.textContent = CATEGORY[s.category] ?? s.category;
+    row.meta.textContent = `${CATEGORY[s.category] ?? s.category} · ${KIND[s.kind] ?? s.kind}`;
     row.item.title = KIND[s.kind] ?? s.kind;
     if (!row.saving) row.toggle.checked = s.enabled;
     row.item.className = `c-${s.category}${row.toggle.checked ? "" : " off"}`;
@@ -266,9 +266,11 @@ onEvents((events) => {
 });
 
 const teach = /** @type {HTMLDialogElement} */ (document.getElementById("teach"));
-/** @type {HTMLElement} */ (document.querySelector(".teach-open")).addEventListener("click", () => {
+const teachOpen = /** @type {HTMLButtonElement} */ (document.querySelector(".teach-open"));
+teachOpen.addEventListener("click", () => {
   teach.showModal();
   import("/dashboard/teach/teach.js");
 });
+teachOpen.disabled = false; // it starts disabled in the page, until this listener is on it
 
 poll("/dashboard/api/sounds", render);

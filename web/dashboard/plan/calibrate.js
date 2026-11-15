@@ -162,12 +162,18 @@ onSensors((sensors) => {
   show();
 });
 
+// What the map last drew of the run and the measured layout: a reply that changes neither draws nothing.
+let mapped = "";
+
 /** @param {CalibrationState} data */
 function render(data) {
   serviceClock(data.now);
   state = data;
   if (refused && Date.now() > refused.until) refused = null;
   show();
+  const key = JSON.stringify([data.run?.state, data.layout]);
+  if (key === mapped) return;
+  mapped = key;
   invalidate();
 }
 

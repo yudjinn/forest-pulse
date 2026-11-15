@@ -296,9 +296,16 @@ addLayer({
 /** How far above its point a flag stands, in pixels. @param {import("./scene.js").View} view */
 const flagHeight = (view) => Math.max(70, view.slab * 0.24);
 
+// What the last reply showed: a reply that shows the same draws nothing (what is showing already keeps the map
+// drawing until its time is up).
+let replied = "";
+
 /** @param {{ now: number, lines: DirectionLine[], points: CrossingPoint[] }} data */
 function render(data) {
   serviceClock(data.now);
+  const key = JSON.stringify([data.lines, data.points]);
+  if (key === replied) return;
+  replied = key;
   lines = data.lines;
   points = data.points;
   invalidate();

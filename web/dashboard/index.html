@@ -43,8 +43,8 @@
     <header class="top">
       <img class="logo" src="/brand/logo-horizontal-inverse.svg" alt="Forest Pulse" width="168" height="38">
       <div class="tools">
-        <button type="button" id="open-player" class="icon-button" aria-label="Play sounds" title="Play sounds" aria-expanded="false" aria-controls="player"><svg class="icon"><use href="#icon-speaker"/></svg></button>
-        <button type="button" id="open-devices" class="icon-button" aria-label="Devices" title="Devices" aria-expanded="false" aria-controls="drawer"><svg class="icon"><use href="#icon-devices"/></svg></button>
+        <button type="button" id="open-player" class="icon-button" aria-label="Play sounds" title="Play sounds" aria-expanded="false" aria-controls="player" disabled><svg class="icon"><use href="#icon-speaker"/></svg></button>
+        <button type="button" id="open-devices" class="icon-button" aria-label="Devices" title="Devices" aria-expanded="false" aria-controls="drawer" disabled><svg class="icon"><use href="#icon-devices"/></svg></button>
       </div>
     </header>
 
@@ -58,11 +58,11 @@
     <section id="sounds" class="listen" aria-labelledby="sounds-title">
       <h2 id="sounds-title">Listening for</h2>
       <ul class="sound-list"></ul>
-      <button type="button" class="button teach-open"><svg class="icon"><use href="#icon-plus"/></svg>Teach a new sound</button>
+      <button type="button" class="button teach-open" disabled><svg class="icon"><use href="#icon-plus"/></svg>Teach a new sound</button>
       <p class="sound-reach" role="status" hidden></p>
     </section>
 
-    <button type="button" class="pulse" aria-label="Open event log" title="Open event log"><canvas id="pulse"></canvas></button>
+    <button type="button" class="pulse" aria-label="Open event log" title="Open event log" disabled><canvas id="pulse"></canvas></button>
 
     <section id="player" class="popover" aria-label="Play sounds" hidden>
       <ul class="sample-list"></ul>
@@ -122,7 +122,7 @@
 
     <dialog id="teach" class="teach" aria-labelledby="teach-title">
       <h2 id="teach-title">Teach a new sound</h2>
-      <form class="teach-form">
+      <form class="teach-form" method="dialog">
         <label class="field" for="teach-name">Name</label>
         <input id="teach-name" name="name" type="text" autocomplete="off" maxlength="60" required>
         <fieldset class="teach-category">

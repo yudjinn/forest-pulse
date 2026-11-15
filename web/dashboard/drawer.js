@@ -39,6 +39,9 @@ openPlayer.addEventListener("click", () => showPlayer(player.hidden !== false));
 /** @type {HTMLElement} */ (drawer.querySelector(".drawer-close")).addEventListener("click", () => showDrawer(false));
 /** @type {HTMLElement} */ (document.querySelector(".pulse")).addEventListener("click", () => showDrawer(true, tabs[1]));
 for (const tab of tabs) tab.addEventListener("click", () => select(tab));
+// The three openers start disabled in the page, until the listeners above are on them.
+const pulse = /** @type {HTMLButtonElement} */ (document.querySelector(".pulse"));
+for (const opener of [openDevices, openPlayer, pulse]) opener.disabled = false;
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape" || document.querySelector("dialog[open]")) return;
   if (!player.hidden) showPlayer(false);
