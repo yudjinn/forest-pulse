@@ -14,6 +14,7 @@
 #if CONFIG_FE_SOURCE_MICS
 #include "bit_capture.h"
 #include "clock_gen.h"
+#include "speaker.h"
 #include "deserialize.h"
 #include "driver/gpio.h"
 #include "board_pins.h"
@@ -124,6 +125,7 @@ static bool start_capture(uint32_t *first_eof)
     ESP_ERROR_CHECK(bitcap_init());
     ESP_ERROR_CHECK(clock_gen_init());
     ESP_ERROR_CHECK(clock_gen_start());
+    ESP_ERROR_CHECK(speaker_start());
     bitcap_set_vsync(0);
     ESP_ERROR_CHECK(bitcap_start(false));
     vTaskDelay(pdMS_TO_TICKS(1));

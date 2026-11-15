@@ -12,7 +12,7 @@ set(srcs
 if(CONFIG_FE_SOURCE_SYNTH)
     list(APPEND srcs "synth_source.c")
 else()
-    list(APPEND srcs "clock_gen.c" "bit_capture.c")
+    list(APPEND srcs "clock_gen.c" "bit_capture.c" "speaker.c")
 endif()
 
 idf_component_register(

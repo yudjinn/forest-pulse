@@ -15,6 +15,7 @@ the API wants degrees clockwise from the board's marked forward
 
 from __future__ import annotations
 
+import struct
 import threading
 from typing import Callable
 
@@ -182,7 +183,7 @@ class CalibrationHooks:
     Contract: sensor-sdk/README.md "Calibration hooks" and forestpulse_sensor/calibration/hooks.py
     (upstream is the source of truth). Any SDK thread may call any hook.
 
-    send_command(c) -> bool sends one byte to the ESP32 ('C' / 'X');
+    send_command(c) -> bool sends a command to the ESP32 ('C' / 'X', or b'P' + a sweep for the speaker);
     notify(name, *args) is Bridge.notify (the sketch plays the sweep);
     tee is the SensorTee (bypasses our own pipeline while calibrating);
     buzzer_ok() -> bool | None: whether the sketch found the Modulino Buzzer (None = not known yet)."""
@@ -249,6 +250,14 @@ class CalibrationHooks:
         args = [int(round(float(v))) for v in (f_start_hz, f_mid_hz, f_end_hz, duration_ms)]
         if not all(0 < f <= 20000 for f in args[:3]) or not 0 < args[3] <= 1000:
             raise ValueError(f"emit: bad sweep {args}")
+        if self.c.get("emitter") == "speaker":
+            # 'P' + f_start, f_mid, f_end, ms (uint16 LE) + volume: the ESP32 plays it on the mics' clock
+            volume = max(0, min(255, int(self.c.get("speaker_volume", 96))))
+            if not self.send_command(b"P" + struct.pack("<HHHHB", *args, volume)):
+                self.log("[calib] emit: ESP32 not connected")
+                return False
+            self.log(f"[calib] emit {args[0]}->{args[1]}->{args[2]} Hz, {args[3]} ms on the speaker (volume {volume})")
+            return True
         if self.buzzer_ok() is False:
             self.log("[calib] emit: no Modulino Buzzer")
             return False

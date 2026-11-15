@@ -49,6 +49,7 @@ ESP32-S3 GPIO, with no mux. That is what "1:1 mapping" means on this board.
 | 13-14 | Microphone 3 | port 13: LR → GPIO39, WS → GPIO38 · port 14: SCK → GPIO36, SD → GPIO35 |
 | 6 | Data-out ("data incoming") to the Uno Q | D1 → GPIO13, HIGH for the whole event (3.3 V) |
 | 8 | USB-C (to the Uno Q; also flashing) | native USB-Serial/JTAG |
+| 3-4 | Speaker (ATech Speaker v2.2, MAX98357A) | **port 4**: D1 SD_MODE → GPIO16, D2 LRC → GPIO15 · **port 3**: D1 BCLK → GPIO17, D2 DIN → GPIO18 (pinout assumed from the mic module's; unverified) |
 | 7 | *(nothing plugged in)* | D2 GPIO7 is used **internally** as the camera VSYNC control pad; keep port 7 empty |
 | 11 | *(console)* | GPIO43/44 = UART0 log output |
 
@@ -253,6 +254,7 @@ flash, the first command can land while the chip reboots, so retry.
 | `R` | `RAW <hex>`: 256 raw LCD_CAM bytes, for bring-up |
 | `S` / `s` | synthetic chainsaw on/off (synthetic source only) |
 | `B` + u32 | throughput benchmark (idle only) |
+| `P` + 4 × u16 + u8 | play a calibration sweep on the speaker (ports 3-4): f_start, f_mid, f_end (Hz), duration (ms, ≤ 1000), all little-endian, then volume 0..255. No reply; ignored while one is playing. The speaker runs on I2S0's own clocks, so its samples are locked to the mics' frames. |
 | `G` + id + i16 | set a trigger threshold at runtime (value × 100, little-endian): id `S` level margin dB (0..40), `R` band ratio dB (−30..30), `C` coherence (0..0.99, 0 = gate off). Replies `SET ok\|err …` with all three. Not stored: back to the menuconfig values after a reset (the Uno Q re-sends them). INFO shows `trig_*` (current) and `trig_default_*`. |
 
 ## Build, flash, test

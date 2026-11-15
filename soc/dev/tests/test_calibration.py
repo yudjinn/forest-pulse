@@ -156,6 +156,17 @@ def test_emit_fails_without_buzzer():
     assert hooks.emit(1500, 2500, 3500, 120) is False and f.notes == []
 
 
+def test_emit_on_the_speaker_sends_the_sweep_to_the_esp32():
+    import struct
+    hooks, _, _, f = make(buzzer=False)              # no Modulino Buzzer needed
+    hooks.c["emitter"], hooks.c["speaker_volume"] = "speaker", 300   # volume clamps to 255
+    assert hooks.emit(3000.0, 4000, 5000, 300) is True
+    assert f.sent == [b"P" + struct.pack("<HHHHB", 3000, 4000, 5000, 300, 255)] and f.notes == []
+    hooks2, _, _, f2 = make(connected=False)
+    hooks2.c["emitter"] = "speaker"
+    assert hooks2.emit(3000, 4000, 5000, 300) is False
+
+
 def test_hooks_pass_the_sdk_self_check():
     from forestpulse_sensor.calibration.hooks import self_check
     hooks, *_ = make()
