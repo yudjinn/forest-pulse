@@ -30,7 +30,9 @@ export async function locateOnArrival(env: Env, events: AcceptedEvent[]): Promis
     const s = placed.get(e.sensor_id);
     if (e.angle_deg === null || !s) return [];
     const deg = normaliseDeg(round(directionDeg(s.facing_deg, e.angle_deg), 2));
-    return [{ event: e, online: s.online, x_m: s.x_m, y_m: s.y_m, deg }];
+    // The posting sensor is evidently alive: events delivered after a Wi-Fi drop can arrive before the check-in
+    // that would show it online again, and must still find their partner.
+    return [{ event: e, online: true, x_m: s.x_m, y_m: s.y_m, deg }];
   });
   if (!lines.length) return;
   await db.batch(lines.map((l) =>

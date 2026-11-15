@@ -246,6 +246,37 @@ test("three sensors calibrate into a triangle on the side of the line they stand
     await asTheyStand([a, b, c]);
     expect((await onPlan(c)).y).toBeLessThan(0);
 
+    // With no board able to tell direction (single-mic boards) and facings typed by hand, the run measures the three
+    // distances only: a stays, b moves along the line to where it was, c keeps its side of the line, and every board
+    // keeps its typed facing.
+    const typed: Record<string, number> = { [a]: 10, [b]: 20, [c]: 30 };
+    for (const id of [a, b, c]) {
+      await facing(page, id).fill(String(typed[id]));
+      await facing(page, id).press("Enter");
+      await expect(facing(page, id)).toHaveValue(String(typed[id]));
+      await sensors.send({ set: { id, bearing: "none" } });
+    }
+    await expect(page.getByText(/^Calibrated/)).toHaveCount(0, { timeout: 5000 });
+    await run(/^Calibrated \d\d:\d\d$/);
+    await sidesDrawn([[a, b], [a, c], [b, c]]);
+    for (const id of [a, b, c]) {
+      const s = await onPlan(id);
+      expect(Math.hypot(s.x - truth[id].x, s.y - truth[id].y), `${id} at ${s.x}, ${s.y}`).toBeLessThanOrEqual(0.1);
+      expect(s.facing).toBe(typed[id]);
+    }
+    for (const id of [a, b, c]) await sensors.send({ set: { id, bearing: "simulated" } });
+
+    // c's audio never starts: it reports no stream before it is ever ready, so it is left out as soon as a and b are
+    // ready, and the run goes ahead with them, solved as a pair; c stays where it was.
+    const cStill = await onPlan(c);
+    await sensors.send({ set: { id: c, stream_delay_s: 60 } });
+    await expect(calibrate).toBeEnabled({ timeout: 5000 });
+    await calibrate.click();
+    await expect(page.getByText(new RegExp(`^Calibrated \\d\\d:\\d\\d, ${names[c]} left out$`))).toBeVisible({ timeout: 60_000 });
+    await sidesDrawn([[a, b]]);
+    expect(await onPlan(c)).toEqual(cStill);
+    await sensors.send({ set: { id: c, stream_delay_s: 0 } });
+
     // c loses power just before the press, still shown online: it never gets ready, so the run goes ahead with a and
     // b, solved as a pair, and says c was left out; c stays where the last run put it.
     const cBefore = await onPlan(c);

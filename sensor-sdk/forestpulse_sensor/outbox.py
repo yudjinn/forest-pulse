@@ -1,7 +1,10 @@
 """Events waiting for the server, kept on disk so a restart or a long outage loses nothing (up to a cap)."""
 import json
+import logging
 import os
 import threading
+
+log = logging.getLogger(__name__)
 
 
 class Outbox:
@@ -11,13 +14,16 @@ class Outbox:
         self._events = []
         self.dropped = 0
         if os.path.exists(path):
-            with open(path) as f:
-                for line in f:
-                    try:
-                        self._events.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        pass  # a line cut short by a power loss
-            self._events = self._events[-cap:]
+            try:
+                with open(path, errors="replace") as f:
+                    for line in f:
+                        try:
+                            self._events.append(json.loads(line))
+                        except ValueError:
+                            pass  # a line cut short by a power loss
+            except OSError as e:
+                log.warning("could not read queued events, starting with none: %s", e)
+            self._events = [e for e in self._events if isinstance(e, dict) and "event_id" in e][-cap:]
 
     def __len__(self):
         with self._lock:
@@ -42,7 +48,11 @@ class Outbox:
             self._save()
 
     def _save(self) -> None:
+        # a failed write (a full disk) keeps the events in memory: they are still delivered, only a restart loses them
         tmp = self.path + ".tmp"
-        with open(tmp, "w") as f:
-            f.writelines(json.dumps(e) + "\n" for e in self._events)
-        os.replace(tmp, self.path)
+        try:
+            with open(tmp, "w") as f:
+                f.writelines(json.dumps(e) + "\n" for e in self._events)
+            os.replace(tmp, self.path)
+        except OSError as e:
+            log.warning("could not save queued events to disk: %s", e)

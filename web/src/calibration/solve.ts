@@ -91,8 +91,8 @@ export interface Placement {
   facing_deg: number | null;
 }
 
-// Every failure names a pair: not_repeatable its distance, no_direction its bearings (fewer than 2, or scattered; three
-// sensors only);
+// Every failure names a pair: not_repeatable its distance, no_direction its bearings (kept for the dashboard's wording
+// of runs stored before three sensors fell back to distances; no longer produced);
 // with three sensors not_a_triangle the longest side, too_flat the side opposite the smallest angle, and
 // bearings_disagree (bearings against the distances, or unable to tell the mirror image) the pair the fit fits worst.
 export type SolveFailure = "not_repeatable" | "no_direction" | "not_a_triangle" | "too_flat" | "bearings_disagree";
@@ -216,15 +216,30 @@ function solveTriangle(a: Participant, b: Participant, c: Participant): Solution
   const flattest = angles.indexOf(Math.min(...angles));
   if (angles[flattest] < MIN_ANGLE_DEG) return fail(2 - flattest, "too_flat");
 
-  // theta[l][e]: board l's median bearing of board e's beep.
-  const theta: number[][] = [[], [], []];
-  for (const [side, [i, j]] of SIDES.entries()) {
-    for (const [l, e] of [[i, j], [j, i]]) {
-      const m = medianBearing(bearings(boards[l], boards[e].role));
-      if (m === null) return fail(side, "no_direction");
-      theta[l][e] = m;
-    }
+  // theta[l][e]: board l's median bearing of board e's beep, null when it cannot tell.
+  const theta: (number | null)[][] = [[], [], []];
+  for (const [i, j] of SIDES) {
+    for (const [l, e] of [[i, j], [j, i]]) theta[l][e] = medianBearing(bearings(boards[l], boards[e].role));
   }
+  // A board that cannot tell one of the directions (one ranging on a single mic tells none), as with two sensors:
+  // placed by the distances alone, the third above the line, with no facings; the caller keeps the plan's side of
+  // the line and the facings typed on the plan.
+  if (SIDES.some(([i, j]) => theta[i][j] === null || theta[j][i] === null)) {
+    const laid = layOut(d, 1);
+    return {
+      ok: true,
+      distances: SIDES.map(([i, j], side) => ({ a: boards[i].sensor_id, b: boards[j].sensor_id, distance_m: round3(d[side]) })),
+      positions: boards.map((p, i) => ({ sensor_id: p.sensor_id, x_m: round3(laid[i][0]), y_m: round3(laid[i][1]) + 0, facing_deg: null })),
+      speed_of_sound_assumed: boards.some((p) => p.report.speed_of_sound_fallback),
+    };
+  }
+  return fitBearings(boards, d, theta as number[][]);
+}
+
+// Three boards whose six bearings are all known: the side of the line their bearings fit, and the facings.
+function fitBearings(boards: Participant[], d: number[], theta: number[][]): Solution {
+  const fail = (side: number, reason: SolveFailure): Solution =>
+    ({ ok: false, sensors: SIDES[side].map((i) => boards[i].sensor_id), reason });
 
   const [above, below] = [1, -1].map((sign) => fitTriangle(d, theta, sign));
   const [best, mirror, sign] = above.bearingCost <= below.bearingCost ? [above, below, 1] : [below, above, -1];

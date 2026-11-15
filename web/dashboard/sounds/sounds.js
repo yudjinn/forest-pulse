@@ -272,5 +272,9 @@ teachOpen.addEventListener("click", () => {
   import("/dashboard/teach/teach.js");
 });
 teachOpen.disabled = false; // it starts disabled in the page, until this listener is on it
+// A file dropped anywhere on the page stays out of the browser's hands: it would otherwise open the file and leave
+// the dashboard. The teach dialog, once open, takes such a drop as recordings.
+document.addEventListener("dragover", (event) => event.preventDefault());
+document.addEventListener("drop", (event) => event.preventDefault());
 
 poll("/dashboard/api/sounds", render);

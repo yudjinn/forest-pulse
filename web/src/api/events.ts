@@ -75,6 +75,9 @@ export async function postEvents(request: Request, { env, params, hooks }: Route
   });
 
   const accepted: AcceptedEvent[] = [];
+  // Corrected to the service's clock, and never later than its arrival: a board clock stepped back between hearing
+  // and sending would otherwise put the event in the future, where its activity stays "ongoing" and keeps alerting.
+  const occurredAt = (detectedMs: number) => Math.min(Math.round(detectedMs + offsetMs), receivedAt);
   if (inserts.length) {
     const replies = await env.DB.batch<{ id: number }>(inserts.map(({ event: e, sound }) => env.DB.prepare(
       `INSERT INTO events (sensor_id, event_id, sound_id, sound_name, category, confidence, angle_deg,
@@ -83,7 +86,7 @@ export async function postEvents(request: Request, { env, params, hooks }: Route
        ON CONFLICT (sensor_id, event_id) DO NOTHING
        RETURNING id`,
     ).bind(sensor, e.event_id, sound.id, sound.name, sound.category, e.confidence, e.angle_deg, e.angle_confidence,
-      e.detected_at, Math.round(e.detected_ms + offsetMs), receivedAt)));
+      e.detected_at, occurredAt(e.detected_ms), receivedAt)));
     replies.forEach((reply, i) => {
       const { index, event: e, sound } = inserts[i];
       const row = reply.results[0];
@@ -94,7 +97,7 @@ export async function postEvents(request: Request, { env, params, hooks }: Route
       accepted.push({
         id: row.id, sensor_id: sensor, event_id: e.event_id, sound_id: sound.id, sound_name: sound.name,
         category: sound.category, confidence: e.confidence, angle_deg: e.angle_deg,
-        angle_confidence: e.angle_confidence, occurred_at: Math.round(e.detected_ms + offsetMs), received_at: receivedAt,
+        angle_confidence: e.angle_confidence, occurred_at: occurredAt(e.detected_ms), received_at: receivedAt,
       });
     });
   }

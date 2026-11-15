@@ -70,7 +70,7 @@ In `~/ArduinoApps/atech-serial-listener/python/` on each board:
   - Don't print the key.
   - All nodes share one key; the sensor ID tells them apart.
 - **`config.local.json`:** per-board overrides merged over `config.json`. Currently:
-  - node2: `test_mono_mic: 2` and `trigger.coherence: 0`, because only its mic2 is fitted;
+  - node2: `test_mono_mic: 2` and `trigger.coherence: 0`, because only its mic2 is fitted. While that holds it also needs `"bearing": {"detections": false}`, or every detection carries a direction computed from two empty channels and the plan draws its line and location in the wrong place;
   - node1: `test_mono_mic: 1`. Its three mics time the other board's beep up to 25 samples apart (reflections in the hall), and in the beep's band (3 to 5 kHz) its 4-7 cm spacing cannot give a reliable bearing, so it ranges on one mic.
   - A board in mono mode answers every calibration bearing with None (the app ignores `test_fake_bearing_deg` then), so a run calibrates the distance only and keeps the facings typed on the plan. Older configs still carry `test_fake_bearing_deg`; it is harmless but can go.
   - `calibration.test_dump_calibration: true` saves each calibration stream's raw 3-mic audio to `data/calibration/` on the board (an `.npz` with the SDK's stream positions per block), to replay a run's detections offline. Off by default; turn it off again afterwards.

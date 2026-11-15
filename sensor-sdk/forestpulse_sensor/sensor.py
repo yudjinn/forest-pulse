@@ -218,14 +218,21 @@ class Sensor:
                 est = arrived - total / sr
                 start_time = est if start_time is None else min(start_time, est)
                 if since >= hop and len(buf) >= minimum:
-                    self._analyse(buf, start_time + total / sr)
+                    self._analyse_safely(buf, start_time + total / sr)
                     since = 0
             elif kind in ("end", "stop"):
                 if since >= sr // 2 and len(buf) >= minimum:
-                    self._analyse(buf, start_time + total / sr)
+                    self._analyse_safely(buf, start_time + total / sr)
                 buf, since, total, start_time = buf[:0], 0, 0, None
                 if kind == "stop":
                     return
+
+    def _analyse_safely(self, frames, end_time):
+        # one failed window must not end the analysis thread: the board would stay Online and report nothing
+        try:
+            self._analyse(frames, end_time)
+        except Exception:
+            log.exception("analysis failed on a %.1f s window", len(frames) / self.sample_rate)
 
     def _analyse(self, frames, end_time):
         try:
@@ -280,7 +287,7 @@ class Sensor:
             try:
                 with open(path) as f:
                     return SoundList.parse(json.load(f)), True
-            except (InvalidSoundList, json.JSONDecodeError) as e:
+            except (InvalidSoundList, ValueError, OSError) as e:
                 log.warning("ignoring cached sound list: %s", e)
         seed = json.loads(resources.files(__package__).joinpath("data/seed_sounds.json").read_text())
         return SoundList.parse(seed), False
@@ -293,9 +300,12 @@ class Sensor:
             log.error("server sent an invalid sound list, keeping the previous one: %s", e)
             return
         tmp = os.path.join(self.state_dir, "sounds.json.tmp")
-        with open(tmp, "w") as f:
-            json.dump(doc, f)
-        os.replace(tmp, os.path.join(self.state_dir, "sounds.json"))
+        try:
+            with open(tmp, "w") as f:
+                json.dump(doc, f)
+            os.replace(tmp, os.path.join(self.state_dir, "sounds.json"))
+        except OSError as e:
+            log.warning("could not cache the sound list, using it anyway: %s", e)
         self._sounds, self._sounds_from_server = new, True
         self._want_sounds = False
         log.info("sound list %d: %s", new.version, ", ".join(s.name for s in new.sounds) or "(empty)")
@@ -311,6 +321,7 @@ class Sensor:
 
     def _sync_loop(self):
         next_checkin, next_flush, backoff = 0.0, 0.0, 2.0
+        reachable = True  # the last check-in got through
         while not self._stop.is_set():
             now = time.monotonic()
             if now >= next_checkin or self._checkin_soon.is_set():
@@ -333,10 +344,22 @@ class Sensor:
                         self._fetch_sounds()
                 except KeyRejected:
                     self._set_key_rejected()
+                    reachable = True
                 except Unavailable as e:
                     log.warning("server unavailable (%s); %d events queued", e, len(self.outbox))
+                    reachable = False
                 except BadRequest as e:
                     log.error("check-in rejected: %s", e)
+                    reachable = True
+                except Exception:
+                    # never let one surprise end the sync thread: the board would show Offline for good
+                    log.exception("check-in failed; trying again at the next one")
+                    reachable = False
+                else:
+                    if not reachable:
+                        # the server is back: deliver queued events now, not when a backoff from the outage ends
+                        next_flush, backoff = 0.0, 2.0
+                    reachable = True
                 if self._calibration.active:
                     next_checkin = min(next_checkin, now + CALIBRATION_CHECKIN_S)
             if len(self.outbox) and now >= next_flush and not self.key_rejected:
@@ -349,6 +372,10 @@ class Sensor:
                     backoff = min(backoff * 2, 30.0)
                 except KeyRejected:
                     self._set_key_rejected()
+                except Exception:
+                    next_flush = time.monotonic() + backoff
+                    log.exception("could not deliver events; retrying in %.0f s", backoff)
+                    backoff = min(backoff * 2, 30.0)
             flush_due = next_flush if len(self.outbox) and not self.key_rejected else next_checkin
             self._wake.wait(timeout=max(0.05, min(next_checkin, flush_due) - time.monotonic()))
             self._wake.clear()

@@ -32,7 +32,9 @@ const SLOT_MS = 700;
 const ROUND_GAP_MS = 600;
 const ROUNDS = 6;
 const READY_WAIT_MS = 20_000;
-const START_AFTER_READY_MS = 4000;
+// Long enough for every board to hear start_at at a later 1 s check-in even when venue Wi-Fi stalls one for a few
+// seconds; the ring keeps the latest 20 s, more than any schedule needs, so the wait costs only time.
+const START_AFTER_READY_MS = 6000;
 const REPORT_AFTER_END_MS = 15_000;
 const KEEP_RUNS = 20;
 const ACTIVE = "('waiting', 'scheduled')";
@@ -278,18 +280,26 @@ async function loadRun(db: D1Database, id: string): Promise<Run | null> {
 async function advance(env: Env, run: Run, now: number): Promise<Run> {
   const db = env.DB;
   const taking = run.participants.filter((p) => !p.dropped);
-  const fatal = taking.map((p) => ({ p, report: p.report ? JSON.parse(p.report) as Report : null }))
-    .map(({ p, report }) => ({ p, code: report?.errors.find((e) => (FATAL_ERRORS as readonly string[]).includes(e)) }))
-    .find((x) => x.code);
+  const codes = taking.map((p) => ({ p, report: p.report ? JSON.parse(p.report) as Report : null }))
+    .map(({ p, report }) => ({ p, code: report?.errors.find((e) => (FATAL_ERRORS as readonly string[]).includes(e)) }));
+  // A board whose audio never started is not ready, not a failed run: while boards are still getting ready it is
+  // left out at the ready deadline like any other, and names the failure only when too few others are ready.
+  const unreadyNoStream = (x: { p: ParticipantRow; code?: string }) =>
+    run.status === "waiting" && x.p.ready_at === null && x.code === "no_stream";
+  const fatal = codes.find((x) => x.code && !unreadyNoStream(x));
   if (fatal) return fail(db, run, [fatal.p.sensor_id], fatal.code as FailureReason, now);
 
   if (run.status === "waiting") {
     const ready = taking.filter((p) => p.ready_at !== null);
     const lastReady = Math.max(0, ...ready.map((p) => p.ready_at as number));
     if (ready.length === taking.length) return schedule(db, run, lastReady + START_AFTER_READY_MS, false, now);
-    if (now < run.ready_deadline_at) return run;
+    const noStream = codes.find(unreadyNoStream);
+    if (now < run.ready_deadline_at && !(noStream && ready.length + 1 === taking.length && ready.length >= 2)) {
+      return run;
+    }
     if (ready.length >= 2) return schedule(db, run, Math.max(lastReady, now) + START_AFTER_READY_MS, true, now);
-    return fail(db, run, [taking.find((p) => p.ready_at === null)!.sensor_id], "not_ready", now);
+    const missing = noStream?.p ?? taking.find((p) => p.ready_at === null)!;
+    return fail(db, run, [missing.sensor_id], noStream ? "no_stream" : "not_ready", now);
   }
 
   if (run.status === "scheduled") {
@@ -307,24 +317,30 @@ async function advance(env: Env, run: Run, now: number): Promise<Run> {
   return run;
 }
 
-// Distance only (two sensors without facings): the first stays where it is on the plan and the second moves to the
-// measured distance along the line from the first to where it was placed, both keeping their facings; straight to the
-// right of the first when the two stood on one spot.
+// Distance only (no sensor could tell direction): the first stays where it is on the plan, the second moves to the
+// measured distance along the line from the first to where it was placed (straight to the right of the first when
+// the two stood on one spot), and a third keeps the side of that line it was placed on (the solver's side when it
+// stood on the line). Every sensor keeps its facing.
 async function alongPlan(db: D1Database, result: Result, now: number): Promise<Placement[]> {
-  const [a, b] = result.positions;
-  const plan = new Map((await readPlan(db, now, [a.sensor_id, b.sensor_id])).map((s) => [s.id, s]));
+  const [a, b, c] = result.positions;
+  const plan = new Map((await readPlan(db, now, result.positions.map((p) => p.sensor_id))).map((s) => [s.id, s]));
   const pa = plan.get(a.sensor_id) ?? { x_m: 0, y_m: 0 };
   const pb = plan.get(b.sensor_id) ?? { x_m: pa.x_m + 1, y_m: pa.y_m };
   const dx = pb.x_m - pa.x_m;
   const dy = pb.y_m - pa.y_m;
   const length = Math.hypot(dx, dy);
   const [ux, uy] = length > 1e-6 ? [dx / length, dy / length] : [1, 0];
-  const d = result.distances[0].distance_m;
+  const pc = c && plan.get(c.sensor_id);
+  const across = pc ? ux * (pc.y_m - pa.y_m) - uy * (pc.x_m - pa.x_m) : 0;
+  const side = across < -1e-6 ? -1 : 1;
   const mm = (v: number) => Math.round(v * 1000) / 1000 + 0;
-  return [
-    { sensor_id: a.sensor_id, x_m: mm(pa.x_m), y_m: mm(pa.y_m), facing_deg: null },
-    { sensor_id: b.sensor_id, x_m: mm(pa.x_m + d * ux), y_m: mm(pa.y_m + d * uy), facing_deg: null },
-  ];
+  // The solver's frame: the first at the origin, the second along +x, a third above the line.
+  return result.positions.map((p) => ({
+    sensor_id: p.sensor_id,
+    x_m: mm(pa.x_m + p.x_m * ux - side * p.y_m * uy),
+    y_m: mm(pa.y_m + p.x_m * uy + side * p.y_m * ux),
+    facing_deg: null,
+  }));
 }
 
 async function schedule(db: D1Database, run: Run, startAt: number, dropUnready: boolean, now: number) {

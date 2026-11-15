@@ -2,6 +2,8 @@
 // part of the one page loads this module and builds its own content.
 
 const POLL_MS = 2000;
+// A reply may take longer than the interval on slow venue Wi-Fi; polls never overlap, so waiting costs nothing.
+const POLL_TIMEOUT_MS = 8000;
 const FAILURES_BEFORE_LOST = 3;
 
 const lost = /** @type {HTMLElement} */ (document.querySelector(".connection-lost"));
@@ -55,15 +57,20 @@ export function poll(path, render) {
     clearTimeout(timer);
     const started = Date.now();
     try {
-      const res = await fetch(path, { cache: "no-store", signal: AbortSignal.timeout(POLL_MS) });
+      const res = await fetch(path, { cache: "no-store", signal: AbortSignal.timeout(POLL_TIMEOUT_MS) });
       if (mine !== run) return;
       if (res.status === 401) return signIn();
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (mine !== run) return;
-      render(data);
       state.failures = 0;
       lastUpdate = new Date();
+      // A drawing bug is not a lost connection: report it and keep polling.
+      try {
+        render(data);
+      } catch (error) {
+        console.error(`rendering ${path} failed`, error);
+      }
     } catch {
       if (mine !== run) return;
       state.failures += 1;

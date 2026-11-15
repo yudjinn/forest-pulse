@@ -41,7 +41,7 @@ let loaded = false;
 const held = new Map();
 /**
  * The drag in progress: the sensor's position when it started, and what was held for it then.
- * @type {{ id: string, pointerId: number, from: { x_m: number, y_m: number }, moved: boolean,
+ * @type {{ id: string, pointerId: number, from: { x_m: number, y_m: number }, at: { x: number, y: number }, moved: boolean,
  *   before: { x_m?: number, y_m?: number, facing_deg?: number, until: number } | undefined } | null}
  */
 let drag = null;
@@ -368,13 +368,18 @@ function startDrag(id, button, e) {
   button.setPointerCapture(e.pointerId);
   button.focus();
   const h = held.get(id);
-  drag = { id, pointerId: e.pointerId, from: { x_m: s.x_m, y_m: s.y_m }, moved: false, before: h && { ...h } };
+  drag = {
+    id, pointerId: e.pointerId, from: { x_m: s.x_m, y_m: s.y_m }, at: { x: e.clientX, y: e.clientY }, moved: false,
+    before: h && { ...h },
+  };
   holdView(true);
 }
 
 /** @param {string} id @param {PointerEvent} e */
 function moveDrag(id, e) {
   if (!drag || drag.id !== id || drag.pointerId !== e.pointerId) return;
+  // A click that jiggles a few pixels is not a move: a saved move clears a measured layout.
+  if (!drag.moved && Math.hypot(e.clientX - drag.at.x, e.clientY - drag.at.y) < DRAG_START_PX) return;
   const [wx, wy] = unproject(e.clientX, e.clientY);
   const x = snap(wx), y = snap(wy);
   const h = held.get(id);
@@ -400,6 +405,8 @@ function endDrag(id, e, cancelled) {
   }
   save(id, { x_m: h.x_m, y_m: h.y_m });
 }
+
+const DRAG_START_PX = 6;
 
 const STEPS = /** @type {Record<string, [number, number]>} */ ({
   ArrowLeft: [-1, 0],

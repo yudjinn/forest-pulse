@@ -18,4 +18,4 @@ Recorded so nobody builds against the old proposal:
 | Reference point | mic2: arrival times at mic2, buzzer offset to mic2, position = mic2 | the array's centre: arrival = mean over the 3 mics, buzzer offset to the centre, position = the array's centre |
 | Bearing window | ~30–80 ms (or the whole beep) | 40 ms from 5 ms before the first path; each call under 200 ms |
 | Stream start | send `C` | end any running recording first (we send `X`, wait 100 ms, then `C`) |
-| Timing | NTP clocks, ±250 ms slots, anchored on the first heard beep | the board's clock corrected to the service's (`server_time` in the reply); `start_at` 4 s after the last ready; check-ins every 1 s during a run |
+| Timing | NTP clocks, ±250 ms slots, anchored on the first heard beep | the board's clock corrected to the service's (`server_time` in the reply); `start_at` 6 s after the last ready; check-ins every 1 s during a run |

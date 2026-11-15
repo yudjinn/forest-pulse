@@ -1,4 +1,5 @@
 """HTTP client for the sensor API (docs/device-api.md). Standard library only."""
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -30,6 +31,11 @@ def iso(ts: float) -> str:
     return datetime.fromtimestamp(ts, UTC).strftime("%Y-%m-%dT%H:%M:%S.") + f"{int(ts * 1000) % 1000:03d}Z"
 
 
+# A check-in that has not answered by then is late anyway: the next one is due, and the dashboard shows a board
+# Offline 10 s after its last check-in, so one slow request must not hold the sync thread that long.
+CHECKIN_TIMEOUT_S = 5.0
+
+
 class Api:
     def __init__(self, server_url: str, sensor_key: str, sensor_id: str, timeout: float = 10.0, clock=None):
         """clock: the sensor's wall clock (seconds since the epoch) for sent_at; default the system's."""
@@ -38,25 +44,35 @@ class Api:
         self.timeout = timeout
         self._now_iso = (lambda: iso(clock())) if clock else utc_now_iso
 
-    def _call(self, method: str, path: str, body: dict | None = None) -> dict:
+    def _call(self, method: str, path: str, body: dict | None = None, timeout: float | None = None) -> dict:
+        """The reply as a dict. Anything that goes wrong on the way (a dropped or cut-short connection, a reply that
+        is not a JSON object) is Unavailable, so the caller retries instead of its thread dying."""
         data = None if body is None else json.dumps({"sent_at": self._now_iso(), **body}).encode()
         req = urllib.request.Request(self.base + path, data=data, method=method, headers={
             "Authorization": f"Bearer {self.key}", "Content-Type": "application/json", "User-Agent": USER_AGENT})
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                return json.loads(r.read() or b"{}")
+            with urllib.request.urlopen(req, timeout=timeout or self.timeout) as r:
+                reply = json.loads(r.read() or b"{}")
         except urllib.error.HTTPError as e:
-            detail = e.read()[:300].decode(errors="replace")
+            try:
+                detail = e.read()[:300].decode(errors="replace")
+            except (OSError, http.client.HTTPException):
+                detail = ""
             if e.code == 401:
                 raise KeyRejected(detail) from e
             if e.code == 400:
                 raise BadRequest(detail) from e
             raise Unavailable(f"HTTP {e.code}: {detail}") from e
-        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError, json.JSONDecodeError) as e:
+        except (OSError, http.client.HTTPException, ValueError) as e:
+            # OSError covers URLError, timeouts and resets; HTTPException a cut-short reply (IncompleteRead);
+            # ValueError a body that is not JSON or not UTF-8
             raise Unavailable(repr(e)) from e
+        if not isinstance(reply, dict):
+            raise Unavailable(f"reply is not a JSON object: {str(reply)[:100]}")
+        return reply
 
     def checkin(self, **fields) -> dict:
-        return self._call("POST", "/checkin", fields)
+        return self._call("POST", "/checkin", fields, timeout=min(self.timeout, CHECKIN_TIMEOUT_S))
 
     def sounds(self) -> dict:
         return self._call("GET", "/sounds")

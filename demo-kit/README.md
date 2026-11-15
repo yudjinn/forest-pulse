@@ -100,8 +100,8 @@ folder that holds anything else, so a pack that changes to fewer or other clips 
 ## Rehearsal
 
 The rehearsal journey (`web/tests/e2e/rehearsal.spec.ts`) runs the whole demo script below as named steps and prints
-each step's result; a step that fails names itself and what it expected. It teaches the pack through the real Teach
-page under a fresh name (never "Boreal owl"), uses its own sensors placed clear of every other sensor on the plan, and
+each step's result; a step that fails names itself and what it expected. It teaches the pack through the real teach
+dialog under a fresh name (never "Boreal owl"), uses its own sensors placed clear of every other sensor on the plan, and
 ends by deleting what it taught, removing its sensors and clearing events, then checks that the sound list and every
 other sensor are as they were. It fails if the pack folder is not the reported pack. Without the pack it is skipped,
 unless `FP_REQUIRE_TEACHING_PACK=1` is set, when it fails; set it wherever the run is meant as proof.
@@ -142,29 +142,37 @@ Before the audience arrives:
 
 1. Deploy (`npm run deploy` in `web/`) and run both live rehearsals above, the calibration one first, before the
    boards are on; every step passes.
-2. Boards on, each running the sensor library 0.2.0 or later, and Online on the plan. A board on a library before
-   0.4.0 needs `checkin_interval = 3` in its config file until it upgrades, or it flickers Offline. To calibrate, a
-   board needs the library 0.3.0 or later with the device app's calibration hooks.
+2. Boards on, each running the sensor library 0.6.2 or later (`scripts/deploy-nodes.py --sdk`; earlier versions can
+   lose their check-ins for good after one cut-short reply on busy Wi-Fi), and Online on the plan. Each board's log
+   shows `[modulino] buzzer OK`, or it can neither calibrate nor play a warning. A board with fewer than 3 mics fitted
+   has `"bearing": {"detections": false}` in its `config.local.json` (`docs/agents/nodes.md`), or its direction lines
+   point anywhere. Boards and the laptop share a network of their own (a router or phone hotspot), not the
+   audience's Wi-Fi: two boards' reports of one sound must arrive within 3 s of each other to give a location.
 3. Stage check: record the buzzer at 1 m, 3 m and 5 m on the stage and run the stage check tool on the three
    recordings (`sensor-sdk/README.md`, Stage check). FAIL: skip to step 6.
 4. Calibrate: with 2 or 3 boards standing where they will be, open Devices, press Calibrate and wait for
    "Calibrated" and the time. A failure names the board or pair: fix it and press again, or go to step 6.
-5. Tape measure: measure between each pair of boards and compare with the distance shown on the plan, then play
-   Chainsaw 1 between two boards and check that the plan shows it where it was. Off by much more than 15 cm, or the
+5. Tape measure: measure between each pair of boards and compare with the distance shown on the map (with Devices
+   open), then play Chainsaw 1 between two boards and check that the map shows it where it was. Off by much more than 15 cm, or the
    wrong place: go to step 6.
 6. Fallback, only if a step above failed: with Devices open, drag each board on the map to where it stands in the
    hall and set its Facing; with only one board working it shows direction only. Do this before any sound is played: an edit only
    affects events that arrive after it.
 7. The sound list has no "Boreal owl", and the event log (the second tab under Devices) is empty (Clear events
    if not).
-8. The phone: signed in on the dashboard with the player open (the speaker button), paired with the Bluetooth speaker, volume up, screen lock off.
-9. The laptop: signed in on the dashboard, the "Boreal owl teaching pack" folder open on the Desktop.
+8. The phone: signed in on the dashboard with the player open (the speaker button), paired with the Bluetooth
+   speaker, volume up, screen lock off.
+9. The laptop: signed in on the dashboard, the "Boreal owl teaching pack" folder open on the Desktop. Open "Teach a
+   new sound" once, drop a clip and wait until it shows Ready, then Cancel: the dialog loads about 35 MB of model
+   the first time, which should come from the browser's cache on stage.
+10. After any deploy, reload every open dashboard tab, the phone's included: a tab keeps the code it loaded.
 
 On stage:
 
 1. Play Chainsaw 1 from the phone near one board: a Logging activity appears with the direction line from that board.
 2. Play it again between two boards: the plan shows where it was, and the activity shows the distance from each board.
-3. Stop the player.
+3. Stop the player, then press Send warning on the Logging activity: the boards that heard it sound the alarm and
+   the activity lists each one's outcome. Send it now: it is offered only for 5 minutes after the last chainsaw.
 4. Under the sound list, choose "Teach a new sound", name it "Boreal owl", leave Wildlife, select everything in the pack
    folder and drop it on the page, wait for every recording to show Ready, then Teach. Boreal owl is listed, switched
    on.

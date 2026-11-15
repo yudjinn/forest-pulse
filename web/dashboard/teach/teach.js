@@ -282,10 +282,14 @@ drop.addEventListener("dragover", (event) => {
   drop.classList.add("over");
 });
 drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-drop.addEventListener("drop", (event) => {
-  event.preventDefault();
+// While the dialog is open a drop anywhere on the page is taken. (The sound list's module keeps a dropped file from
+// opening in the browser at any time.)
+document.addEventListener("drop", (event) => {
   drop.classList.remove("over");
-  if (event.dataTransfer?.files.length) addFiles([...event.dataTransfer.files]);
+  if (dialog.open && event.dataTransfer?.files.length) addFiles([...event.dataTransfer.files]);
 });
 takeChosenFiles(); // files chosen before this module finished loading
 refresh();
+// The model is tens of megabytes: fetch it while the name is typed, not after the first drop. A failure here is
+// retried by the first recording, which reports it.
+loadModel().catch(() => {});
