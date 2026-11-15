@@ -30,7 +30,11 @@ FIRST_PATH_FRACTION = 0.5       # of the main peak
 # path (a whole metre off) in about one round in six at 1.9 m, and with the boards' clocks 30-85 ms apart over venue
 # Wi-Fi a beep near its window's start left no room for 15 ms of search plus the quiet before it, so it was dropped.
 FIRST_PATH_ABOVE_NOISE_DB = 10.0
-SPACING_SLACK_SAMPLES = 3.0     # mic-to-mic differences beyond the array's spacing by more than this are weak
+# Mic-to-mic differences beyond the array's spacing by more than this are weak. The check catches a first path taken
+# milliseconds off (a noise lobe: metres of range); a beep's first path picked a few samples apart per mic by the
+# room is not that. On real boards one board's mics put another's beep 3 samples past the array's spacing in every
+# round, with the range repeating to 1 mm, and a 3-sample slack threw every round of that pair away.
+SPACING_SLACK_SAMPLES = 24.0    # 0.5 ms at 48 kHz
 SMOOTH_HZ = 200.0               # spectral smoothing of the sweep's magnitude
 TINY = 1e-9
 QUIET_BEFORE_MS = 10.0          # a first path rises out of quiet: no crossing this long before it
