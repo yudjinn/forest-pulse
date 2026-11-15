@@ -393,9 +393,11 @@ export function pairDistance(a: Participant, b: Participant): number | null {
   return d > 0 ? d : null;
 }
 
-// Where this board heard the role's beep in the round: a whole (not weak) detection, or null.
+// Where this board heard the role's beep in the round, or null: another board's beep only when whole (not weak); its
+// own beep even when weak, as the emitter sits centimetres from the mics, too near for the far-field spacing check
+// (on a 3-mic board with the buzzer at 3 cm most own beeps came back weak, yet ranged within 4 cm of each other).
 function heard(r: ReportRound, emitter: string, own: boolean): number | null {
-  const d = r.detections.find((x) => x.emitter === emitter && x.own === own && !x.weak);
+  const d = r.detections.find((x) => x.emitter === emitter && x.own === own && (own || !x.weak));
   return d ? d.position : null;
 }
 

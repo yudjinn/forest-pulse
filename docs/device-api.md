@@ -183,7 +183,8 @@ Once per run, by the end of the last slot plus 15 s.
 
 - `position`: where the beep's first path starts, in samples of this sensor's own continuous stream (counted from
   the stream's start), with a fraction of a sample.
-- `weak`: a mic missed the beep or the mics disagree by more than the array allows; never ranged on.
+- `weak`: a mic missed the beep or the mics disagree by more than the array allows. Another sensor's weak beep is
+  never ranged on; a sensor's own beep is, as its emitter is too near the mics for the spacing check.
 - `angle_deg`, `angle_quality`: for other sensors' beeps, the board's bearing of the arrival (degrees clockwise from
   its forward, as for events) and its quality 0-1; null when the board cannot tell.
 - Fatal codes fail the run, naming the sensor: `no_stream` (the stream did not start or no audio flowed),
@@ -202,10 +203,11 @@ stream (`position / fs`), c the two sensors' mean `speed_of_sound` and s their `
 
 d = c/2 * [(t_i(j) - t_i(i)) - (t_j(j) - t_j(i))] + (s_i + s_j)/2
 
-A pair's distance is the median over its valid rounds (both sensors' rounds valid, all four detections whole). It
-needs 2 or more valid rounds, at least one in each order, and the forward and reverse medians within 40 cm. When
-every check passes the plan becomes a measured layout: the first participant at the origin, the second straight to
-its right at that distance (with facings), or along the plan's line from the first (without them, below).
+A pair's distance is the median over its valid rounds (both sensors' rounds valid, all four detections there, each
+heard the other's beep whole; own beeps may be weak). It needs 2 or more valid rounds, at least one in each order,
+and the forward and reverse medians within 40 cm. When every check passes the plan becomes a measured layout: the
+first participant at the origin, the second straight to its right at that distance (with facings), or along the
+plan's line from the first (without them, below).
 
 ### Facings
 
