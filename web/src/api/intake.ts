@@ -34,6 +34,7 @@ export interface AcceptedEvent {
   confidence: number;
   angle_deg: number | null;
   angle_confidence: number | null;
+  level_dbfs: number | null;
   occurred_at: number;
   received_at: number;
 }

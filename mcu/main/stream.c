@@ -19,6 +19,9 @@
 #if CONFIG_FE_SOURCE_SYNTH
 #include "synth_source.h"
 #endif
+#if CONFIG_FE_SOURCE_MICS
+#include "speaker.h"
+#endif
 #include "trigger.h"
 #include "usb_link.h"
 
@@ -290,6 +293,20 @@ static void handle_command(uint8_t cmd)
     case 's':
         synth_set_sound(false);
         break;
+#endif
+#if CONFIG_FE_SOURCE_MICS
+    case 'P': {  // 'P' f_start f_mid f_end duration_ms (uint16 LE each) volume (uint8): play a sweep, no reply
+        uint8_t b[9];
+        if (!read_args(b, sizeof b)) {
+            return;
+        }
+        const uint16_t v[4] = {
+            (uint16_t)(b[0] | b[1] << 8), (uint16_t)(b[2] | b[3] << 8),
+            (uint16_t)(b[4] | b[5] << 8), (uint16_t)(b[6] | b[7] << 8),
+        };
+        speaker_play(v[0], v[1], v[2], v[3], b[8]);
+        break;
+    }
 #endif
     case 'B': {
         uint8_t b[4];

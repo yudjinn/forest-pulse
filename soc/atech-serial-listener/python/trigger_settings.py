@@ -1,4 +1,4 @@
-"""ESP32 trigger thresholds, adjustable at runtime (e.g. from the server's check-in reply).
+"""ESP32 trigger thresholds, adjustable at runtime (from config; current() is the SDK's trigger health hook).
 
 The ESP32 boots with its compiled-in defaults (menuconfig) and keeps no state,
 so this module owns the desired values and re-sends them whenever the ESP32

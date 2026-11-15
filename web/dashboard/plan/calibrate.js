@@ -1,4 +1,5 @@
-// Calibrate, at the top of the Devices panel: the button, the run's state beside it, and the measured distance
+// Calibrate, at the top of the Devices panel: the button with how loud the boards beep (remembered in this browser),
+// the run's state beside it, and the measured distance
 // drawn between the sensors a calibration run placed. The service runs the run; this page starts it and follows
 // the shell's poll. Sensors are named as the plan names them. The distances show while the Devices panel is open.
 import { poll, refresh, serviceClock, serviceNow, signIn } from "/dashboard/shell.js";
@@ -8,7 +9,8 @@ import { addLayer, invalidate, overlay, place, ringPath } from "/dashboard/plan/
 /**
  * @typedef {{ id: string, state: "waiting" | "beeping" | "calibrated" | "failed", ready: number,
  *   participants: number, finished_at: number | null,
- *   failure: { sensors: string[], reason: string } | null, speed_of_sound_assumed: boolean }} RunState
+ *   failure: { sensors: string[], reason: string } | null, speed_of_sound_assumed: boolean,
+ *   volume: "quiet" | "normal" | "loud" | null }} RunState
  * @typedef {{ run_id: string, measured_at: number, sensors: string[],
  *   distances: { a: string, b: string, distance_m: number }[], speed_of_sound_assumed: boolean,
  *   left_out: string[] }} Layout
@@ -38,6 +40,15 @@ const PAIR_REASONS = {
 
 const status = /** @type {HTMLElement} */ (document.querySelector(".calibrate-status"));
 const button = /** @type {HTMLButtonElement} */ (document.querySelector(".calibrate-button"));
+const volume = /** @type {HTMLSelectElement} */ (document.querySelector(".calibrate-volume"));
+const VOLUME_KEY = "forestpulse.calibrate-volume";
+try {
+  const kept = localStorage.getItem(VOLUME_KEY);
+  if (kept && [...volume.options].some((o) => o.value === kept)) volume.value = kept;
+} catch { /* storage unavailable: Normal */ }
+volume.addEventListener("change", () => {
+  try { localStorage.setItem(VOLUME_KEY, volume.value); } catch { /* not remembered */ }
+});
 
 /** @type {CalibrationState | null} */
 let state = null;
@@ -181,7 +192,11 @@ button.addEventListener("click", async () => {
   starting = true;
   show();
   try {
-    const res = await fetch("/dashboard/api/calibration", { method: "POST" });
+    const res = await fetch("/dashboard/api/calibration", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ volume: volume.value }),
+    });
     if (res.status === 401) return signIn();
     if (!res.ok) {
       /** @type {{ error?: string }} */

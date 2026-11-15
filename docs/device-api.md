@@ -132,7 +132,8 @@ ends (or when the sensor was left out of it, below):
   "start_at": "2026-11-14T12:00:09.500Z",       // the first slot, service clock; absent until scheduled
   "slot_ms": 700,
   "round_gap_ms": 600,
-  "rounds": 6
+  "rounds": 6,
+  "volume": 0.125                               // how loud to play, 0..1 of full scale; absent: the board's own level
 }
 ```
 
@@ -145,7 +146,8 @@ ends (or when the sensor was left out of it, below):
 4. The schedule: round `r` (from 0) plays `order` forward when `r` is even and reversed when it is odd, one slot
    each, `slot_ms` apart, starting at `start_at + r * (len(order) * slot_ms + round_gap_ms)`. Each sensor plays its
    role's pattern at the start of each of its slots, by its clock corrected to the service's (`server_time` on the
-   check-in reply).
+   check-in reply), at the run's `volume` when it gives one (Quiet 0.04, Normal 0.125, Loud 0.4, chosen beside
+   Calibrate).
 5. It records until the last expected beep plus 200 ms (at the latest the end of the last slot plus 1 s), stops the
    stream, finds every beep and posts its report. A sensor reports no sound events while it takes part.
 

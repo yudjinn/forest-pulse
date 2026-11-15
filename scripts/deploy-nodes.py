@@ -2,7 +2,7 @@
 """Update every Uno Q node in parallel: the SoC app (Python + sketch) and the ESP32 (atech) firmware.
 
     scripts/deploy-nodes.py                    # every node in scripts/nodes.txt, both payloads
-    scripts/deploy-nodes.py node2              # by name (or MAC, or a host/IP to skip discovery)
+    scripts/deploy-nodes.py forestpulse2       # by name (or MAC, or a host/IP to skip discovery)
     scripts/deploy-nodes.py --soc-only         # app only (no build, no flash)
     scripts/deploy-nodes.py --mcu-only         # firmware only
     scripts/deploy-nodes.py --sdk              # also reinstall the sensor SDK from upstream main
@@ -17,7 +17,8 @@ and flashes the sketch) -> optionally reinstall the SDK -> wait for "[status] ES
 What it writes on a node (~/ArduinoApps/atech-serial-listener):
 - every tracked/untracked-but-not-ignored file of soc/atech-serial-listener, so config.json is the repo's with
   led.rotation_deg set from --rotation (default -90). Other per-board config.json edits are overwritten.
-- never forestpulse.toml (the key), forestpulse-state/, data/ or .cache/.
+- never forestpulse.toml (the key), config.local.json (git-ignored per-board overrides), forestpulse-state/,
+  data/ or .cache/.
 
 Needs: ssh access as arduino@NODE (key-based), and for the firmware ESP-IDF via mcu/idf-env.sh.
 Full per-node logs go to --log-dir (default: a temp dir, printed at the end).

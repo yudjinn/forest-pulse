@@ -251,9 +251,9 @@ class Sensor:
                 return None, None
             return a if isinstance(a, tuple) else (a, None)
 
-        self._report(scores, embedding, end_time, angle)
+        self._report(scores, embedding, end_time, angle, level_dbfs(frames, self.sample_rate))
 
-    def _report(self, scores, embedding, detected_at, angle):
+    def _report(self, scores, embedding, detected_at, angle, level=None):
         if self._calibration.active:
             return []  # no sound events between start_stream() and the calibration report
         if self._warnings.silenced:
@@ -268,6 +268,8 @@ class Sensor:
             self._last_reported[sound.id] = detected_at
             e = {"event_id": str(uuid.uuid4()), "detected_at": iso(detected_at), "sound_id": sound.id,
                  "confidence": round(confidence, 4)}
+            if level is not None:
+                e["level_dbfs"] = level
             if deg is not None:
                 e["angle_deg"] = round(float(deg) % 360.0, 2)
                 if conf is not None:
@@ -504,3 +506,21 @@ def board_to_angle(bearing_ccw_deg: float, forward_ccw_deg: float = 90.0) -> flo
     (clockwise from the board's forward). forward_ccw_deg is where forward points in the board frame; the default
     90 means the top edge of the board, away from mic 3."""
     return (forward_ccw_deg - bearing_ccw_deg) % 360.0
+
+
+def level_dbfs(frames, sample_rate: int, block_s: float = 0.1):
+    """How loud the window's loudest moment is: RMS of its loudest 100 ms on its loudest mic, dBFS (one decimal), or
+    None for an empty or silent window. The service compares two boards' levels of one sound to tell which is nearer;
+    the loudest mic, so a board with unfitted (silent) channels reads the same as a full one."""
+    x = np.asarray(frames, dtype=np.float64)
+    if x.ndim == 1:
+        x = x[:, None]
+    n = max(1, int(block_s * sample_rate))
+    if len(x) < n:
+        return None
+    blocks = len(x) // n
+    ms = (x[:blocks * n] ** 2).reshape(blocks, n, -1).mean(axis=1)  # (blocks, channels)
+    peak = float(ms.max())
+    if peak <= 0:
+        return None
+    return round(10 * np.log10(peak) - 20 * np.log10(32768.0), 1)

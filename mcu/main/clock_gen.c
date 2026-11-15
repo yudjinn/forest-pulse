@@ -35,8 +35,8 @@ esp_err_t clock_gen_init(void)
     drive_low(PIN_MIC2_LR);
     drive_low(PIN_MIC3_LR);
 
-    // TX master: generates BCLK/WS. No DOUT pin; the TX DMA just clocks out
-    // zeros (auto_clear), so the data path is irrelevant.
+    // TX master: generates BCLK/WS. Its data line goes to the speaker: the TX
+    // DMA clocks out zeros (auto_clear) except while speaker.c plays a sweep.
     i2s_chan_config_t cc = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     cc.auto_clear = true;
     ESP_RETURN_ON_ERROR(i2s_new_channel(&cc, &s_tx, NULL), TAG, "new channel");
@@ -49,7 +49,7 @@ esp_err_t clock_gen_init(void)
                 .mclk = I2S_GPIO_UNUSED,
                 .bclk = PIN_MIC1_BCLK,
                 .ws = PIN_MIC1_WS,
-                .dout = I2S_GPIO_UNUSED,
+                .dout = PIN_SPK_DIN,
                 .din = I2S_GPIO_UNUSED,
             },
     };
@@ -61,11 +61,20 @@ esp_err_t clock_gen_init(void)
     output_signal(PIN_MIC2_WS, I2S0O_WS_OUT_IDX);
     output_signal(PIN_MIC3_WS, I2S0O_WS_OUT_IDX);
 
+    // ...and to the speaker, so its samples are locked to the mics' frames.
+    output_signal(PIN_SPK_BCLK, I2S0O_BCK_OUT_IDX);
+    output_signal(PIN_SPK_WS, I2S0O_WS_OUT_IDX);
+
     // Let LCD_CAM sample mic1's BCLK/WS pads (input path on an output pad),
     // so it sees exactly the edges the mics see.
     gpio_input_enable(PIN_MIC1_BCLK);
     gpio_input_enable(PIN_MIC1_WS);
     return ESP_OK;
+}
+
+i2s_chan_handle_t clock_gen_tx(void)
+{
+    return s_tx;
 }
 
 esp_err_t clock_gen_start(void)

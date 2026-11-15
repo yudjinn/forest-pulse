@@ -15,7 +15,9 @@
 //    10  |   GPIO1     |   GPIO2
 //    13  |   GPIO39    |   GPIO38
 //    14  |   GPIO36    |   GPIO35
-//   (free ports: 3 = 17/18, 4 = 16/15, 5 = 11/10, 6 = 13/12, 7 = 6/7;
+//     3  |   GPIO17    |   GPIO18
+//     4  |   GPIO16    |   GPIO15
+//   (free ports: 5 = 11/10, 6 = 13/12 (13 is the notify line), 7 = 6/7;
 //    port 11 = GPIO43/44 is the UART0 console)
 
 #define PIN_UNUSED (-1)
@@ -40,6 +42,14 @@
 #define PIN_MIC3_WS 38    // port 13 D2
 #define PIN_MIC3_BCLK 36  // port 14 D1
 #define PIN_MIC3_SD 35    // port 14 D2
+
+// --- Speaker: ports 3-4 (ATech Speaker v2.2, MAX98357A, I2S) ----------------
+// Module pinout (ATech module page): 1st port D1 = LRCLK, D2 = BCLK; 2nd port
+// D1 not connected, D2 = DIN. No enable line (the module keeps the amp on).
+// Left edge, so the module's 1st port lands on board port 4 and its 2nd on 3.
+#define PIN_SPK_WS 16     // port 4 D1  (LRCLK)
+#define PIN_SPK_BCLK 15   // port 4 D2
+#define PIN_SPK_DIN 18    // port 3 D2
 
 // --- Internal: LCD_CAM VSYNC control pad (port 7 D2, nothing plugged in) ---
 // The camera only starts a capture on a VSYNC edge, so VSYNC is routed from a

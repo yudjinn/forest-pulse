@@ -111,10 +111,11 @@ test("two sensors measure their distance and facings and appear as they stand; a
     await expect(facing(page, a)).toHaveValue("45");
     await expect(facing(page, b)).toHaveValue("135");
 
-    // With its bearing working, the next run places b straight to the right of a at the measured distance and turns
-    // both the way they really face.
+    // With its bearing working, the next run, chosen quiet, places b straight to the right of a at the measured
+    // distance and turns both the way they really face.
     await sensors.send({ set: { id: b, stream_delay_s: 0, bearing: "simulated" } });
     await expect(calibrate).toBeEnabled();
+    await page.getByLabel("Calibration volume").selectOption("Quiet");
     await calibrate.click();
     await expect(page.getByText("Beeping", { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/^Calibrated \d\d:\d\d$/)).toBeVisible({ timeout: 40_000 });
@@ -124,6 +125,8 @@ test("two sensors measure their distance and facings and appear as they stand; a
     expect(Math.abs(Number(metres) - 3)).toBeLessThanOrEqual(0.05);
     expect(label).toBe(`Measured ${metres} m from ${nameA} to ${nameB}`);
     await expect(page.getByText(`${metres} m`, { exact: true })).toBeVisible();
+    const run = (await (await page.request.get("/dashboard/api/calibration")).json()).run as { volume: string };
+    expect(run.volume).toBe("quiet");
     await expect(position(page, a)).toHaveText("x 0.0 m, y 0.0 m", { timeout: 3000 });
     await expect(position(page, b)).toHaveText(`x ${Number(metres).toFixed(1)} m, y 0.0 m`);
     for (const [id, truth] of [[a, 30], [b, 200]] as const) {

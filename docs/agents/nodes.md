@@ -5,12 +5,13 @@ How an agent reaches, watches and updates the physical Forest Pulse nodes from t
 ## The nodes
 - **Hardware:** each node is an Arduino Uno Q with:
   - the atech board (an ESP32-S3 and the mics) on USB;
-  - a Modulino Thermo and Buzzer on its Qwiic connector.
-- **`scripts/nodes.txt`:** lists every node by its **wlan0 MAC** and a short name (`node1`, `node2`).
+  - a Modulino Thermo and Buzzer on its Qwiic connector;
+  - optionally an ATech Speaker module on the atech board's ports 3-4 (both current nodes have one and use it for calibration).
+- **`scripts/nodes.txt`:** lists every node by its **wlan0 MAC** and a short name (`forestpulse1`, `forestpulse2`, the boards' hostnames).
   - IPs change between venues and DHCP leases; the MAC doesn't.
   - To add a board, add a line. Its MAC is in `cat /sys/class/net/wlan0/address` on the board, and its sensor ID is `fp-<MAC without colons>`.
-- **Discovery (`scripts/fp_nodes.py`):** finds each node's IP from the laptop's neighbour table (`ip neigh`). If a MAC is missing, it pings the local subnet once (up to /20, about 25 s) and looks again. A node that's off or on another network is reported as not found and skipped.
-- **Addressing nodes in every script:** a name (`node2`), a MAC, or a raw host/IP (skips discovery). With no argument, a script acts on every node in `nodes.txt`. `scripts/deploy-nodes.py --list` just prints where they are.
+- **Discovery (`scripts/fp_nodes.py`):** finds each node's IP from the laptop's neighbour table (`ip neigh` on Linux, `arp -an` on macOS). If a MAC is missing, it pings the local subnet once (up to /20, about 25 s) and looks again. A node that's off or on another network is reported as not found and skipped.
+- **Addressing nodes in every script:** a name (`forestpulse2`), a MAC, or a raw host/IP (skips discovery). With no argument, a script acts on every node in `nodes.txt`. `scripts/deploy-nodes.py --list` just prints where they are.
 
 ## 1. Access: `scripts/node-access.py`
 Every other script logs in as `arduino@<node>` with an SSH key and never types a password.
@@ -29,7 +30,7 @@ Follows every node's app log at once, one line per log line, prefixed and colour
 
 ```sh
 scripts/node-logs.py                                # all nodes: last 20 lines, then follow (Ctrl-C to stop)
-scripts/node-logs.py node2 -q                       # one node, without the per-second peak / INFO noise
+scripts/node-logs.py forestpulse2 -q               # one node, without the per-second peak / INFO noise
 scripts/node-logs.py --since 30m --no-follow -g '\[status\]|\[calib\]|heard|Traceback'   # a filtered snapshot
 ```
 
@@ -69,11 +70,15 @@ In `~/ArduinoApps/atech-serial-listener/python/` on each board:
   - It's secret: mode 600, git-ignored.
   - Don't print the key.
   - All nodes share one key; the sensor ID tells them apart.
-- **`config.local.json`:** per-board overrides merged over `config.json`. Currently:
-  - node2: `test_mono_mic: 2` and `trigger.coherence: 0`, because only its mic2 is fitted. While that holds it also needs `"bearing": {"detections": false}`, or every detection carries a direction computed from two empty channels and the plan draws its line and location in the wrong place;
-  - node1: `test_mono_mic: 1`. Its three mics time the other board's beep up to 25 samples apart (reflections in the hall), and in the beep's band (3 to 5 kHz) its 4-7 cm spacing cannot give a reliable bearing, so it ranges on one mic.
-  - A board in mono mode answers every calibration bearing with None (the app ignores `test_fake_bearing_deg` then), so a run calibrates the distance only and keeps the facings typed on the plan. Older configs still carry `test_fake_bearing_deg`; it is harmless but can go.
-  - `calibration.test_dump_calibration: true` saves each calibration stream's raw 3-mic audio to `data/calibration/` on the board (an `.npz` with the SDK's stream positions per block), to replay a run's detections offline. Off by default; turn it off again afterwards.
+- **`config.local.json`:** per-board overrides merged over `config.json`. Currently (read from the boards):
+  - both: `calibration.emitter: "speaker"`, `speaker_volume: 64`, `test_dump_calibration: true`;
+  - forestpulse1: `test_mono_mic: 1`. Its three mics time the other board's beep up to 25 samples apart (reflections in the hall), and in the beep's band (3 to 5 kHz) its 4-7 cm spacing can't give a reliable bearing, so it ranges on one mic;
+  - forestpulse2: `test_mono_mic: 2`, `trigger.coherence: 0` and `bearing.detections: false`, because only its mic2 is fitted. Without `detections: false` every detection would carry a direction computed from two empty channels, and the plan would draw its line and location in the wrong place.
+
+  What the settings do:
+  - A board in mono mode (`test_mono_mic`) answers every calibration bearing with None (`test_fake_bearing_deg` is then ignored), so a run calibrates the distance only and keeps the facings typed on the plan.
+  - `calibration.emitter: "speaker"` plays the calibration sweeps (and the warning alarm) on the ATech Speaker module (MAX98357A) instead of the Modulino Buzzer, through the ESP32's `P` command. `calibration.speaker_volume` (0..255, default 96) sets its level: too loud and the board's own mics clip on its own beep, which invalidates the round. Needs the speaker firmware (flash it), and `emitter_offset_cm` set to the speaker's distance from the mic array's centre.
+  - `calibration.test_dump_calibration: true` saves each calibration stream's raw 3-mic audio to `data/calibration/` on the board (an `.npz` with the SDK's stream positions per block), to replay a run's detections offline. Off by default; turn it off again when done, since every run adds a file.
 
   The app logs `[app] board overrides from config.local.json` when one exists.
 

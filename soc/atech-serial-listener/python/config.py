@@ -31,10 +31,13 @@ DEFAULTS = {
     # server icon, then the live sound meter (ESP32 INFO polled every level_poll_s).
     "matrix": {"ticker": True, "scroll_ms": 120, "meter_s": 6.0, "level_poll_s": 0.25},
     # ESP32 trigger thresholds (trigger_settings.py); null = firmware default (menuconfig).
-    # The server can change them through the check-in reply. Lower = more sensitive.
+    # The SDK reports them at each check-in (read-only on the plan card). Lower = more sensitive.
     "trigger": {"snr_db": None, "ratio_db": None, "coherence": None},
     # Location calibration (LocationCalibrationIntegrationSpec.md): the SDK runs it, we provide the hooks.
-    "calibration": {"emitter_offset_cm": 3.0,       # s_i: buzzer to the mic array's centre (ruler)
+    "calibration": {"emitter": "buzzer",            # "buzzer": the sketch's Modulino Buzzer; "speaker": the
+                    # ATech Speaker module on the ESP32 (ports 3-4), played on the mics' own clock
+                    "speaker_volume": 96,           # 0..255; the mics clip on their own beep when too loud
+                    "emitter_offset_cm": 3.0,       # s_i: buzzer to the mic array's centre (ruler)
                     "band_hz": [1000, 4000],        # default bearing band when the SDK gives none
                     "nfft": 2048,                   # bearing of one short arrival (the SDK gives 40 ms)
                     # gates for that one arrival: on the SDK's 40 ms windows of its sweeps these keep 96 %

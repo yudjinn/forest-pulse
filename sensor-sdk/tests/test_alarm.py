@@ -50,3 +50,12 @@ def test_the_alarm_plays_the_published_pattern_and_stops_on_a_failed_tone(caplog
             assert buzzer.play() is False
         assert len(buzzer.tones) == 5, how  # stopped at once: no tone after the failed one
         assert reason in caplog.text, caplog.text
+
+    # a hook that takes a volume gets the alarm's, every tone
+    heard = []
+
+    def loud(f_start_hz, f_mid_hz, f_end_hz, duration_ms, volume=None):
+        heard.append(volume)
+
+    assert play_alarm(loud, clock=lambda: 0.0, sleep=lambda s: None) is True
+    assert heard == [0.6] * 33

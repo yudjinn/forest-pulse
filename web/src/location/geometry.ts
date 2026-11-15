@@ -71,3 +71,38 @@ function rank(a: Candidate, b: Candidate): number {
   const cb = b.angle_confidence ?? -1;
   return ca - cb || a.occurred_at - b.occurred_at || a.id - b.id;
 }
+
+// Distances along a line beyond which a level-based point is not believed (metres).
+const LEVEL_MIN_M = 0.3;
+const LEVEL_MAX_M = 30;
+
+// Where along sensor A's line a sound is, when sensor B heard it too but cannot tell direction: the point whose
+// distances from A and B fit the two levels, sound falling 6 dB per doubling of distance (r_a / r_b =
+// 10^((level_b - level_a) / 20)). Rough by nature (echoes, the two boards' mic gains), meant to put the sound in the
+// right area. With two such points the one nearer A; with none (the ratio cannot be met on the line) the point on
+// the line where the ratio comes closest. Null when even that lies behind A or implausibly far.
+export function alongByLevel(a: Line, levelA: number, b: { x_m: number; y_m: number }, levelB: number): Crossing | null {
+  const [ux, uy] = unit(a.deg);
+  const wx = a.x_m - b.x_m;
+  const wy = a.y_m - b.y_m;
+  const rho = 10 ** ((levelB - levelA) / 20); // r_a / r_b
+  const qa = 1 - 1 / (rho * rho);
+  const qb = 2 * (wx * ux + wy * uy);
+  const qc = wx * wx + wy * wy;
+  let t: number | null = null;
+  if (Math.abs(qa) < 1e-6) {
+    if (qb < 0) t = -qc / qb;
+  } else {
+    const disc = qb * qb - 4 * qa * qc;
+    if (disc >= 0) {
+      const roots = [(-qb - Math.sqrt(disc)) / (2 * qa), (-qb + Math.sqrt(disc)) / (2 * qa)].filter((r) => r > 0);
+      if (roots.length) t = Math.min(...roots);
+    } else {
+      t = -qb / (2 * qa); // closest fit
+    }
+  }
+  if (t === null || !(t >= LEVEL_MIN_M && t <= LEVEL_MAX_M)) return null;
+  const x = a.x_m + t * ux;
+  const y = a.y_m + t * uy;
+  return { x_m: x, y_m: y, distance_a_m: t, distance_b_m: Math.hypot(x - b.x_m, y - b.y_m) };
+}
