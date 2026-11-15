@@ -31,7 +31,7 @@ DEFAULTS = {
     # server icon, then the live sound meter (ESP32 INFO polled every level_poll_s).
     "matrix": {"ticker": True, "scroll_ms": 120, "meter_s": 6.0, "level_poll_s": 0.25},
     # ESP32 trigger thresholds (trigger_settings.py); null = firmware default (menuconfig).
-    # The server can change them through the check-in reply. Lower = more sensitive.
+    # The SDK reports them at each check-in (read-only on the plan card). Lower = more sensitive.
     "trigger": {"snr_db": None, "ratio_db": None, "coherence": None},
     # Location calibration (LocationCalibrationIntegrationSpec.md): the SDK runs it, we provide the hooks.
     "calibration": {"emitter": "buzzer",            # "buzzer": the sketch's Modulino Buzzer; "speaker": the

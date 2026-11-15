@@ -2,17 +2,21 @@
 
     serial-bridge:5000 (socat owns /dev/ttyACM0)
         -> reader thread: Receiver (parse, follow events; never blocks)
-        -> queue -> Pipeline worker: bearing (GCC/SRP-PHAT), classifier (ONNX),
-           storage (WAV + JSON), uplink (stub)
-        -> LED matrix arrow + event summaries to the STM32 sketch over the Bridge
+        -> SensorTee -> sensor SDK (sound model, detectors, events to the server,
+                        location calibration; bearing via DetectionBearing)
+                     -> queue -> Pipeline worker: whole-event bearing (GCC/SRP-PHAT),
+                        storage (WAV + JSON)
+        -> LED matrix (arrow / CAL / ticker), status LED, event summaries to the
+           STM32 sketch over the Bridge
 
-The sketch reports the ESP32 notify line (header D7) and the Modulino Thermo
-(temperature / humidity -> speed of sound). Everything except this file is
+The sketch reports the ESP32 notify line (header D7), the Modulino Thermo
+(temperature / humidity -> speed of sound) and Modulino presence, and plays
+calibration sweeps on the Modulino Buzzer. Everything except this file is
 plain Python (no App Lab imports) so it runs and is tested on a laptop:
 see soc/dev/.
 
 Commands to the ESP32 are single bytes: I (info), T (force event),
-C / X (start / stop continuous event). The sketch can send them through
+C / X (start / stop continuous event), plus G + id + int16 (trigger threshold). The sketch can send them through
 Bridge "send_to_board".
 """
 
@@ -177,8 +181,8 @@ if _c.get("test_fake_bearing_deg") is not None:
 calibration = CalibrationHooks(cfg, climate, send_command=lambda c: send_command(c), notify=notify, tee=tee, log=log,
                                on_calibrating=matrix.set_calibrating,
                                buzzer_ok=lambda: None if _modulino_last is None else _modulino_last[1])
-# ESP32 trigger thresholds: config.json "trigger" first, then whatever the server
-# sends in check-in replies (through the SDK); re-applied after every ESP32 reset.
+# ESP32 trigger thresholds from config.json "trigger" (config.local.json per board);
+# re-applied after every ESP32 reset. The SDK reports them at each check-in (trigger health, read-only).
 trigger = TriggerSettings(lambda b: send_command(b), cfg["trigger"], log=log)
 sensor = None
 if os.path.exists(SENSOR_CONFIG):
@@ -199,7 +203,7 @@ if os.path.exists(SENSOR_CONFIG):
         else:
             log("[calib] this SDK has no location calibration yet; hooks not registered")
         if "trigger_settings" in sdk_params:
-            extra["trigger_settings"] = trigger  # check-in: reports .current(), applies reply via .update()
+            extra["trigger_settings"] = trigger  # trigger health hook: the SDK reports .current() at each check-in
         else:
             log("[trigger] this SDK can't relay trigger settings yet; using config.json only")
         sensor = Sensor.from_file(SENSOR_CONFIG, angle_fn=angle_fn, **extra).start()

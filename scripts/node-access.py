@@ -3,7 +3,7 @@
 
     scripts/node-access.py              # check every node in scripts/nodes.txt; ssh-copy-id where needed
     scripts/node-access.py --check      # only report, change nothing (non-interactive; safe for agents)
-    scripts/node-access.py node2        # one node (name, MAC, or a host/IP)
+    scripts/node-access.py forestpulse2 # one node (name, MAC, or a host/IP)
     scripts/node-access.py --key ~/.ssh/other.pub
 
 For each node: find it by MAC (fp_nodes.py), try a key-based login (BatchMode). If that fails, run

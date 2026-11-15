@@ -3,17 +3,17 @@
 The Linux side of a sensor node. It:
 - receives audio events from the ESP32-S3 front-end ([`mcu/`](../mcu/)) over USB;
 - validates them and puts each event back together;
-- classifies the sound;
-- estimates the **bearing** (the direction the sound comes from, relative to the board);
-- uploads results to the server over Wi-Fi.
+- feeds the audio to the Forest Pulse **sensor SDK** ([`sensor-sdk/`](../sensor-sdk/)), which recognises the sound and sends events to the server over Wi-Fi;
+- estimates the **bearing** (the direction the sound comes from) for each detection and hands it to the SDK;
+- takes part in **location calibration** (sweeps between nodes on the Modulino Buzzer or the ATech Speaker; the SDK runs it) and plays the **warning alarm** when the server sends one.
 
-Status: **running on the Uno Q** (hot-plug serial bridge, ESP32 connected). **Classification moved to the server SDK**: the node sends the audio file and the bearing. The on-device classifier below is kept but disabled. Earlier status: [`atech-serial-listener/`](atech-serial-listener/) is an Arduino App Lab app. It:
-- receives events and classifies them (EfficientAT `mn10_as`, ONNX, from [`experiments/efficientat-chainsaw`](../experiments/efficientat-chainsaw/));
-- estimates the bearing (GCC-PHAT / SRP-PHAT, with the speed of sound from a Modulino Thermo);
-- stores each event and queues it for a **stub** uplink;
-- shows a direction arrow on the LED matrix for chainsaws.
+Status: **running on two Uno Q nodes** (`forestpulse1`, `forestpulse2`; see [`docs/agents/nodes.md`](../docs/agents/nodes.md)). The app is [`atech-serial-listener/`](atech-serial-listener/), an Arduino App Lab app. Besides feeding the SDK it:
+- estimates bearings with GCC-PHAT / SRP-PHAT, using the speed of sound from a Modulino Thermo;
+- keeps the newest 50 events on disk (WAV + JSON record) for debugging;
+- drives the LED matrix (direction arrow, status ticker) and the RGB status LED;
+- passes the ESP32 trigger thresholds from its config to the firmware, and reports them through the SDK (trigger health on the plan card).
 
-See its README for files, setup and what still needs checking on the device. Laptop tests and harness: [`dev/`](dev/).
+The on-device ONNX classifier (`classifier.py`) and the stub uplink (`uplink.py`) are still in the tree but not used: the SDK classifies and uploads. See the app README for files, setup and the LED meanings. Laptop tests and harness: [`dev/`](dev/).
 For the system picture, see the [repo README](../README.md).
 
 ## Responsibilities
@@ -22,9 +22,9 @@ For the system picture, see the [repo README](../README.md).
 |---|---|
 | keep the USB port open and read continuously | real-time capture or triggering (the MCU does that) |
 | validate CRC/sequence numbers, put events back together | change the MCU packet format without updating `mcu/` |
-| classify (chainsaw / machinery / other) | |
-| estimate the bearing on segments classified as chainsaw | locate the source (the server combines several nodes' bearings into a location) |
-| upload event metadata + audio to the server (Wi-Fi) | |
+| feed the audio to the sensor SDK, which classifies and uploads | run its own sound model (the SDK does that) |
+| estimate the bearing of each SDK detection | locate the source (the server combines several nodes' bearings into a location) |
+| provide the calibration hooks (stream, emitter, bearing of one arrival) | solve node positions (the server does that) |
 
 ## 1. Input from the MCU
 
@@ -73,15 +73,15 @@ Packets carry no clock. Within an event, sample timing is exact: frame *n* is *n
 ## 2. Processing pipeline
 
 ```
-USB ──► parser (CRC, resync) ──► event assembler ──► classifier ──► bearing estimator ──► uplink (Wi-Fi)
-                                       │                  │                │
-                                       └─ WAV/FLAC ───────┴── labels ──────┴──► event record
+USB ──► parser (CRC, resync) ──► event assembler ──► SensorTee ──┬──► sensor SDK: model + detectors ──► events ──► server
+                                                                  │          └── angle_fn(window) ──► DetectionBearing (bearing, LED arrow)
+                                                                  └──► Pipeline: event bearing ──► WAV + JSON record on disk
 ```
 
 1. **Event assembler:** builds a `(frames, 3)` int16 array per event, with discontinuity markers taken from flags and sequence gaps.
-2. **Classifier (TBD):** chainsaw / heavy machinery / other, with a score, over short windows (for example 0.5–1 s). It decides **which windows** the bearing estimator uses, so the bearing is the chainsaw's and not that of a nearby talker or PA.
-3. **Bearing estimator:** see section 3.
-4. **Event record + upload:** see section 4.
+2. **SensorTee** (`sdk_glue.py`): every audio block goes to both the SDK and the local pipeline. During a location calibration the local pipeline is bypassed.
+3. **Sensor SDK:** runs the sound model and the server's detectors. For each detection it calls `angle_fn` with the audio window; `DetectionBearing` estimates the bearing over the newest 2 s (section 3), returns it clockwise from the board's forward direction, and shows the LED arrow. The SDK sends the event (sound, confidence, time, angle). It never sends audio.
+4. **Pipeline** (`pipeline.py`): the whole event's bearing, written with the audio to `data/events/` (section 4). Its record has `classification: null`, since the node doesn't classify.
 
 ## 3. Bearing estimation
 
@@ -99,7 +99,7 @@ The mics form a **right triangle with the right angle at mic 2**:
 - **Board frame:** +x points from mic1 toward mic2 (left → right across the top); +y points toward the top of the board, away from mic3. The array plane is the board plane.
 - **Bearing θ** is measured in that plane, counter-clockwise from +x: 0° = the mic2 side, 90° = the top edge.
 - **For now bearing stays in board coordinates.** The server maps it to the world using each node's configured position and heading.
-- **TODO, measure the real positions:** measure each mic's *sound port* position to ±1 mm and replace the nominal values in a config file. A 1 mm error ≈ 0.14 samples ≈ 1–2° near broadside.
+- **These are nominal positions** (`config.json` `mic_positions_cm`). Measuring each mic's *sound port* to ±1 mm is still a TODO: a 1 mm error ≈ 0.14 samples ≈ 1–2° near broadside.
 
 Largest possible delay (`d / c · fs`, c = 343 m/s, fs = 48 kHz):
 
@@ -110,9 +110,9 @@ Largest possible delay (`d / c · fs`, c = 343 m/s, fs = 48 kHz):
 | mic1–mic3 | 7.2 cm | 210 µs = **10.1 samples** |
 
 ### Algorithm
-For each analysis window (0.25–0.5 s, 50% overlap) that the classifier accepts:
+For each analysis window (0.5 s, 0.25 s hop; `config.json` `bearing`):
 
-1. **Arrival-time difference per pair (GCC-PHAT):** for each pair, compute R(τ) = IFFT( X₁·X₂* / |X₁·X₂*| ) over 100 Hz–8 kHz. Search only |τ| ≤ that pair's maximum delay (plus a small margin), and interpolate around the peak (parabolic) to get a fraction of a sample.
+1. **Arrival-time difference per pair (GCC-PHAT):** for each pair, compute R(τ) = IFFT( X₁·X₂* / |X₁·X₂*| ) over 200 Hz–8 kHz. Search only |τ| ≤ that pair's maximum delay (plus a small margin), and interpolate around the peak (parabolic) to get a fraction of a sample.
 2. **Bearing (SRP-PHAT grid, preferred):**
    - For θ = 0…359° in 1° steps, the expected delay for pair (i, j) is τᵢⱼ(θ) = ((rⱼ − rᵢ) · u(θ)) / c · fs, where u(θ) = (cos θ, sin θ).
    - Score(θ) = Σ over pairs of Rᵢⱼ(τᵢⱼ(θ)).
@@ -127,7 +127,7 @@ For each analysis window (0.25–0.5 s, 50% overlap) that the classifier accepts
 ### Limitations
 - **2-D only.** Three mics in one plane give azimuth but not elevation. A source above the board can't be told from its mirror image below it, which is fine with the board mounted level and sources near the ground.
 - **Far-field assumption.** The array is ~7 cm across, so treating the sound as a flat wave is accurate beyond ~1 m.
-- **Speed of sound** varies about 0.17% per °C. Use c = 331.3 + 0.606·T (°C) if a temperature is available; otherwise 343 m/s.
+- **Speed of sound** varies about 0.17% per °C. The app uses c = 331.3 + 0.606·T + 0.0124·RH from the Modulino Thermo, or 343 m/s without a fresh reading (`climate.py`).
 - **Resolution is direction-dependent.** It's best broadside to a pair and worst end-on. The triangle's two pairs at 90° to each other cover each other's weak directions.
 - **Echoes.** Indoors (the hall), expect noisy bearings: PHAT weighting plus averaging over time are essential. Outdoors, a few degrees should be achievable.
 
@@ -135,48 +135,41 @@ For each analysis window (0.25–0.5 s, 50% overlap) that the classifier accepts
 - **Claps or clicks from known angles** (for example every 45°, 1–2 m away), with the receiver capturing WAVs. Check the computed bearing against the true angle and refine the geometry if there's a consistent error.
 - This shares recordings with the MCU's clock-lock acceptance test. The firmware samples all mics on the same clock edge, so the inter-channel offset is 0 by design. The test proves it.
 
-## 4. Uplink to the server (demo: Wi-Fi for everything)
+## 4. Uplink and local records
 
-**For the demo,** send both the metadata and the audio over Wi-Fi. LoRaWAN isn't available; later it would carry **metadata only** (bearing, class, time), since raw audio (~5.5 MB per event) can't fit.
-
-**Proposed event record** (JSON; transport TBD: HTTP POST or MQTT):
+- **Server uplink is the sensor SDK's job.** It sends events (sound, confidence, time, angle) to `forestpulse.paxid.com`, queues them in `forestpulse-state/` while offline, and keeps the sound list in sync. Contract: [`docs/device-api.md`](../docs/device-api.md). Configuration: `python/forestpulse.toml` on each board (server URL, sensor key, sensor ID `fp-<wlan0 MAC>`); it's secret and git-ignored.
+- **Local record per event** (`data/events/<event_id>.json` + `.wav`, newest 50 kept; `pipeline.py`):
 
 ```json
 {
   "node_id": "node-01",
-  "event_id": "node-01-000123",
+  "event_id": "node-01-20261114T123456-123",
   "t_trigger_utc": "2026-11-14T12:34:56.789Z",
-  "t_accuracy_s": 0.05,
+  "t_trigger_source": "notify_pin",
   "duration_s": 9.6,
+  "pre_trigger_s": 4.0,
   "sample_rate": 48000,
-  "classification": {"label": "chainsaw", "score": 0.91},
-  "bearing": {"frame": "board", "deg": 37.0, "spread_deg": 6.5, "confidence": 0.8, "n_windows": 14},
-  "integrity": {"crc_errors": 0, "seq_gaps": 0, "overrun": false, "sync_loss": false},
-  "audio_url": "…/node-01-000123.flac"
+  "classification": null,
+  "bearing": {"frame": "board", "deg": 37.0, "spread_deg": 6.5, "confidence": 0.8, "n_windows": 14,
+              "n_windows_total": 37, "background_dbfs": -62.1, "series": [[0.25, 36.0]], "speed_of_sound": 344.1},
+  "integrity": {"seq_gaps": 0, "breaks": 0, "overrun": false, "sync_loss": false, "joined_mid_event": false},
+  "processing_s": 0.8
 }
 ```
 
-- **Audio:** 3-channel 48 kHz int16. Compress it losslessly (FLAC), since the server may re-run bearing estimation or classification.
-- **Store and forward:** keep events on disk until the server acknowledges them, so a Wi-Fi outage loses nothing.
+`t_trigger_source` is `notify_pin` when the D7 rise was seen, otherwise `end_minus_live` (event end minus the live length).
 
-## 5. Multi-node (planned)
+## 5. Multi-node
 
-- **One node for now. Later there will be several,** each reporting bearings in its own board frame.
-- **The server holds each node's configuration:** position, plus heading of its board +x axis. It turns bearings into world directions and intersects them to estimate where the source is.
-- **Node clocks must be NTP-synced** so the server can match events. A ~50 ms timestamp is plenty for matching bearings, because a chainsaw runs for seconds.
+- **Each node reports bearings** as an angle clockwise from its forward direction (`forward_ccw_deg`, board +y by default).
+- **The server holds each node's position and heading.** It turns bearings into world directions and intersects them to estimate where the source is.
+- **Positions and headings come from location calibration:** 2 or 3 nodes play sweeps in turn and measure each other's ranges and bearings; the SDK runs it and the server solves the layout. A node whose bearing hook answers None (one mic, e.g. `test_mono_mic`) gets distances only, and keeps the facing set on the plan. Node side: `CalibrationHooks` in `sdk_glue.py` (app README, "Location calibration").
+- **Clocks:** the boards sync with NTP (`systemd-timesyncd`). ~50 ms is plenty for matching bearings, because a chainsaw runs for seconds.
 - Locating a source from arrival-time differences *between* nodes would need sample-accurate clocks (GPS PPS) and a protocol timestamp. **That isn't planned.**
 
 ## TODO
 
-- [x] Choose the Uno Q pin for the notify line: STM32 header D7.
-- [x] Receiver: `atech-serial-listener` (App Lab app, socat bridge brick, reconnects); processing split into plain-Python modules.
-- [x] GCC-PHAT + SRP-PHAT bearing with a quality gate. Synthetic tests: ≤ 1° error down to 0 dB SNR. The phone-clip event gives 276.7° ± 0.9°; hall background gives no bearing.
-- [x] Classifier: the experiment's `Tagger` exported to ONNX (`export_onnx.py`); app path matches `Tagger` to 1.5e-6, 31/40 vs 0/36 on ESC-50.
-- [x] Speed of sound from the Modulino Thermo, falling back to 343 m/s.
-- [x] LED-matrix arrow toward classified chainsaws (`led.rotation_deg` for mounting).
-- [x] Event record (§4 schema) + WAV on disk, newest 50 kept; trigger time from the D7 rise (else end − live length).
-- [ ] **Run on the Uno Q:** sketch compiles (LED matrix + Modulino libraries), `onnxruntime` installs, Bridge payloads, A53 timing. See the app README "Not yet verified on the device".
-- [ ] **Demo classification:** the hall phone-clip test scored chainsaw 0.005 (top: Speech/Vehicle). Play it louder or closer, or tune the threshold on clips captured in the hall.
-- [ ] Measure the real mic sound-port positions (±1 mm) → `config.json` `mic_positions_cm`; validate with claps at known angles.
-- [ ] Uplink: replace `StubUplink` once the server API exists (teammate). Records are queued in `data/outbox/`. FLAC compression optional.
-- [ ] NTP on the Uno Q (record timestamps use the system clock).
+- [ ] **Measure the real mic sound-port positions** (±1 mm) → `config.json` `mic_positions_cm`; validate with claps at known angles.
+- [ ] **Notify line (D7) reads HIGH all the time** on the bench: probably wiring. The status LED no longer needs it, but without a rise event times fall back to `end_minus_live`.
+- [ ] **Noise floor on the plan card (optional):** the SDK's trigger health hook can also report `noise_floor_dbfs()`; `TriggerSettings` doesn't provide it yet (the ESP32's INFO has `floor_dbfs`).
+- [ ] **Bearings on the current nodes:** both run calibration with `test_mono_mic` (distance only), and `forestpulse2` (mic2 only) sends detections without a direction (`bearing.detections: false`). Facings come from the plan until a node has a full array whose bearings pass in the sweep's 3–5 kHz band.

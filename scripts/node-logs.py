@@ -2,7 +2,7 @@
 """Follow the Uno Q app (SoC) logs of every node at once, one prefixed, coloured line per log line.
 
     scripts/node-logs.py                       # all nodes in scripts/nodes.txt, last 20 lines each, then follow
-    scripts/node-logs.py node2                 # one node (name, MAC, or a host/IP)
+    scripts/node-logs.py forestpulse2          # one node (name, MAC, or a host/IP)
     scripts/node-logs.py -n 200 --no-follow    # last 200 lines of each, then exit
     scripts/node-logs.py --since 10m           # everything from the last 10 minutes, then follow
     scripts/node-logs.py -g 'heard|\\[calib\\]|\\[status\\]|Traceback'    # only matching lines (Python regex)

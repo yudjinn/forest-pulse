@@ -1,17 +1,19 @@
-"""Worker thread: events in, analysis + storage + uplink + LED out.
+"""Worker thread: events in, analysis + storage (+ optional uplink) + LED out.
 
 Consumes EventStart / AudioBlock / EventEnd from the Receiver's queue.
 
 During an event (live):
   - bearing on the newest 0.5 s window whenever enough new audio arrived;
-  - classification every `classifier.live_every_s` on the newest <=10 s;
-  - LED arrow once the event is classified as chainsaw (if required) and
-    bearing windows pass the quality gate.
+  - classification every `classifier.live_every_s` on the newest <=10 s
+    (only with a classifier; main.py passes none, the SDK classifies);
+  - LED arrow once bearing windows pass the quality gate, only when
+    led.source isn't "detections" (default: SDK detections drive the arrow
+    through show_detection).
 At the event end (final):
   - bearing over the whole event (0.5 s windows, 0.25 s hop, split at breaks),
     gated against the event's own pre-trigger background;
   - classification over the whole event (10 s windows, max score);
-  - event record -> disk (WAV + JSON) -> uplink stub; LED holds the final
+  - event record -> disk (WAV + JSON) -> uplink (if any); LED holds the final
     arrow for `led.hold_s`, then clears.
 
 If the Uno Q falls behind, live analysis skips stale audio (it always looks at

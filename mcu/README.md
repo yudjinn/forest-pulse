@@ -5,7 +5,8 @@ ESP-IDF firmware for the ESP32-S3 on the ATech 14-port motherboard. It:
 - keeps a rolling 6 s history in PSRAM;
 - detects chainsaw/machinery sound;
 - raises a "data incoming" line to the Arduino Uno Q;
-- streams the 4 s pre-trigger window plus live audio over USB as CRC-checked binary packets.
+- streams the 4 s pre-trigger window plus live audio over USB as CRC-checked binary packets;
+- plays calibration sweeps (and the warning alarm) on an optional ATech Speaker module, on the mics' own clock.
 
 The original brief is in `SPEC.md`; agreed deviations are [listed below](#deviations-from-specmd).
 For where the MCU fits in the whole system, see the [repo README](../README.md).
@@ -19,6 +20,8 @@ For where the MCU fits in the whole system, see the [repo README](../README.md).
 | PSRAM ring, trigger, packetizer, host tools | done; acceptance tests pass (synthetic source) |
 | I2S clock fan-out + LCD_CAM bit capture + deserializer | done; all 3 mics live, 48 kHz, 0 sync losses |
 | Coherence gate + long-term floor adaptation | done; tuned on 2 min of hall audio (level 4 dB / ratio 0 dB / coherence 0.60) |
+| Runtime trigger thresholds (`G`), reference mic = mic2 | done |
+| Speaker (MAX98357A, ports 3-4) for calibration sweeps (`P`) | done; on forestpulse2 its own mic hears every sweep 71 dB above the noise |
 | Impulse (clap) clock-lock test, trigger tuning on real sound | next |
 
 ## TODO
@@ -75,7 +78,7 @@ stayed silent. All pins live in [`main/board_pins.h`](main/board_pins.h).
                  │ GDMA circular ring (internal SRAM, 32 × 3,840 B, EOF every 5 ms)      │
                  │        │ EOF ISR → queue                       core 0: capture task   │
                  │        ▼                                                              │
-                 │ deserializer → int16 [m1,m2,m3] → 20 ms blocks ─┬─► trigger (mic1)    │
+                 │ deserializer → int16 [m1,m2,m3] → 20 ms blocks ─┬─► trigger (mic2)    │
                  │                                                 ▼          │ events   │
                  │                          PSRAM ring (6 s, 1.73 MB)         ▼          │
                  │                                     │       core 1: stream task       │
@@ -91,11 +94,11 @@ stayed silent. All pins live in [`main/board_pins.h`](main/board_pins.h).
 **I2S0** runs as a TX master in Philips mode, 32-bit stereo slots, 48 kHz:
 - BCLK = 64 × 48 kHz = 3.072 MHz on mic1's SCK pin.
 - WS = 48 kHz on mic1's WS pin.
-- Its data path is unused (no DOUT pin; the DMA clocks out zeros).
+- Its data line drives the speaker's DIN: the DMA clocks out zeros except while `speaker.c` plays a sweep.
 
 **Fan-out:** the GPIO matrix routes the *same internal* `I2S0O_BCK_OUT` /
 `I2S0O_WS_OUT` signals to mic2's and mic3's SCK/WS pins too. No wires join
-the ports physically. Every mic sees the same edges; pad-to-pad skew is a
+the ports physically. The speaker's BCLK/LRCLK get the same signals, so a played sample is locked to a captured frame. Every mic sees the same edges; pad-to-pad skew is a
 few ns, against a 20.8 µs sample period.
 
 **Other setup:**
@@ -176,14 +179,14 @@ That means zero inter-channel offset, and no drift is possible.
 
 A block counts as **positive** only if all three gates pass:
 
-1. **Level (mic 1):** remove DC and compute RMS, smoothed over about 100 ms (single blocks swing ±3 dB, which would break the 5-in-a-row debounce). The smoothed level must be at least **4 dB** above the adaptive noise floor.
-2. **Spectral (mic 1):** Hann window, then Goertzel bins every 50 Hz: 100–400 Hz (7), 1–3 kHz (9) and the 50 Hz wind bin. Mean band power and wind power are each smoothed over about 100 ms before taking the ratio, which must exceed **0 dB**. It's effectively relaxed for the hall demo, since phone/PA playback has little energy below ~300 Hz; raise it for outdoor use with real saws. (A single 20 ms bin of noise swings ±10 dB block to block; smoothed, background stays within −1.5 to +3 dB.)
+1. **Level (mic 2, the reference mic):** remove DC and compute RMS, smoothed over about 100 ms (single blocks swing ±3 dB, which would break the 5-in-a-row debounce). The smoothed level must be at least **4 dB** above the adaptive noise floor.
+2. **Spectral (mic 2):** Hann window, then Goertzel bins every 50 Hz: 100–400 Hz (7), 1–3 kHz (9) and the 50 Hz wind bin. Mean band power and wind power are each smoothed over about 100 ms before taking the ratio, which must exceed **0 dB**. It's effectively relaxed for the hall demo, since phone/PA playback has little energy below ~300 Hz; raise it for outdoor use with real saws. (A single 20 ms bin of noise swings ±10 dB block to block; smoothed, background stays within −1.5 to +3 dB.)
 3. **Coherence (all mics):** complex Goertzel on the 1–3 kHz bins of every mic. Cross- and auto-spectra are averaged over about 200 ms, then the mean magnitude-squared coherence is taken over the 3 mic pairs × 9 bins:
    - a distant point source (a chainsaw) is coherent across the array, so it scores near 1, whatever its direction;
    - wind turbulence, raindrops and a diffuse hall background are not. Measured in the hall: **0.24–0.38**.
-   - The gate requires **> 0.60**. That's tuned on 2 min of hall audio: background 99th percentile 0.52, bursts up to 0.62. It's bypassed with the synthetic source, whose channels 2/3 carry frame counters.
+   - The gate requires **> 0.60**. That's tuned on 2 min of hall audio: background 99th percentile 0.52, bursts up to 0.62. It's bypassed with the synthetic source, whose channels 2/3 carry frame counters, and when the threshold is set to 0 (a node with only mic2 fitted).
 
-**How the noise floor adapts (all on mic 1, every block, 50×/s):**
+**How the noise floor adapts (all on mic 2, every block, 50×/s):**
 
 | When | Floor update |
 |---|---|
@@ -199,7 +202,9 @@ A block counts as **positive** only if all three gates pass:
 
 **CPU:** the trigger takes about 7.2 ms per 20 ms block at 80 MHz (≈36% of core 0). The whole capture task, including deserialization, is about **56%** (`core0_load_pct` in `INFO`).
 
-All thresholds are in `idf.py menuconfig` → *Acoustic Front-End → Trigger*.
+**Why mic 2:** it sits at the board-frame origin and is the one mic fitted on every node, so a node with a partly populated array still triggers. (`REF_MIC` in `trigger.c`; the synthetic source uses channel 0.)
+
+All thresholds are in `idf.py menuconfig` → *Acoustic Front-End → Trigger*. The level margin, band ratio and coherence threshold can also be changed at runtime with the `G` command (see [Host side](#host-side)); the Uno Q app sets them from its config and re-sends them after every reset.
 Watch them live with `uv run tools/receiver.py` (status + event capture).
 
 ### 6. Streamer and packets (`stream.c`, `protocol.c`)
@@ -232,6 +237,7 @@ Watch them live with `uv run tools/receiver.py` (status + event capture).
 |---|---|---|
 | 0 (prio max−2) | capture | GDMA EOF ISR, deserialize, 20 ms blocks, ring write, trigger, notify GPIO |
 | 1 (prio 5) | stream | USB commands, ring read, packetize, USB-Serial/JTAG (its ISR is on core 1 too) |
+| 1 (prio 6) | speaker | renders a queued sweep into I2S0 TX (sine of the SDK's stepped sweep model, 20 ms fades) |
 
 **Power:**
 - CPU fixed at 80 MHz.
