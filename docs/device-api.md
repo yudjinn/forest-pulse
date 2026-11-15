@@ -217,13 +217,13 @@ sensor is straight to the right of the first, so the first faces 90 - its angle 
 least 2 bearings (from whole detections in valid rounds) with a circular standard deviation of at most 15 degrees.
 Positions and facings are written together.
 
-Without both facings, two sensors calibrate the distance only: the first stays where it is on the plan, the second
-moves to the measured distance along the line from the first to where it was placed (straight to the right when both
-stood on one spot), and both keep the facings set on the plan. A sensor that cannot tell direction, such as one with a
-single mic, answers its bearing hook with None for this.
+Without both facings, two sensors calibrate the distance: the first stays where it is on the plan, the second moves
+to the measured distance along the line from the first to where it was placed (straight to the right when both stood
+on one spot). A sensor whose bearings of the other passed gets its facing from them; the other keeps the facing set on
+the plan. A sensor that cannot tell direction, such as one with a single mic, answers its bearing hook with None.
 
-The bearing hook gets a window of 40 ms from 5 ms before the detected first path, within the pattern's band, so the
-direct sound fills it before most echoes arrive.
+The bearing hook gets the whole sweep from 5 ms before the detected first path, within the pattern's band: a shorter
+slice covers too little of the band for the boards' 4 and 8 cm mic spacings, whose delays then alias by a cycle.
 
 ### Three sensors
 
@@ -233,16 +233,20 @@ triangle (the longest side shorter than the other two together) whose smallest a
 first sensor is at the origin and the second on the line straight to its right; the second's distance along it, the
 third's position and all three facings are one least-squares fit to the three distances (0.15 m each) and the six
 bearings (12 degrees each). The fit is made with the third sensor on each side of that line, and the side whose
-bearings fit better wins; if the two fit within 20 percent of each other the run fails. Each sensor's angle between
-the other two, from its bearings, must also agree with the angle the distances give within 20 degrees. A failure
-names a pair: the longest side for an impossible triangle, the side opposite the smallest angle for a flat one, and
-the pair the fit fits worst when the bearings disagree.
+bearings fit better wins, unless the two fit within 20 percent of each other. Each sensor's angle between the other
+two, from its bearings, must also agree with the angle the distances give within 20 degrees. When either check fails
+the sensors are placed by the distances, below. A failure names a pair: the longest side for an impossible triangle
+and the side opposite the smallest angle for a flat one.
 
-When any of the six bearings is missing (fewer than 2, or scattered), three sensors calibrate the distances only, as
-two do: the three distances must still make a triangle that is not too flat; the first stays where it is on the plan,
-the second moves to the measured distance along the line from the first to where it was placed, the third goes where
-the distances put it on the side of that line it was placed on (above it when it stood on the line), and all three
-keep the facings set on the plan.
+When any of the six bearings is missing (fewer than 2, or scattered), or the six do not fit, three sensors are placed
+by the distances, as two are: the three distances must still make a triangle that is not too flat; the first stays
+where it is on the plan, the second moves to the measured distance along the line from the first to where it was
+placed, and the third goes where the distances put it. Which side of that line it is on comes from every sensor that
+has bearings of both others: the angle between them must fit one side within 30 degrees and the mirror image at least
+20 degrees worse. When no sensor tells, or two disagree, the third keeps the side it was placed on (above the line when
+it stood on it). Each sensor with a bearing of another then gets its facing from where they now stand (the circular
+mean when it has two); the others keep the facings set on the plan. Bearings that did not fit set no side and no
+facing.
 
 A participant that never confirms ready is left out (step 3 of the run): the two that ran are solved as a pair, and
 the dashboard says which sensor was left out.

@@ -12,7 +12,8 @@ import { logLine } from "../log.ts";
 import { badRequest, readBody } from "../api/intake.ts";
 import { readPlan } from "../sensors/plan.ts";
 import {
-  type Distance, FATAL_ERRORS, type Participant, type Placement, type Report, type SolveFailure, parseReport, solve,
+  type Distance, FATAL_ERRORS, type Participant, type Placement, type Report, type SolveFailure, facingsFrom, parseReport,
+  solve,
 } from "./solve.ts";
 
 export const MAX_PARTICIPANTS = 3;
@@ -332,8 +333,10 @@ async function advance(env: Env, run: Run, now: number): Promise<Run> {
     if (missing.length === 0) {
       const solution = solve(taking.map((p) => ({ sensor_id: p.sensor_id, role: p.role, report: JSON.parse(p.report!) })));
       if (!solution.ok) return fail(db, run, solution.sensors, solution.reason, now);
-      const { ok: _, ...result } = solution;
-      if (result.positions.some((p) => p.facing_deg === null)) result.positions = await alongPlan(db, result, now);
+      const { ok: _, bearings, side_measured, ...result } = solution;
+      if (result.positions.some((p) => p.facing_deg === null)) {
+        result.positions = facingsFrom(await alongPlan(db, result, side_measured, now), bearings);
+      }
       const leftOut = run.participants.filter((p) => p.dropped).map((p) => p.sensor_id);
       return apply(db, run, { ...result, left_out: leftOut }, now);
     }
@@ -342,11 +345,11 @@ async function advance(env: Env, run: Run, now: number): Promise<Run> {
   return run;
 }
 
-// Distance only (no sensor could tell direction): the first stays where it is on the plan, the second moves to the
-// measured distance along the line from the first to where it was placed (straight to the right of the first when
-// the two stood on one spot), and a third keeps the side of that line it was placed on (the solver's side when it
-// stood on the line). Every sensor keeps its facing.
-async function alongPlan(db: D1Database, result: Result, now: number): Promise<Placement[]> {
+// Without all facings: the first stays where it is on the plan, the second moves to the measured distance along the
+// line from the first to where it was placed (straight to the right of the first when the two stood on one spot),
+// and a third goes on the side of that line the bearings told (sideMeasured), else the side it was placed on (the
+// solver's when it stood on the line). Facings stay as the solver gave them (null: the caller's to give).
+async function alongPlan(db: D1Database, result: Result, sideMeasured: boolean, now: number): Promise<Placement[]> {
   const [a, b, c] = result.positions;
   const plan = new Map((await readPlan(db, now, result.positions.map((p) => p.sensor_id))).map((s) => [s.id, s]));
   const pa = plan.get(a.sensor_id) ?? { x_m: 0, y_m: 0 };
@@ -357,14 +360,14 @@ async function alongPlan(db: D1Database, result: Result, now: number): Promise<P
   const [ux, uy] = length > 1e-6 ? [dx / length, dy / length] : [1, 0];
   const pc = c && plan.get(c.sensor_id);
   const across = pc ? ux * (pc.y_m - pa.y_m) - uy * (pc.x_m - pa.x_m) : 0;
-  const side = across < -1e-6 ? -1 : 1;
+  const side = !sideMeasured && across < -1e-6 ? -1 : 1;
   const mm = (v: number) => Math.round(v * 1000) / 1000 + 0;
   // The solver's frame: the first at the origin, the second along +x, a third above the line.
   return result.positions.map((p) => ({
     sensor_id: p.sensor_id,
     x_m: mm(pa.x_m + p.x_m * ux - side * p.y_m * uy),
     y_m: mm(pa.y_m + p.x_m * uy + side * p.y_m * ux),
-    facing_deg: null,
+    facing_deg: p.facing_deg,
   }));
 }
 

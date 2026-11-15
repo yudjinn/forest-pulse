@@ -19,6 +19,9 @@
 // median bearings, solved once with the third sensor on each side of the line from the first to the second; the side
 // whose bearings fit better wins, unless the two fit within 20 percent of each other. Each sensor's angle between the
 // other two, from its bearings, must agree with the angle the distances give within 20 degrees.
+// When those bearings do not fit, or some are missing, the distances alone place the three; the side of the line the
+// third is on then comes from any board that heard both others (the plan's when none did or two disagree), and each
+// board that heard another gets its facing from that once the caller has laid them on the plan (facingsFrom).
 
 import { normaliseDeg } from "../location/geometry.ts";
 
@@ -35,6 +38,12 @@ export const MAX_BEARING_SPREAD_DEG = 15;
 // close to the angle between them the distances give.
 export const MIN_ANGLE_DEG = 10;
 export const MAX_ANGLE_DISAGREEMENT_DEG = 20;
+// Distances alone place the third sensor on either side of the line from the first to the second. A sensor that
+// hears both others tells which: the angle between them, from its bearings, must fit one side within this and the
+// mirror image by this much worse. On real boards the angle came out 14-18 degrees wide of the distances' and the
+// mirror's 70-130 degrees off.
+const MAX_SIDE_ERROR_DEG = 30;
+const MIN_SIDE_MARGIN_DEG = 20;
 // The triangle fit's weights (one standard error each), and how much better one side's bearings must fit than the
 // mirror image's (as a fraction of the worse one) to tell which side the third sensor is on.
 const SIGMA_DISTANCE_M = 0.15;
@@ -91,11 +100,17 @@ export interface Placement {
   facing_deg: number | null;
 }
 
-// Every failure names a pair: not_repeatable its distance, no_direction its bearings (kept for the dashboard's wording
-// of runs stored before three sensors fell back to distances; no longer produced);
-// with three sensors not_a_triangle the longest side, too_flat the side opposite the smallest angle, and
-// bearings_disagree (bearings against the distances, or unable to tell the mirror image) the pair the fit fits worst.
+// Every failure names a pair: not_repeatable its distance; with three sensors not_a_triangle the longest side and
+// too_flat the side opposite the smallest angle. no_direction and bearings_disagree are kept for the dashboard's
+// wording of runs stored before bearings that do not fit fell back to the distances; no longer produced.
 export type SolveFailure = "not_repeatable" | "no_direction" | "not_a_triangle" | "too_flat" | "bearings_disagree";
+
+// A sensor's median bearing of another's beep (degrees clockwise from its forward).
+export interface Bearing {
+  from: string;
+  to: string;
+  angle_deg: number;
+}
 
 export type Solution =
   | {
@@ -103,6 +118,11 @@ export type Solution =
     distances: Distance[];
     positions: Placement[];
     speed_of_sound_assumed: boolean;
+    // Without facings (some facing_deg null): the bearings that were measured, for the facings the caller can still
+    // give once it has laid the sensors on the plan (facingsFrom), and whether they told the third sensor's side of
+    // the line (its y as given) or the caller keeps the plan's.
+    bearings: Bearing[];
+    side_measured: boolean;
   }
   | { ok: false; sensors: string[]; reason: SolveFailure };
 
@@ -114,9 +134,13 @@ export function solve(participants: Participant[]): Solution {
   const pair = [a.sensor_id, b.sensor_id];
   const distance = pairDistance(a, b);
   if (distance === null) return { ok: false, sensors: pair, reason: "not_repeatable" };
+  const medians = [medianBearing(bearings(a, b.role)), medianBearing(bearings(b, a.role))];
   const measured = [facingFrom(bearings(a, b.role), 90), facingFrom(bearings(b, a.role), 270)];
   const [facingA, facingB] = measured.includes(null) ? [null, null] : measured;
   const d = round3(distance);
+  const heard: Bearing[] = [];
+  if (medians[0] !== null) heard.push({ from: a.sensor_id, to: b.sensor_id, angle_deg: medians[0] });
+  if (medians[1] !== null) heard.push({ from: b.sensor_id, to: a.sensor_id, angle_deg: medians[1] });
   return {
     ok: true,
     distances: [{ a: a.sensor_id, b: b.sensor_id, distance_m: d }],
@@ -125,6 +149,8 @@ export function solve(participants: Participant[]): Solution {
       { sensor_id: b.sensor_id, x_m: d, y_m: 0, facing_deg: facingB },
     ],
     speed_of_sound_assumed: participants.some((p) => p.report.speed_of_sound_fallback),
+    bearings: heard,
+    side_measured: true,
   };
 }
 
@@ -149,7 +175,10 @@ function medianBearing(angles: number[]): number | null {
   return circularMedianDeg(angles);
 }
 
-const facing = (deg: number) => normaliseDeg(Math.round(normaliseDeg(deg) * 10) / 10);
+const facing = (deg: number) => {
+  const tenths = Math.round(normaliseDeg(deg) * 10);
+  return tenths >= 3600 ? 0 : tenths / 10;
+};
 
 // The median of angles on the circle: each angle taken as its signed difference from the circular mean, the
 // ordinary median of those, added back. Meaningful for angles within a half circle of each other, as any that pass
@@ -221,19 +250,73 @@ function solveTriangle(a: Participant, b: Participant, c: Participant): Solution
   for (const [i, j] of SIDES) {
     for (const [l, e] of [[i, j], [j, i]]) theta[l][e] = medianBearing(bearings(boards[l], boards[e].role));
   }
-  // A board that cannot tell one of the directions (one ranging on a single mic tells none), as with two sensors:
-  // placed by the distances alone, the third above the line, with no facings; the caller keeps the plan's side of
-  // the line and the facings typed on the plan.
-  if (SIDES.some(([i, j]) => theta[i][j] === null || theta[j][i] === null)) {
-    const laid = layOut(d, 1);
-    return {
-      ok: true,
-      distances: SIDES.map(([i, j], side) => ({ a: boards[i].sensor_id, b: boards[j].sensor_id, distance_m: round3(d[side]) })),
-      positions: boards.map((p, i) => ({ sensor_id: p.sensor_id, x_m: round3(laid[i][0]), y_m: round3(laid[i][1]) + 0, facing_deg: null })),
-      speed_of_sound_assumed: boards.some((p) => p.report.speed_of_sound_fallback),
-    };
+  if (SIDES.every(([i, j]) => theta[i][j] !== null && theta[j][i] !== null)) {
+    const fitted = fitBearings(boards, d, theta as number[][]);
+    if (fitted.ok) return fitted;
+    // Bearings that do not fit the distances well enough for facings: the distances still hold, so the sensors are
+    // placed by them as below, with the plan's side and facings.
+    return byDistances(boards, d, null, []);
   }
-  return fitBearings(boards, d, theta as number[][]);
+  // Some board cannot tell one of the directions (one ranging on a single mic tells none): placed by the distances,
+  // on the side of the line the bearings it has tell (sideFrom), with no facings here; the caller lays them on the
+  // plan and gives each board that heard another a facing from it.
+  const heard: Bearing[] = [];
+  for (let l = 0; l < 3; l++) {
+    for (let e = 0; e < 3; e++) {
+      const angle = theta[l][e];
+      if (l !== e && angle != null) heard.push({ from: boards[l].sensor_id, to: boards[e].sensor_id, angle_deg: angle });
+    }
+  }
+  const side = sideFrom(d, theta);
+  return byDistances(boards, d, side, side === null ? [] : heard);
+}
+
+// Three boards placed by the distances alone: the first at the origin, the second to its right, the third above the
+// line (side 1), below it (-1), or above with the side left to the caller (null).
+function byDistances(boards: Participant[], d: number[], side: number | null, heard: Bearing[]): Solution {
+  const laid = layOut(d, side ?? 1);
+  return {
+    ok: true,
+    distances: SIDES.map(([i, j], s) => ({ a: boards[i].sensor_id, b: boards[j].sensor_id, distance_m: round3(d[s]) })),
+    positions: boards.map((p, i) => ({ sensor_id: p.sensor_id, x_m: round3(laid[i][0]), y_m: round3(laid[i][1]) + 0, facing_deg: null })),
+    speed_of_sound_assumed: boards.some((p) => p.report.speed_of_sound_fallback),
+    bearings: heard,
+    side_measured: side !== null,
+  };
+}
+
+// Which side of the line from the first board to the second the third is on (1 above, -1 below), from every board
+// that heard both others: the angle between them by its bearings, against the distances laid out on each side. Null
+// when no board tells, or two disagree.
+function sideFrom(d: number[], theta: (number | null)[][]): number | null {
+  const votes = new Set<number>();
+  for (let l = 0; l < 3; l++) {
+    const [j, k] = [0, 1, 2].filter((x) => x !== l);
+    const [toJ, toK] = [theta[l][j], theta[l][k]];
+    if (toJ == null || toK == null) continue;
+    const heard = signedDeg(toK - toJ);
+    const errors = [1, -1].map((sign) => {
+      const laid = layOut(d, sign);
+      return Math.abs(signedDeg(heard - signedDeg(directionTo(laid[l], laid[k]) - directionTo(laid[l], laid[j]))));
+    });
+    const best = errors[0] <= errors[1] ? 0 : 1;
+    if (errors[best] <= MAX_SIDE_ERROR_DEG && errors[1 - best] - errors[best] >= MIN_SIDE_MARGIN_DEG) {
+      votes.add(best === 0 ? 1 : -1);
+    }
+  }
+  return votes.size === 1 ? [...votes][0] : null;
+}
+
+// Each placed sensor's facing from the bearings it heard of the others where they now stand: the circular mean of
+// (plan direction to the other - bearing of it), to a tenth of a degree; the facing as given when it heard none.
+export function facingsFrom(placed: Placement[], heard: Bearing[]): Placement[] {
+  const at = new Map(placed.map((p) => [p.sensor_id, [p.x_m, p.y_m] as Point]));
+  return placed.map((p) => {
+    const own = heard.filter((b) => b.from === p.sensor_id && at.has(b.to));
+    if (p.facing_deg !== null || own.length === 0) return p;
+    const here = at.get(p.sensor_id)!;
+    return { ...p, facing_deg: facing(circularMeanDeg(own.map((b) => directionTo(here, at.get(b.to)!) - b.angle_deg))) };
+  });
 }
 
 // Three boards whose six bearings are all known: the side of the line their bearings fit, and the facings.
@@ -260,6 +343,8 @@ function fitBearings(boards: Participant[], d: number[], theta: number[][]): Sol
       sensor_id: p.sensor_id, x_m: round3(best.points[i][0]), y_m: round3(best.points[i][1]), facing_deg: facing(best.facings[i]),
     })),
     speed_of_sound_assumed: boards.some((p) => p.report.speed_of_sound_fallback),
+    bearings: [],
+    side_measured: true,
   };
 }
 

@@ -172,8 +172,8 @@ sensor = Sensor.from_file(Path(__file__).with_name("forestpulse.toml"), angle_fn
   own); without one it is never passed and the board plays at its own level.
 - **`speed_of_sound()`**: metres per second from the board's thermometer. If it raises or answers outside 300 to
   380 m/s the library assumes 343 and the result says so.
-- **`bearing(window, band_hz)`**: the direction of the one arrival in `window` (an (N, 3) int16 array at `fs`, 40 ms
-  from 5 ms before the beep's first path, so mostly the direct sound), using only `band_hz` (low, high). Return
+- **`bearing(window, band_hz)`**: the direction of the one arrival in `window` (an (N, 3) int16 array at `fs`, the
+  whole sweep from 5 ms before the beep's first path, so the band is wide enough to tell the mics' delays apart), using only `band_hz` (low, high). Return
   `(angle_deg, quality)` with degrees clockwise from the board's forward (as `angle_fn` does) and quality 0 to 1,
   or None if unsure. Each call must take under 200 ms; a slower answer is not used.
 - **The self-check** runs when the sensor is created: every hook above must be there, and `fs`, `emitter_offset_m`

@@ -32,8 +32,10 @@ STOP_AFTER_SCHEDULE_S = 1.0  # and never longer than this after the schedule's e
 REPORT_AFTER_SCHEDULE_S = 15.0  # the service's report deadline
 SLOT_LEAD_S = 0.1           # a slot's window opens this long before the slot: the clock mapping is approximate
 # and closes STOP_AFTER_BEEP_S after the sweep would end, so it stays inside the slot and recording can stop there
-BEARING_BEFORE_S = 0.005    # the bearing window: from this long before the detected first path,
-BEARING_WINDOW_S = 0.040    # this long, so the direct sound fills it before most echoes arrive
+BEARING_BEFORE_S = 0.005    # the bearing window: from this long before the detected first path to the sweep's end.
+# The whole sweep, not a slice of it: 40 ms covers only a few hundred Hz of a 3-5 kHz sweep, where the boards' 4 and
+# 8 cm mic spacings alias by a whole cycle, and on real boards its bearings scattered over 180 degrees; the whole sweep
+# held each bearing within 2 degrees round to round.
 OFFSET_SAMPLES = 30         # the service clock offset comes from the fastest of the latest check-ins
 ENDED_AFTER_REPLIES = 2     # the run has ended once this many replies in a row leave it out (one may be a hiccup)
 INT16_MAX, INT16_MIN = 32767, -32768
@@ -464,7 +466,7 @@ class Run:
     def _bearing(self, d, stream: Stream, fs):
         pattern = self.patterns[d.role]
         lo = int(np.floor(d.position - BEARING_BEFORE_S * fs))
-        hi = lo + int(round(BEARING_WINDOW_S * fs))
+        hi = lo + int(round((BEARING_BEFORE_S + pattern.duration_ms / 1000) * fs))
         window = stream.read(lo, hi)
         if window is None:
             return None, None
@@ -489,12 +491,12 @@ class Run:
             return None, None
 
     def _heard_own(self, rounds) -> bool:
-        """The own beep was found whole in some round that had its audio (a run whose audio never arrived is
-        judged on its rounds, not on the buzzer)."""
+        """The own beep was found in some round that had its audio (a run whose audio never arrived is judged on its
+        rounds, not on the buzzer). Weak counts: the emitter is too near the mics for their spacing check."""
         heard = [r for r in rounds if not {"dropped", "overrun"} & set(r["problems"])]
         if not heard:
             return True
-        return any(d["own"] and not d["weak"] for r in heard for d in r["detections"])
+        return any(d["own"] for r in heard for d in r["detections"])
 
     def _post(self, report, deadline):
         while True:
