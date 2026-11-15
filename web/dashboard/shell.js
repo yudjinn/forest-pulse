@@ -12,6 +12,8 @@ const NAV = [
 ];
 
 const POLL_MS = 2000;
+// A reply may take longer than the interval on slow venue Wi-Fi; polls never overlap, so waiting costs nothing.
+const POLL_TIMEOUT_MS = 8000;
 const FAILURES_BEFORE_LOST = 3;
 
 const banner = document.createElement("p");
@@ -80,7 +82,7 @@ export function poll(path, render) {
     clearTimeout(timer);
     const started = Date.now();
     try {
-      const res = await fetch(path, { cache: "no-store", signal: AbortSignal.timeout(POLL_MS) });
+      const res = await fetch(path, { cache: "no-store", signal: AbortSignal.timeout(POLL_TIMEOUT_MS) });
       if (mine !== run) return;
       if (res.status === 401) {
         const back = location.pathname + location.search;
@@ -90,9 +92,14 @@ export function poll(path, render) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (mine !== run) return;
-      render(data);
       state.failures = 0;
       lastUpdate = new Date();
+      // A drawing bug is not a lost connection: report it and keep polling.
+      try {
+        render(data);
+      } catch (error) {
+        console.error(`rendering ${path} failed`, error);
+      }
     } catch {
       if (mine !== run) return;
       state.failures += 1;
@@ -115,7 +122,10 @@ export function refresh() {
 
 mountHeader();
 
-// The alert banner, under the connection banner, refreshed by the activities reply.
-const alerts = alertBanner();
-banner.after(alerts.element);
-poll("/dashboard/api/activities", alerts.render);
+// The alert banner, under the connection banner, refreshed by the activities reply. Not on the player: it is the
+// presenter's phone, where a banner appearing mid-demo would push the samples away from the presenter's thumb.
+if (!location.pathname.startsWith("/dashboard/player/")) {
+  const alerts = alertBanner();
+  banner.after(alerts.element);
+  poll("/dashboard/api/activities", alerts.render);
+}

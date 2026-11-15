@@ -269,10 +269,15 @@ drop.addEventListener("dragover", (event) => {
   drop.classList.add("over");
 });
 drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-drop.addEventListener("drop", (event) => {
+// A drop anywhere on the page is taken: the browser would otherwise open the file and leave the page.
+document.addEventListener("dragover", (event) => event.preventDefault());
+document.addEventListener("drop", (event) => {
   event.preventDefault();
   drop.classList.remove("over");
   if (event.dataTransfer?.files.length) addFiles([...event.dataTransfer.files]);
 });
 takeChosenFiles(); // files chosen before this module finished loading
 refresh();
+// The model is tens of megabytes: fetch it while the name is typed, not after the first drop. A failure here is
+// retried by the first recording, which reports it.
+loadModel().catch(() => {});
