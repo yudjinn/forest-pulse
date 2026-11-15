@@ -6,8 +6,9 @@ The hooks are one object (the device app's, or SimulatedHooks from simulate.py) 
   ignores the start command while a recording is active). False when there is no stream. The audio then arrives
   through the usual feed() / feed_channels() calls.
 - stop_stream(): back to triggered recordings.
-- emit(f_start_hz, f_mid_hz, f_end_hz, duration_ms): play one sweep on the buzzer. Raising, or returning False, is a
-  failure.
+- emit(f_start_hz, f_mid_hz, f_end_hz, duration_ms[, volume]): play one sweep on the emitter. Raising, or returning
+  False, is a failure. A hook that takes a `volume` keyword gets the run's level, a fraction of full scale (0 to 1),
+  when the run sends one, and the alarm's; one without it plays at its own level.
 - speed_of_sound() -> float: metres per second from the board's thermometer.
 - bearing(window, band_hz) -> (angle_deg, quality) | None: the direction of the one arrival in `window` ((N, 3) int16
   at fs), within band_hz (lo, hi); degrees clockwise from the board's forward, quality 0 to 1. Called once per other
@@ -16,6 +17,7 @@ The hooks are one object (the device app's, or SimulatedHooks from simulate.py) 
   marked forward points in the board frame, counter-clockwise from +x as in soc/README.md), and optionally
   mic_positions_m (the board frame, default the nominal BOARD_MICS_M).
 """
+import inspect
 import logging
 import math
 
@@ -78,3 +80,19 @@ def speed_of_sound(hooks) -> tuple[float, bool]:
 
 def _number(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def emit_with_volume(emit, args, volume=None):
+    """Calls the emit hook with the volume keyword when there is a volume and the hook takes one, else without it."""
+    if volume is not None and takes_volume(emit):
+        return emit(*args, volume=volume)
+    return emit(*args)
+
+
+def takes_volume(emit) -> bool:
+    """Whether the emit hook accepts a `volume` keyword (named, or **kwargs)."""
+    try:
+        params = inspect.signature(emit).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(p.name == "volume" or p.kind is inspect.Parameter.VAR_KEYWORD for p in params)

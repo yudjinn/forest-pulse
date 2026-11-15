@@ -71,6 +71,7 @@ class SimulatedHooks:
         self.forward_ccw_deg = board.forward_ccw_deg
         self.mic_positions_m = room.mic_positions_m
         self.emitted = []  # (true time, Pattern) of every emit() call
+        self.volumes = []  # the volume each emit() call was given (None: the hook's own level)
         self._feed = None
         self._lock = threading.Lock()
         self._stream = None  # (start true time, stop event, thread)
@@ -105,10 +106,11 @@ class SimulatedHooks:
             if stream[2] is not threading.current_thread():
                 stream[2].join(2)
 
-    def emit(self, f_start_hz, f_mid_hz, f_end_hz, duration_ms):
+    def emit(self, f_start_hz, f_mid_hz, f_end_hz, duration_ms, volume=None):
         pattern = Pattern(f_start_hz, f_mid_hz, f_end_hz, duration_ms)
         at = time.time()
         self.emitted.append((at, pattern))
+        self.volumes.append(volume)
         if not self.board.muted:
             self.room._sound(self, pattern, at)
         return True

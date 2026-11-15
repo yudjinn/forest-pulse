@@ -4,8 +4,8 @@ is deployed. Prints what sensors send.
 usage: python -m forestpulse_sensor.devserver [--host 0.0.0.0] [--port 8787] [--key dev-key] [--sounds sounds.json]
 
 Extra endpoints for testing (not part of the API): PUT /dev/sounds replaces the sound list (bumping its version),
-GET /dev/events and GET /dev/sensors show what arrived, POST /dev/calibration {"sensors": [ids]} starts a
-calibration run with those sensors as roles A, B, C, and GET /dev/calibration shows the latest run with its reports.
+GET /dev/events and GET /dev/sensors show what arrived, POST /dev/calibration {"sensors": [ids], "volume": optional
+0..1} starts a calibration run with those sensors as roles A, B, C, and GET /dev/calibration shows the latest run with its reports.
 POST /dev/warnings {"sensors": [ids]} sends a warning to those sensors, and GET /dev/warnings shows every warning with
 when each sensor picked it up and what it confirmed.
 
@@ -72,11 +72,11 @@ class State:
                 return {"id": warning}
         return None
 
-    def start_run(self, sensors):
+    def start_run(self, sensors, volume=None):
         with self.lock:
             roles = dict(zip(sensors, ROLES))
             self.run = {"run_id": uuid.uuid4().hex, "roles": roles, "ready": {}, "start_at": None, "reports": {},
-                        "ended": False}
+                        "ended": False, "volume": volume}
             return self.run
 
     def calibration_block(self, sensor_id, body, now):
@@ -95,6 +95,8 @@ class State:
                  "slot_ms": 500, "round_gap_ms": 1000, "rounds": 4}
         if run["start_at"] is not None:
             block["start_at"] = iso(run["start_at"])
+        if run.get("volume") is not None:
+            block["volume"] = run["volume"]
         return block
 
     def set_sounds(self, doc):
@@ -210,7 +212,8 @@ def make_handler(state: State, quiet: bool):
                 with state.lock:
                     return self._send(200, state.sensors)
             if method == "POST" and parts == ["calibration"]:
-                return self._send(200, state.start_run(self._body()["sensors"]))
+                body = self._body()
+                return self._send(200, state.start_run(body["sensors"], body.get("volume")))
             if method == "GET" and parts == ["calibration"]:
                 with state.lock:
                     return self._send(200, state.run)

@@ -166,8 +166,10 @@ sensor = Sensor.from_file(Path(__file__).with_name("forestpulse.toml"), angle_fn
   streamed audio arrives through your usual `on_audio` callback and `sensor.feed_channels()`; mark the first packet
   `break_before=True` and any later gap the same way.
 - **`stop_stream()`**: back to triggered recordings.
-- **`emit(f_start_hz, f_mid_hz, f_end_hz, duration_ms)`**: play one sweep on the buzzer now (the service sends the
-  values, whole numbers when they are whole). Raise or return False if it fails.
+- **`emit(f_start_hz, f_mid_hz, f_end_hz, duration_ms[, volume])`**: play one sweep on the emitter now (the service
+  sends the values, whole numbers when they are whole). Raise or return False if it fails. Give it a `volume` keyword
+  to receive the level the researcher chose for the run (a fraction of full scale, 0 to 1; the alarm passes its
+  own); without one it is never passed and the board plays at its own level.
 - **`speed_of_sound()`**: metres per second from the board's thermometer. If it raises or answers outside 300 to
   380 m/s the library assumes 343 and the result says so.
 - **`bearing(window, band_hz)`**: the direction of the one arrival in `window` (an (N, 3) int16 array at `fs`, 40 ms

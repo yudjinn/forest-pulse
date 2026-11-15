@@ -162,6 +162,9 @@ def test_emit_on_the_speaker_sends_the_sweep_to_the_esp32():
     hooks.c["emitter"], hooks.c["speaker_volume"] = "speaker", 300   # volume clamps to 255
     assert hooks.emit(3000.0, 4000, 5000, 300) is True
     assert f.sent == [b"P" + struct.pack("<HHHHB", 3000, 4000, 5000, 300, 255)] and f.notes == []
+    f.sent.clear()
+    assert hooks.emit(3000, 4000, 5000, 300, volume=0.125) is True   # the run's level wins over the config
+    assert f.sent == [b"P" + struct.pack("<HHHHB", 3000, 4000, 5000, 300, 32)]
     hooks2, _, _, f2 = make(connected=False)
     hooks2.c["emitter"] = "speaker"
     assert hooks2.emit(3000, 4000, 5000, 300) is False

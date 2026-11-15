@@ -1,4 +1,4 @@
-/* Calibrate, at the top of the Devices panel: the run's state beside the button. */
+/* Calibrate, at the top of the Devices panel: the run's state beside the volume and the button. */
 .calibrate {
   display: flex;
   align-items: center;
@@ -12,4 +12,14 @@
   flex: 1;
   font-size: 14px;
   color: var(--soft);
+}
+
+.calibrate-volume {
+  padding: 9px 12px;
+  border: 1px solid var(--faint);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
 }

@@ -245,14 +245,16 @@ class CalibrationHooks:
 
     # ---- emitter ---------------------------------------------------------------
 
-    def emit(self, f_start_hz, f_mid_hz, f_end_hz, duration_ms) -> bool:
-        """Play one sweep now. False when the sketch reported no buzzer; raises on bad values."""
+    def emit(self, f_start_hz, f_mid_hz, f_end_hz, duration_ms, volume=None) -> bool:
+        """Play one sweep now. False when the sketch reported no buzzer; raises on bad values. volume: the run's
+        (or the alarm's) level, 0..1 of full scale, for the speaker; None = config speaker_volume."""
         args = [int(round(float(v))) for v in (f_start_hz, f_mid_hz, f_end_hz, duration_ms)]
         if not all(0 < f <= 20000 for f in args[:3]) or not 0 < args[3] <= 1000:
             raise ValueError(f"emit: bad sweep {args}")
         if self.c.get("emitter") == "speaker":
             # 'P' + f_start, f_mid, f_end, ms (uint16 LE) + volume: the ESP32 plays it on the mics' clock
-            volume = max(0, min(255, int(self.c.get("speaker_volume", 96))))
+            level = self.c.get("speaker_volume", 96) if volume is None else float(volume) * 255
+            volume = max(0, min(255, int(round(level))))
             if not self.send_command(b"P" + struct.pack("<HHHHB", *args, volume)):
                 self.log("[calib] emit: ESP32 not connected")
                 return False

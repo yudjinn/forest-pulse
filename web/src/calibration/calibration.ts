@@ -42,11 +42,18 @@ const ACTIVE = "('waiting', 'scheduled')";
 type Status = "waiting" | "scheduled" | "calibrated" | "failed";
 export type FailureReason = "not_ready" | "report_missing" | SolveFailure | (typeof FATAL_ERRORS)[number];
 
+// How loud the boards play the sweeps, chosen with Calibrate: a fraction of the emitter's full scale, sent with the run.
+// On the ATech Speaker at 1.13 m, 0.125 left each board hearing the other 40-60 dB above the hall's noise where about
+// 15 dB is enough, so quiet still calibrates a few metres and loud is for the far end of the stage.
+const VOLUMES = { quiet: 0.04, normal: 0.125, loud: 0.4 } as const;
+type Volume = keyof typeof VOLUMES;
+
 interface Schedule {
   slot_ms: number;
   round_gap_ms: number;
   rounds: number;
   patterns: typeof PATTERNS;
+  volume?: Volume;  // absent on runs started before volumes: each board's own level
 }
 
 interface RunRow {
@@ -136,6 +143,7 @@ export async function calibrationCheckin(env: Env, sensorId: string, body: Recor
     slot_ms: schedule.slot_ms,
     round_gap_ms: schedule.round_gap_ms,
     rounds: schedule.rounds,
+    ...(schedule.volume ? { volume: VOLUMES[schedule.volume] } : {}),
   };
 }
 
@@ -165,9 +173,25 @@ export async function postReport(request: Request, { env, params }: RouteContext
 // ---- researchers -----------------------------------------------------------------------------------------------
 
 // POST /dashboard/api/calibration: starts a run with the sensors that can take part, at most 3, roles in plan order.
-export async function startCalibration(_request: Request, { env }: RouteContext): Promise<Response> {
+// POST /dashboard/api/calibration, optionally with {"volume": "quiet" | "normal" | "loud"} (normal when left out).
+export async function startCalibration(request: Request, { env }: RouteContext): Promise<Response> {
   const db = env.DB;
   const now = Date.now();
+  let volume: Volume = "normal";
+  const text = await request.text();
+  if (text.trim()) {
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return json({ error: "body is not JSON" }, 400);
+    }
+    const asked = (body as { volume?: unknown } | null)?.volume;
+    if (asked !== undefined) {
+      if (typeof asked !== "string" || !(asked in VOLUMES)) return json({ error: "volume must be quiet, normal or loud" }, 400);
+      volume = asked as Volume;
+    }
+  }
   const current = await activeRun(db);
   if (current && isActive((await advance(env, current, now)).status)) {
     return json({ error: "A calibration is already running" }, 409);
@@ -175,7 +199,7 @@ export async function startCalibration(_request: Request, { env }: RouteContext)
   const sensors = (await eligibleSensors(db, now)).slice(0, MAX_PARTICIPANTS);
   if (sensors.length < 2) return json({ error: "Fewer than 2 sensors can take part" }, 409);
   const id = crypto.randomUUID();
-  const schedule: Schedule = { slot_ms: SLOT_MS, round_gap_ms: ROUND_GAP_MS, rounds: ROUNDS, patterns: PATTERNS };
+  const schedule: Schedule = { slot_ms: SLOT_MS, round_gap_ms: ROUND_GAP_MS, rounds: ROUNDS, patterns: PATTERNS, volume };
   const [inserted] = await db.batch([
     db.prepare(
       `INSERT INTO calibration_runs (id, status, created_at, ready_deadline_at, schedule)
@@ -250,6 +274,7 @@ function runState(run: Run, now: number) {
     finished_at: run.finished_at,
     failure: run.failure ? JSON.parse(run.failure) as { sensors: string[]; reason: FailureReason } : null,
     speed_of_sound_assumed: result?.speed_of_sound_assumed ?? false,
+    volume: (JSON.parse(run.schedule) as Schedule).volume ?? null,
   };
 }
 

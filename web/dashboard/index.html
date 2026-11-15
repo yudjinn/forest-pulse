@@ -78,6 +78,11 @@
       <div id="panel-devices" class="drawer-body" role="tabpanel" aria-labelledby="tab-devices">
         <div class="calibrate">
           <p class="calibrate-status" role="status" hidden></p>
+          <select class="calibrate-volume" aria-label="Calibration volume">
+            <option value="quiet">Quiet</option>
+            <option value="normal" selected>Normal</option>
+            <option value="loud">Loud</option>
+          </select>
           <button type="button" class="button calibrate-button" disabled>Calibrate</button>
         </div>
         <p class="error plan-error" role="alert" hidden></p>

@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 import numpy as np
 
 from .detect import find_beeps
-from .hooks import BEARING_LIMIT_S, mic_positions, self_check, speed_of_sound
+from .hooks import BEARING_LIMIT_S, emit_with_volume, mic_positions, self_check, speed_of_sound
 from .patterns import parse_patterns
 
 log = logging.getLogger("forestpulse_sensor")
@@ -246,6 +246,8 @@ class Run:
         self.round_gap_ms = float(block["round_gap_ms"])
         self.rounds = int(block["rounds"])
         self.order = [str(r) for r in block["order"]]
+        volume = block.get("volume")
+        self.volume = float(volume) if isinstance(volume, (int, float)) and 0 < volume <= 1 else None
         if self.role not in self.order or any(r not in self.patterns for r in self.order):
             raise ValueError(f"run {self.id}: role {self.role} or a pattern is missing from the run")
         self.start_at = None
@@ -371,7 +373,7 @@ class Run:
                 continue  # learnt of the schedule too late for this slot
             self._sleep_until(local)
             try:
-                ok = self.cal.hooks.emit(*args)
+                ok = emit_with_volume(self.cal.hooks.emit, args, self.volume)
             except Exception:
                 log.exception("emit() failed")
                 return False

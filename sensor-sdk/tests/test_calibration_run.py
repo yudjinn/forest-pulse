@@ -48,10 +48,10 @@ def test_two_boards_take_part_in_a_run_and_their_reports_range_to_the_true_dista
         "b": Board(3, 0, facing_deg=200, clock_offset_s=-1.7, drift_ppm=-25, emitter_offset_m=0.08,
                    emitter_ccw_deg=110, thermometer="fail"),
     }
-    sensors = {}
+    sensors, hooks_of = {}, {}
     try:
         for sid, board in boards.items():
-            hooks = room.add(board)
+            hooks = hooks_of[sid] = room.add(board)
             sensors[sid] = Sensor(url, "k", sensor_id=sid, state_dir=tempfile.mkdtemp(), model=model,
                                   checkin_interval=1.0, calibration=hooks, clock=hooks.clock)
             hooks.connect(sensors[sid].feed)
@@ -65,8 +65,8 @@ def test_two_boards_take_part_in_a_run_and_their_reports_range_to_the_true_dista
         assert state.sensors["c"]["calibration_capable"] is False and not partial.status["calibration_capable"]
         assert state.sensors["a"]["sdk_version"] == __version__
 
-        req = urllib.request.Request(f"{url}/dev/calibration", data=json.dumps({"sensors": ["a", "b"]}).encode(),
-                                     method="POST")
+        req = urllib.request.Request(f"{url}/dev/calibration",
+                                     data=json.dumps({"sensors": ["a", "b"], "volume": 0.125}).encode(), method="POST")
         urllib.request.urlopen(req).read()
         assert wait_for(lambda: state.sensors["a"].get("calibration_ack") == state.run["run_id"], timeout=10)
         assert wait_for(lambda: state.run["ended"], timeout=40), state.run
@@ -97,6 +97,9 @@ def test_two_boards_take_part_in_a_run_and_their_reports_range_to_the_true_dista
                 assert own["angle_deg"] is None and own["angle_quality"] is None
                 assert abs((other["angle_deg"] - truth + 180) % 360 - 180) < 12, other
                 assert other["angle_quality"] == 0.9
+
+        # every beep at the run's volume
+        assert hooks_of["a"].volumes and set(hooks_of["a"].volumes + hooks_of["b"].volumes) == {0.125}
 
         # the run over, the sensors are back to listening
         assert wait_for(lambda: not sensors["a"].status["calibrating"] and not sensors["b"].status["calibrating"])
